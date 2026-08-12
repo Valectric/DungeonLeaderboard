@@ -1,0 +1,72 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Never ignore the WebGL payload if it is ever served from a folder named Build.
+# The [Bb]uild/ rule above matches docs/Build/ too, and that once shipped a Pages
+# site with an index.html and no game in it.
+
+# Asset meta data should only be ignored when the corresponding asset is also ignored
+!/[Aa]ssets/**/*.meta
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Crash reports
+sysinfo.txt
+crashlytics-build.properties
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# MooseRunner: the CLI binaries are ~65MB and come from the package, so they are
+# redistribution rather than source. speedConfig.json is hand-tuned per method and
+# worth surviving a fresh clone; .env holds API keys and must never be committed.
+/MooseRunner/*
+!/MooseRunner/speedConfig.json
+/Assets/MooseRunnerMultiplayTestData/
+/Assets/MooseRunnerMultiplayTestData.meta
+
+# SessionRecorder output (large video files, regenerated on demand)
+/.mooserunner/
+
+# Test-run screenshot artifacts
+/Screenshots/
+
+# Unity's performance-testing package writes these the first time the test runner
+# starts. Test-run metadata, not source, and they land under Assets/Resources.
+/Assets/Resources/PerformanceTestRun*.json
+/Assets/Resources/PerformanceTestRun*.json.meta
+
+# WebGL build output. The payload is published to itch.io by butler, never committed —
+# a 20MB build committed every deploy is what put 34 of them into a sister project's history.
+/Builds/
