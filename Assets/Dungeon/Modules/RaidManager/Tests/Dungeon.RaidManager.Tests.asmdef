@@ -1,0 +1,27 @@
+{
+    "name": "Dungeon.RaidManager.Tests",
+    "rootNamespace": "Dungeon.RaidManager.Tests",
+    "references": [
+        "Dungeon.RaidManager",
+        "Dungeon.DungeonManager",
+        "Dungeon.PartyManager",
+        "MooseRunner",
+        "MooseRunner.helper",
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

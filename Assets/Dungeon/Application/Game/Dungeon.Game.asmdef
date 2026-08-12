@@ -1,0 +1,20 @@
+{
+    "name": "Dungeon.Game",
+    "rootNamespace": "Dungeon.Game",
+    "references": [
+        "Dungeon.DungeonManager",
+        "Dungeon.PartyManager",
+        "Dungeon.MobManager",
+        "Dungeon.RaidManager",
+        "Dungeon.UIManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
