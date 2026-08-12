@@ -31,7 +31,16 @@ Last updated: 2026-08-12.
 - `.gitignore`, git repo, clean history.
 - `Assets/Dungeon/Editor/` — WebGL builder, sentinel poller, build assembly filter. `Dungeon.Editor`
   deliberately references **nothing**, so it does not constrain how the game is structured.
-- `Tools/publish-itch.sh` — butler upload. Needs `Tools/itch_target` written once.
+- **Publishing works end to end, short of an actual upload:**
+  - GitHub: <https://github.com/Valectric/DungeonLeaderboard> — public, MIT.
+  - itch.io: <https://norritt42.itch.io/dungeon-leaderboard> — page created.
+  - butler installed and logged in; `Tools/itch_target` holds
+    `norritt42/dungeon-leaderboard:html5`.
+  - Verified by contrast rather than assumed: `butler status` on the real target returns "No channel
+    html5 found" (game reachable, channel empty) while a bogus slug returns "invalid game (400)".
+    So auth and target are good and only a build is missing.
+  - `bash Tools/publish-itch.sh` is the whole deploy. **No CI, no `BUTLER_API_KEY` secret** — there
+    is no artifact branch for a runner to push from, and none is wanted.
 
 ## What is deliberately NOT done
 
@@ -42,8 +51,8 @@ Last updated: 2026-08-12.
   scaffolded before the "foundation only" instruction landed and a delete was declined, so they are
   still there. **Treat them as a suggestion, not a decision** — rename, restructure or delete them
   freely. Nothing depends on them.
-- No GitHub remote. The repo is local only.
-- No itch.io project or `Tools/itch_target`.
+- **No build has ever been uploaded.** The itch page has no files on it, so the link plays nothing
+  until Milestone 1 produces one.
 
 ---
 
@@ -71,7 +80,9 @@ in loaded assemblies". That is normal, not a broken setup.
 
 ## Open questions for the author
 
-- **GitHub remote** — create one? Public or private? Nothing has been pushed anywhere.
-- **itch.io page** — needs creating, then `echo 'user/dungeon-leaderboard:html5' > Tools/itch_target`.
-  The `BUTLER_API_KEY` must be added by the author; no agent should handle it.
-- **Those empty module asmdefs** — keep as a starting structure, or delete?
+- **Those empty module asmdefs** — keep as a starting structure, or delete? Deferred by the author,
+  not forgotten.
+- **itch page presentation** — the embed size is a guess until the game renders at a known
+  resolution, and the itch embed frame paints its own background (light grey `#e5e5e5` by default),
+  which looks broken around a dark game. Both are fixed under **Edit theme** on itch, not in the
+  build. Worth doing once there is something to look at.
