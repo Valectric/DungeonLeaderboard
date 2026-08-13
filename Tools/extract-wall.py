@@ -32,12 +32,26 @@ REFERENCE = REPO / "Assets" / "Art" / "referance" / "style-wall.png"
 PREVIEW = REPO / "Tools" / "wall-preview.png"
 
 # Bottom wall course of room panel 2. Measured at luminance mean 32.0, p90 52, warmth -7.4.
-COURSE = (546, 624, 662, 641)
+#
+# Height is exactly 16, matching the 16px masonry period, so the block crop is square and the
+# upscale to 64 is an exact 4x on BOTH axes. An earlier 17-row crop made the vertical resample
+# 3.76x, which broke the 4px pixel grid -- only 43% of 4x4 cells came out flat against the
+# moodboard's 100%.
+COURSE = (546, 624, 662, 640)
 
-BLOCK = 16
-"""Width and height of one masonry block in the finished tile."""
+BLOCK = 64
+"""
+Width and height of one masonry block in the finished tile.
+
+**One block fills a whole tile**, and that is measured, not chosen. The moodboard's room panels run
+about 17px per tile with a 16px masonry period, so the authored art puts 0.93 blocks in a tile. An
+earlier version used 16px blocks -- four courses per tile -- and the wall read as fine horizontal
+stripes instead of chunky stone. A review of the composed room caught it; the numbers then settled
+it. 16 -> 64 is an exact 4x integer upscale, so nothing softens.
+"""
 
 TILE = 64
+SCALE = 4
 """Finished tile size, matching the rest of the set and PixelArtImportPostprocessor."""
 
 
@@ -110,17 +124,25 @@ def run() -> int:
             break
         blocks.append(
             strip.crop((left, 0, left + period, strip.height)).resize(
-                (BLOCK, BLOCK), Image.LANCZOS))
+                (BLOCK, BLOCK), Image.NEAREST))
 
     print(f"  sampled {len(blocks)} distinct blocks")
     tile = quantise(build_tile(blocks))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     tile.save(OUT_DIR / "wall.png")
 
-    # A mossy variant, so the wall is not perfectly uniform across a whole dungeon.
+    # A mossy variant, so the wall is not perfectly uniform across a whole dungeon. The speckle is
+    # placed on the 4px grid, not per pixel -- single-pixel marks are exactly the too-fine detail
+    # the moodboard never has, and they would drop this tile off the pixel grid the rest sits on.
     mossy = np.asarray(tile).astype(float)
-    speckle = ((np.arange(TILE)[:, None] * 7 + np.arange(TILE)[None, :] * 13) % 37 == 0)
-    mossy[speckle] = mossy[speckle] * 0.7 + np.array([40, 70, 35]) * 0.3
+    cell = SCALE
+    for y in range(0, TILE, cell):
+        for x in range(0, TILE, cell):
+            if (((x // cell) * 7) + ((y // cell) * 13)) % 11 != 0:
+                continue
+            patch = mossy[y:y + cell, x:x + cell]
+            mossy[y:y + cell, x:x + cell] = (patch * 0.65) + (np.array([46, 74, 40]) * 0.35)
+
     Image.fromarray(mossy.clip(0, 255).astype(np.uint8)).save(OUT_DIR / "wall-moss.png")
 
     # Keep the clean course as a reference image for any future generation run.

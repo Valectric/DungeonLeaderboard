@@ -104,10 +104,29 @@ namespace Dungeon.Game
         };
 
         /// <summary>Warm light for flame props; cold arcane light for crystals.</summary>
-        private static readonly Color Candlelight = new(1f, 0.55f, 0.18f, 0.30f);
+        /// <remarks>
+        /// Deliberately weak. An art review measured the moodboard's rooms as essentially flat-lit:
+        /// floor luminance varies by 3.5 across a whole room, against 16.1 in an earlier version of
+        /// this view. Its torches are bright <i>sprites</i> that barely light the floor at all --
+        /// beyond about a tile, the floor under a sconce is actually darker than the far side of the
+        /// room. Strong pools looked atmospheric in isolation and wrong beside the reference.
+        /// </remarks>
+        private static readonly Color Candlelight = new(1f, 0.55f, 0.18f, 0.20f);
 
         /// <summary>Colour of the glow cast by crystal props.</summary>
-        private static readonly Color ArcaneLight = new(0.84f, 0.32f, 0.86f, 0.26f);
+        private static readonly Color ArcaneLight = new(0.84f, 0.32f, 0.86f, 0.17f);
+
+        /// <summary>
+        /// Resolution the glow sprite is generated at, in logical pixels.
+        /// </summary>
+        /// <remarks>
+        /// The moodboard is a 120x120 image shown at 4x, so every one of its 4x4 screen cells is
+        /// flat and its effective pixel is four screen pixels. A smooth 64px gradient shreds that
+        /// grid: measured on a composed room, tiles that went in 100% flat on 4x4 came out at 8%,
+        /// and the lighting pass alone was responsible. Generating the glow small and letting point
+        /// filtering blow it up keeps the light on the same grid as the art it falls on.
+        /// </remarks>
+        private const int GlowResolution = 16;
 
         private Sprite _glow;
         private Sprite _solid;
@@ -147,10 +166,13 @@ namespace Dungeon.Game
                 return _glow;
             }
 
-            const int size = 64;
+            const int size = GlowResolution;
+
+            // Point, not bilinear. Bilinear would smooth the falloff back into a continuous gradient
+            // and undo the whole reason for generating it small.
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp
             };
 
@@ -160,14 +182,16 @@ namespace Dungeon.Game
                 for (int x = 0; x < size; x++)
                 {
                     float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centre, centre));
-                    // Squared falloff reads as light rather than as a flat disc with a hard rim.
+                    // Cubed falloff: a tight core that fades fast, rather than a wide wash. The
+                    // reference's light reaches roughly one tile, not the four an earlier version
+                    // covered.
                     float fade = Mathf.Clamp01(1f - (distance / centre));
-                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, fade * fade));
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, fade * fade * fade));
                 }
             }
 
             texture.Apply();
-            _glow = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
+            _glow = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
             return _glow;
         }
 
@@ -216,7 +240,9 @@ namespace Dungeon.Game
                     var light = new GameObject($"glow_{room}_{i}");
                     light.transform.SetParent(_root, false);
                     light.transform.position = CellToWorld(cell, 8f);
-                    light.transform.localScale = Vector3.one * (flame ? 4.6f : 3.8f);
+                    // About one tile of reach, matching the reference. The previous 4.6 covered a
+                    // quarter of the room and measured 5.5x the target's radius.
+                    light.transform.localScale = Vector3.one * (flame ? 2.1f : 1.7f);
                     var renderer = light.AddComponent<SpriteRenderer>();
                     renderer.sprite = Glow();
                     renderer.color = flame ? Candlelight : ArcaneLight;

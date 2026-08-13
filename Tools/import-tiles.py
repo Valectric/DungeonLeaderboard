@@ -41,11 +41,26 @@ SOURCE_TILE = 32
 Size the pack harness actually draws at.
 
 `--width`/`--height` do not reach the pack harness -- its brief carries no logical-canvas line and
-it picks 32 from the style presets regardless. Rather than fight that, tiles are upscaled by an
-exact factor of two with nearest-neighbour, which keeps every edge hard and doubles the chunkiness
-in a way that suits the art. A non-integer resample to 64 would soften exactly what point filtering
-exists to preserve.
+it picks 32 from the style presets regardless.
 """
+
+LOGICAL_TILE = 16
+"""
+The grid the art is really drawn on.
+
+An art review measured the moodboard as a 120x120 image displayed at 4x: **every one of its 4x4
+screen cells is perfectly flat**, so its effective pixel is four screen pixels and a room tile is
+about 17 logical px. Anything carrying 1px or 2px detail is therefore too fine, and the review
+found exactly that -- floor detail 2.5x finer than the target, with per-pixel dither the target
+does not have and a high-frequency RMS of 7.78 against the target's 1.51.
+
+So a 32px source is averaged down to 16 and blown back up by exactly 4. The downsample is what
+destroys the dither; the integer upscale is what keeps every edge hard. Going straight from 32 to
+64 would have preserved the noise at double size, which is what shipped before.
+"""
+
+PALETTE = 6
+"""Colours per tile after regridding. The moodboard's own slabs hold about this many."""
 
 # Generated name -> the name the game loads. A wall seen from directly overhead looks the same from
 # every side, so this set needs no corner or edge variants at all -- which is also why it cannot
@@ -140,6 +155,27 @@ def add_relief(image: Image.Image) -> Image.Image:
     return result
 
 
+def add_grout(logical: Image.Image) -> Image.Image:
+    """Darken one logical row and column so each tile reads as a distinct flagstone.
+
+    The review found the generated floors structurally featureless in the wrong way: uncorrelated
+    per-cell noise with no slab boundaries anywhere, where the target has explicit dark grout lines
+    on a slab grid (deepest row-profile dip -5.57 against ours at -2.69). One logical pixel of grout
+    is four screen pixels, so it reads clearly without becoming fine detail.
+    """
+    pixels = logical.load()
+    width, height = logical.size
+
+    for x in range(width):
+        r, g, b = pixels[x, 0]
+        pixels[x, 0] = (int(r * 0.78), int(g * 0.78), int(b * 0.78))
+    for y in range(height):
+        r, g, b = pixels[0, y]
+        pixels[0, y] = (int(r * 0.78), int(g * 0.78), int(b * 0.78))
+
+    return logical
+
+
 def preview(tiles: dict[str, Image.Image]) -> Image.Image:
     """Draw a room from the imported tiles so seams and contrast are visible at a glance."""
     cols, rows = 9, 6
@@ -181,10 +217,14 @@ def run() -> int:
             problems.extend(f"{game_name}: {fault}" for fault in faults)
             continue
 
-        if game_name in RELIEF:
-            image = add_relief(image)
-
-        scaled = image.resize((TILE, TILE), Image.NEAREST)
+        # Average down to the logical grid, flatten to a small palette, then blow back up by an
+        # exact factor of four. Order matters: averaging first is what removes the per-pixel dither,
+        # and quantising after it is what stops the average reintroducing in-between shades.
+        logical = image.convert("RGB").resize((LOGICAL_TILE, LOGICAL_TILE), Image.BOX)
+        logical = logical.quantize(
+            colors=PALETTE, method=Image.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
+        logical = add_grout(logical)
+        scaled = logical.resize((TILE, TILE), Image.NEAREST)
         scaled.save(OUT_DIR / f"{game_name}.png")
         tiles[game_name] = scaled.convert("RGB")
         colours = len({p[:3] for p in image.getdata()})
