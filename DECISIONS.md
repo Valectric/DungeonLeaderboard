@@ -216,6 +216,26 @@ a roster the player cannot profit from at all is a dead minute. The measurement 
 only spams spawns and never uses traps or doors, so it is a floor rather than a verdict. Left for the
 author.
 
+### Second open balance question — a fully-bought dungeon outlasts the clock
+
+Measured by `LayoutSweepTests`: an unopposed party crosses a plain corridor in 24.8s at two rooms,
+38.2s at three, 56.5s at four — and a **fully-bought five-room dungeon runs out the sixty seconds
+without reaching the boss room**. Chests and halls stack until the party simply cannot finish.
+
+Since purchases are permanent, once a player buys their way there the *party escapes early* ending is
+gone for the rest of the season. Two honest readings, and it is the author's call:
+
+- **Coherent progression.** The player spent real energy to guarantee the full minute, which is what
+  SPEC.md says they want — "alive, engaged, badly wounded and still inside when the timer expires".
+  The tension simply moves from *will they escape* to *can I hold one bar at 5% without tipping it*.
+- **Too strong.** A permanent purchase that deletes one of the three endings removes a decision
+  rather than rewarding one, and `GameController.MaxRooms` exists specifically to stop this — its
+  comment says a corridor that cannot be crossed "stops being a purchase and starts being a
+  guarantee". By that reasoning the cap belongs at four, not five.
+
+Left as measured. `AnUnboughtDungeon_CanAlwaysBeCrossedInTime` pins the baseline every new player
+meets; `HowLongAFullyBoughtDungeonTakes_IsRecorded` reports the trend without picking a side.
+
 ### Why the one prior generation run failed — do not rediscover this
 
 The 00:55 run on 2026-08-12 produced six warm-tan 32x32 props. Three independent causes, all
