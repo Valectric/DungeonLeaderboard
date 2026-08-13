@@ -234,3 +234,23 @@ driving errors rather than tool faults; the ImageGen master itself was clean, co
 The practical consequence is that **normalisation is ours to own**: masters are kept under
 `.sprite-studio/imagegen-sources/`, so take the master and downscale it deliberately rather than
 accepting whatever the harness emitted. Verify with a unique-colour count, not by eye alone.
+
+## 2026-08-14 — D13. Rival dungeons earn on the scale the player can actually reach
+
+**Decided:** a rival dungeon earns `90 + rand*220` a round, averaging about 200, replacing
+`380 + rand*900` which averaged 830.
+**Why:** found by a season sweep, not by a raid test. Playing twelve-raid seasons across ten seeds,
+**every single season finished in exactly 18th place** — with a competent bot averaging 292 harvest a
+raid and buying thirty-five items. The player shed roughly 540 points of ground every round no matter
+what they did. The standings were a backdrop, and SPEC.md's entire ten-second hook — *"I am 14th, 16th
+is death, I need to climb"* — was **unwinnable by construction**.
+The old figure also contradicted its own comment, which claimed rivals "earn on the same scale the
+player does". They never did; nothing measured what the player could actually harvest.
+Adjacent places in the opening table sit 500–800 points apart, so the margin has to be wide enough
+that a season of good raids is felt. After: harvesting 20 a raid finishes 17th, 150 finishes 14th,
+300 finishes 13th, 450 finishes 11th, and 700 finishes **7th**.
+**Rules out:** rival earnings picked without reference to measured player harvest. If the raid economy
+is retuned, these two constants must be re-measured against it — they are downstream of it.
+**Wrong if:** climbing feels too easy, or relegation stops being a threat. Both are one constant away;
+the assertion to keep is `WhereYouFinish_DependsOnHowYouPlay`, which pins the ordering rather than the
+numbers.

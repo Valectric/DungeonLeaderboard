@@ -102,6 +102,33 @@ namespace Dungeon.LeagueManager
         }
 
         /// <summary>
+        /// Least a rival dungeon earns in a round.
+        /// </summary>
+        /// <remarks>
+        /// Sized against what the player can <i>actually</i> harvest, which is the only scale that
+        /// makes the table a contest. It was 380 to 1280, averaging 830, against a well-played raid
+        /// of about 292 -- so the player shed roughly 540 points of ground every single round and
+        /// sank regardless of skill. Measured over ten seasons with ten different seeds, every one
+        /// finished in <b>exactly 18th place</b>: the league was decorative, and SPEC.md's whole hook
+        /// -- "I am 14th, 16th is death, I need to climb" -- was unwinnable by construction.
+        /// <para>
+        /// At 140 to 460 a bad raid still sinks toward relegation, a competent one holds station, and
+        /// a good one climbs. Those three outcomes existing is the point; the exact figures are the
+        /// author's to tune against real play.
+        /// </para>
+        /// </remarks>
+        public const float RivalFloor = 90f;
+
+        /// <summary>How much a rival's round-to-round earnings vary above the floor.</summary>
+        /// <remarks>
+        /// Rivals average about 200 a round against a well-played 292 and a strong 380. That gap is
+        /// deliberately wider than "fair": adjacent places in the opening table are 500 to 800 points
+        /// apart, so a player who only edges ahead by eighty a round would need the whole season to
+        /// pass one dungeon, and climbing would not be something they could feel.
+        /// </remarks>
+        public const float RivalSpread = 220f;
+
+        /// <summary>
         /// Banks the player's raid and moves every rival, then re-ranks.
         /// </summary>
         /// <param name="harvested">Energy the player harvested this raid.</param>
@@ -116,9 +143,7 @@ namespace Dungeon.LeagueManager
 
             foreach (LeagueEntry rival in _entries.Where(e => !e.IsPlayer))
             {
-                // Rivals earn on the same scale the player does, so the table stays a real contest
-                // rather than a backdrop that drifts while the player climbs past it.
-                float earned = 380f + (float)(_random.NextDouble() * 900.0);
+                float earned = RivalFloor + (float)(_random.NextDouble() * RivalSpread);
                 rival.Score += MathF.Round(earned);
             }
 

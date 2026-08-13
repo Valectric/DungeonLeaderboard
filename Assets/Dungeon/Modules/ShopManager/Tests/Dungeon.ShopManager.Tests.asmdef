@@ -5,6 +5,7 @@
         "Dungeon.ShopManager",
         "Dungeon.DungeonManager",
         "Dungeon.RaidManager",
+        "Dungeon.LeagueManager",
         "Dungeon.MobManager",
         "Dungeon.PartyManager",
         "MooseRunner",
