@@ -38,11 +38,21 @@ namespace Dungeon.Game.Tests
             await MooseRunnerFacade.InstanceQuiet.LoadSceneFromNameAsync("Raid", forceReload: true);
         }
 
-        /// <summary>Restarts the raid so each test begins from a known board.</summary>
+        /// <summary>Restarts the raid so each test begins from a known board and a running clock.</summary>
         [SetUp]
         public void SetUp()
         {
             Controller.StartRaid();
+        }
+
+        /// <summary>The game opens on the standings, which SPEC.md makes the title screen.</summary>
+        [Test]
+        public void Game_OpensOnTheLeague()
+        {
+            Assert.IsNotNull(Controller.League, "there must be a league from the first frame");
+            Assert.AreEqual(LeagueManager.LeagueTable.Size, Controller.League.Entries.Count);
+            Assert.IsFalse(Controller.League.PlayerRelegated,
+                "the player must start clear of the relegation zone");
         }
 
         /// <summary>Converts a grid cell into the screen point a player would click.</summary>

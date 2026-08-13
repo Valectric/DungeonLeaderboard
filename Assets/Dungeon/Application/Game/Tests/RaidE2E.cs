@@ -68,7 +68,15 @@ namespace Dungeon.Game.Tests
             await UniTask.WaitForSeconds(0.5f, cancellationToken: ct);
 
             Assert.IsNotNull(Controller, "the play scene must contain a GameController");
-            Assert.IsNotNull(Controller.CurrentRaid, "the controller must start a raid on Awake");
+            Assert.IsNotNull(Controller.League, "the game must open on a league");
+            Assert.IsNotNull(Controller.CurrentRaid, "the dungeon is built behind the standings");
+
+            // The game now opens on the standings, which are the title screen, and a key press
+            // starts the raid. Keyboard input cannot be synthesised here -- the project's testing
+            // doctrine forbids raw Input System device events as too fragile -- so the raid is
+            // started through the same public entry point the key press uses.
+            Controller.StartRaid();
+            await UniTask.WaitForSeconds(0.2f, cancellationToken: ct);
         }
 
         /// <summary>The dungeon builds itself, with tiles, doors and a party on screen.</summary>

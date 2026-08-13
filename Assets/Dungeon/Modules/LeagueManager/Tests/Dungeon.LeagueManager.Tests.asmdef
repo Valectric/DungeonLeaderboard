@@ -1,13 +1,8 @@
 {
-    "name": "Dungeon.Game.Tests",
-    "rootNamespace": "Dungeon.Game.Tests",
+    "name": "Dungeon.LeagueManager.Tests",
+    "rootNamespace": "Dungeon.LeagueManager.Tests",
     "references": [
-        "Dungeon.Game",
-        "Dungeon.DungeonManager",
-        "Dungeon.PartyManager",
-        "Dungeon.MobManager",
         "Dungeon.LeagueManager",
-        "Dungeon.RaidManager",
         "MooseRunner",
         "MooseRunner.helper",
         "UniTask",

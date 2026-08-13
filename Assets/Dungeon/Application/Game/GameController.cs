@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using Dungeon.DungeonManager;
+using Dungeon.LeagueManager;
 using Dungeon.MobManager;
 using Dungeon.RaidManager;
 using UnityEngine;
@@ -22,10 +23,30 @@ namespace Dungeon.Game
     /// </remarks>
     public sealed class GameController : MonoBehaviour
     {
+        /// <summary>What the game is currently showing.</summary>
+        private enum Phase
+        {
+            /// <summary>The standings, which are also the title screen.</summary>
+            Standings = 0,
+
+            /// <summary>A raid in progress.</summary>
+            Raiding = 1,
+
+            /// <summary>The run is over: the player finished in the relegation zone.</summary>
+            Destroyed = 2
+        }
+
+        /// <summary>Seconds the standings take to slide into their new order.</summary>
+        private const float ShiftSeconds = 0.9f;
+
         private Raid _raid;
         private DungeonView _view;
         private Camera _camera;
         private float _ratePulse;
+        private LeagueTable _league;
+        private Phase _phase = Phase.Standings;
+        private float _shift = 1f;
+        private int _finalPosition;
 
         /// <summary>The raid in progress. Read-only; tests observe, they do not drive.</summary>
         public Raid CurrentRaid => _raid;
@@ -44,10 +65,37 @@ namespace Dungeon.Game
             _camera.backgroundColor = new Color32(0x15, 0x10, 0x1D, 0xFF);
             _camera.clearFlags = CameraClearFlags.SolidColor;
 
-            StartRaid();
+            NewRun();
         }
 
-        /// <summary>Tears down any previous view and starts a fresh sixty seconds.</summary>
+        /// <summary>The league in progress. Read-only; tests observe rather than drive.</summary>
+        public LeagueTable League => _league;
+
+        /// <summary>Starts a fresh season and opens on the standings.</summary>
+        /// <remarks>
+        /// The seed comes from the clock so each run is a different league, but every table is built
+        /// from that one number -- so a run can be reproduced exactly from a bug report.
+        /// </remarks>
+        public void NewRun()
+        {
+            _league = new LeagueTable(System.Environment.TickCount);
+            _phase = Phase.Standings;
+            _shift = 1f;
+
+            // A raid exists even on the title screen, so the dungeon is drawn behind the standings
+            // rather than the player opening on an empty void.
+            StartRaid();
+            _phase = Phase.Standings;
+        }
+
+        /// <summary>
+        /// Tears down any previous view and starts a fresh sixty seconds.
+        /// </summary>
+        /// <remarks>
+        /// Enters the raiding phase, because starting a raid is what raiding means. Callers that
+        /// want the dungeon built but not yet running -- the title screen -- set the phase back
+        /// afterwards.
+        /// </remarks>
         public void StartRaid()
         {
             foreach (Transform child in transform.Cast<Transform>().ToList())
@@ -55,6 +103,7 @@ namespace Dungeon.Game
                 Destroy(child.gameObject);
             }
 
+            _phase = Phase.Raiding;
             _raid = new Raid(DungeonLayout.BuildCorridor());
             _view = new DungeonView(transform);
             _view.BuildStatic(_raid.Layout);
@@ -269,7 +318,27 @@ namespace Dungeon.Game
             }
 
             _ratePulse += Time.deltaTime;
+            _shift = Mathf.Min(1f, _shift + (Time.deltaTime / ShiftSeconds));
             _view.Refresh(_raid, Time.deltaTime);
+
+            if (_phase != Phase.Raiding)
+            {
+                HandleZoom();
+                if (TryReadTap(out _) || AnyKeyPressed())
+                {
+                    Advance();
+                }
+
+                return;
+            }
+
+            // A raid that has just finished banks itself and returns to the standings, where the
+            // player watches their position move. That shift is the payoff for the whole minute.
+            if (!_raid.IsRunning)
+            {
+                BankRaid();
+                return;
+            }
 
             // The project runs the Input System package (activeInputHandler: 1), so the legacy
             // UnityEngine.Input class throws on every call. It did, silently, on every frame -- all
@@ -277,23 +346,60 @@ namespace Dungeon.Game
             // tests drove the simulation directly instead of clicking.
             HandleZoom();
 
-            bool spacePressed = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
-            bool tapped = TryReadTap(out Vector2 tapPosition);
-
-            if (!_raid.IsRunning)
-            {
-                if (spacePressed || tapped)
-                {
-                    StartRaid();
-                }
-
-                return;
-            }
-
-            if (tapped)
+            if (TryReadTap(out Vector2 tapPosition))
             {
                 ClickAt(tapPosition);
             }
+        }
+
+        /// <summary>Whether any key was pressed this frame.</summary>
+        private static bool AnyKeyPressed()
+        {
+            return Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame;
+        }
+
+        /// <summary>
+        /// Banks a finished raid into the league and returns to the standings.
+        /// </summary>
+        /// <remarks>
+        /// Relegation is judged only after the score lands, per SPEC.md: finishing in the bottom 10%
+        /// after a raid ends the run.
+        /// </remarks>
+        private void BankRaid()
+        {
+            _league.SubmitRaid(_raid.EnergyHarvested);
+            _shift = 0f;
+
+            if (_league.PlayerRelegated)
+            {
+                _finalPosition = _league.PlayerPosition;
+                _phase = Phase.Destroyed;
+                return;
+            }
+
+            _league.CollapseRelegated();
+            _phase = Phase.Standings;
+        }
+
+        /// <summary>Moves on from the standings: into the next raid, or into a new run.</summary>
+        private void Advance()
+        {
+            if (_shift < 1f)
+            {
+                // Let the shift finish first, so a keen player cannot skip past the one moment the
+                // whole raid was played for.
+                _shift = 1f;
+                return;
+            }
+
+            if (_phase == Phase.Destroyed)
+            {
+                NewRun();
+                return;
+            }
+
+            StartRaid();
+            _phase = Phase.Raiding;
         }
 
         /// <summary>
@@ -407,12 +513,26 @@ namespace Dungeon.Game
         /// </remarks>
         private void OnGUI()
         {
-            if (_raid == null)
+            if (_raid == null || _league == null)
             {
                 return;
             }
 
             float scale = Screen.height / 720f;
+
+            if (_phase != Phase.Raiding)
+            {
+                string prompt = _phase == Phase.Destroyed
+                    ? $"YOUR DUNGEON COLLAPSED IN {Ordinal(_finalPosition)}.  PRESS ANY KEY TO BEGIN AGAIN"
+                    : _league.Round == 0
+                        ? "PRESS ANY KEY — THE FIRST PARTY ENTERS"
+                        : "PRESS ANY KEY — THE NEXT PARTY ENTERS";
+
+                LeagueScreen.Draw(_league, scale, _shift, prompt);
+                return;
+            }
+
+            LeagueScreen.DrawStrip(_league, scale, _raid.EnergyHarvested);
             var clock = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(34 * scale),
@@ -467,40 +587,15 @@ namespace Dungeon.Game
                 + "  ·  SCROLL OR PINCH TO ZOOM  ·  RIGHT-DRAG OR TWO FINGERS TO MOVE",
                 caption);
 
-            if (!_raid.IsRunning)
-            {
-                DrawEndCard(scale);
-            }
         }
 
-        /// <summary>Draws the end-of-raid summary and the prompt to run another.</summary>
-        private void DrawEndCard(float scale)
+        /// <summary>Formats a league position as an ordinal, for the collapse message.</summary>
+        private static string Ordinal(int position)
         {
-            string headline = _raid.Outcome switch
-            {
-                RaidOutcome.PartyWiped => "THEY DIED. DEAD PARTIES PAY NOTHING.",
-                RaidOutcome.PartyEscaped => "THEY REACHED THE BOSS ROOM AND LEFT.",
-                _ => "THE PARTY STAGGERED OUT AT THE BELL."
-            };
-
-            var banner = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.RoundToInt(30 * scale),
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-            banner.normal.textColor = _raid.Outcome == RaidOutcome.TimeExpired
-                ? new Color(0.55f, 1f, 0.45f)
-                : new Color(1f, 0.5f, 0.5f);
-
-            float y = Screen.height * 0.42f;
-            GUI.Label(new Rect(0f, y, Screen.width, 44f * scale), headline, banner);
-            GUI.Label(new Rect(0f, y + (46f * scale), Screen.width, 40f * scale),
-                "HARVESTED " + _raid.EnergyHarvested.ToString("0", CultureInfo.InvariantCulture),
-                new GUIStyle(banner) { fontSize = Mathf.RoundToInt(24 * scale) });
-            GUI.Label(new Rect(0f, y + (86f * scale), Screen.width, 34f * scale),
-                "CLICK OR PRESS SPACE FOR THE NEXT PARTY",
-                new GUIStyle(banner) { fontSize = Mathf.RoundToInt(16 * scale) });
+            string suffix = (position % 100) is >= 11 and <= 13
+                ? "th"
+                : (position % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
+            return $"{position}{suffix}";
         }
     }
 }
