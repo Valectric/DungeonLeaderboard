@@ -1,9 +1,23 @@
 # Handover
 
-**State: M1, M2 and M3 built, tested and published to itch.io. M1's gate was answered yes by the
-author. The whole loop runs: standings, a raid, standings, a shop, the next raid.**
+**State: M1–M4 built, tested and published. The whole loop runs: standings, a raid, the adventurers'
+review, standings, a thirty-second shop, the next raid.**
 
-Last updated: 2026-08-13.
+Last updated: 2026-08-14.
+
+> **Read D12 and D13 in `DECISIONS.md` first.** Two bugs were found overnight by exploratory sweeps,
+> both of which had shipped, and both of which broke a rule SPEC.md states outright. Neither was
+> visible to any feature test.
+>
+> - **The energy curve was unreachable.** The rate never passed **4.1/s in a game built to reach 32**,
+>   and **a wipe out-earned every raid the party survived** — SPEC's central inversion, backwards in
+>   the live build. The curve now reads the party's *worst* survivor rather than an average.
+> - **The league was unwinnable.** Ten seasons across ten seeds all finished in **exactly 18th**,
+>   however well the bot played, because rivals earned 830 a round against an achievable 292. Rivals
+>   now average ~200 and the table answers performance.
+>
+> Both are balance-adjacent and both are yours to re-tune. The tests pin the *ordering*, not the
+> numbers.
 
 ---
 
@@ -14,7 +28,7 @@ Last updated: 2026-08-13.
    the sister project, and the sprite-generation section now carries four more that were paid for
    here.
 3. **`PLAN.md`** — milestone order.
-4. **`DECISIONS.md`** — D1–D11. Read before reversing anything.
+4. **`DECISIONS.md`** — D1–D13. Read before reversing anything.
 
 ---
 
@@ -36,11 +50,11 @@ Assets/Dungeon/
     MobManager/       Mob, MobPack (spawning and room-bounded pursuit)
     LeagueManager/    LeagueTable (standings, rivals, relegation), DungeonNames
     ShopManager/      Shop (thirty seconds, six items, Ready bonus), Loadout
+    AudioManager/     SfxSynth (every sound synthesised; no audio assets ship), AudioFacade
   Editor/             scene builder, WebGL builder, sentinel poller, pixel-art importer
 ```
 
-**93 tests green**, console clean: 73 unit, 5 E2E against the shipped scene, 15 driving the verbs and
-the shop through real screen coordinates.
+**201 tests green**, console clean.
 
 Two numbers worth carrying: an unopposed party crosses the corridor in **26.9s** of the 60, and one
 bought chest adds **5.6s** to that. Both are asserted, because both are rates and rates are what this
@@ -52,7 +66,7 @@ Both are deterministic and rerunnable.
 
 ---
 
-## Five bugs that a fully green suite did not catch
+## Seven bugs that a fully green suite did not catch
 
 Worth reading before trusting any future green run. Each was found by looking at the game or the
 console, never by an assertion.
@@ -81,6 +95,15 @@ console, never by an assertion.
    was legible only on the *unaffordable* cards, i.e. exactly backwards. **IMGUI never appears in an
    editor camera screenshot**, so no `Look` test can ever see this class of defect: the shop has to
    be opened in a browser.
+6. **The energy curve could not be reached.** The rate never passed 4.1/s in a game whose curve tops
+   out near 32, and a wipe out-earned every raid the party survived. A tank carries 220 of the
+   party's 500 hit points and soaks nearly everything, so it hits death's door beside three untouched
+   allies — and a fifth-power curve barely stirs at a 77% average. See D12. Found by
+   `ExploratoryTests`, which plays every roster against every policy.
+7. **The league could not be won.** Ten seasons across ten seeds finished in *exactly* 18th, because
+   rivals earned 830 a round against an achievable 292. The standings were a backdrop. See D13. Found
+   by `SeasonSweepTests`, which plays whole twelve-raid seasons — a class of bug that is invisible in
+   any single raid.
 
 ---
 
@@ -109,9 +132,18 @@ Set the Unity process affinity to ~4 cores before a WebGL build (`(Get-Process -
 
 ## What to do next
 
-M1's gate is answered and M2 and M3 are shipped. `PLAN.md` **M4** is next: party composition
-variation first, because SPEC.md calls it the primary source of run-to-run variety and the shop now
-gives the player something to vary *against*.
+M1–M4 are shipped. What remains is judgement rather than construction: the game is feature-complete
+against `PLAN.md`, so the next work is playing it and tuning what feels wrong.
+
+**Two balance questions are waiting for you, deliberately not decided:**
+
+- **D12/D13's constants.** Both fixes restore an ordering the spec demands; neither figure has been
+  validated against a human playing. The tests pin the ordering, not the numbers.
+- **THE SKIRMISHERS and THE GLASS CANNONS cap at 4.1/s and harvest ~30**, against 120–209 for the
+  other four rosters. They kill monsters so fast that income collapses to the idle rate and the
+  player can no longer afford the 25 a spawn costs — an income death spiral ending at full party
+  health. Either glass cannons *should* be poor customers, or that is a dead minute. Recorded at the
+  end of D12.
 
 **One thing needs the author, not an agent:** the itch embed is **523x293** against a 960x600 canvas,
 so it crops the HUD and the shop. Fix it in *Edit theme* — set the frame to 960x600 and the page

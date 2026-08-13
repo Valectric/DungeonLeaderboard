@@ -74,10 +74,25 @@ Shipped as built:
 
 ---
 
-## M4 — Everything else
+## M4 — Everything else ▸ *done*
 
-Party composition variation (the spec's primary source of run-to-run variety — exploit it before
-adding dungeon content), mob variety, art pass, end-of-raid star reviews.
+Party composition variation (the spec's primary source of run-to-run variety), mob variety, art pass,
+end-of-raid star reviews.
+
+Shipped as built:
+
+- **Six party compositions**, seeded from the run's one number, announced on the standings before the
+  raid and named in the HUD during it. Never the same roster twice running.
+- **An RPG stat system** — weapon, might, armour, attack interval — decomposed from the
+  damage-per-second figures the game was already balanced on, with rolled damage of ±15%. Visible
+  arrows and mage bolts.
+- **Mage mana and blink**; healers own their mana too, and both regenerate.
+- **End-of-raid star reviews.** The adventurers rate the dungeon like a restaurant, and their taste
+  and the player's interest point the same way — five stars and a big number always arrive together.
+- **Combat VFX and audio.** Nine particle prefabs and ten procedurally synthesised sounds, both cued
+  off the same feeds as the floating numbers. All three verbs acknowledge themselves.
+- **Doors the party can force** — an archer picks in 3.5s, otherwise the party batters 520 health.
+  Jammed open afterwards, so a door is worth a finite number of seconds.
 
 ---
 
