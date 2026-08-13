@@ -81,17 +81,21 @@ namespace Dungeon.PartyManager
         public float AttackCooldown { get; set; }
 
         /// <summary>
-        /// The mage's own spell pool, spent on bolts and on blinking, and slowly refilled.
+        /// This caster's own spell pool, and it regenerates.
         /// </summary>
         /// <remarks>
-        /// Separate from the healer's pool on purpose. They are different resources belonging to
-        /// different people, and the interesting moment -- a mage out of mana with a skeleton on it,
-        /// unable to blink away -- only exists if the mage can run dry on its own.
+        /// Per caster, not per party. Two healers really do have twice the sustain, and the
+        /// interesting moments only exist if a caster can run dry on its own -- a mage with a
+        /// skeleton on it that cannot afford to blink, a healer watching the tank drop with an empty
+        /// bar.
         /// </remarks>
         public float Mana { get; private set; }
 
-        /// <summary>The mage's full spell pool. Zero for everyone else.</summary>
+        /// <summary>This caster's full spell pool. Zero for the non-casters.</summary>
         public float MaxMana { get; }
+
+        /// <summary>Seconds until this adventurer can cast a heal again.</summary>
+        public float HealCooldown { get; set; }
 
         /// <summary>Mana as a fraction from 1 down to 0, for the bar.</summary>
         public float ManaFraction => MaxMana <= 0f ? 0f : Mathf.Clamp01(Mana / MaxMana);
@@ -211,7 +215,7 @@ namespace Dungeon.PartyManager
             // single big hit rather than four people fighting.
             AttackCooldown = (int)role * 0.27f;
 
-            MaxMana = role == AdventurerRole.Mage ? 100f : 0f;
+            MaxMana = role is AdventurerRole.Mage or AdventurerRole.Healer ? 100f : 0f;
             Mana = MaxMana;
             _health = MaxHealth;
         }

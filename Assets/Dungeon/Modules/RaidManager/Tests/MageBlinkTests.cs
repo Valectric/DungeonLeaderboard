@@ -47,17 +47,26 @@ namespace Dungeon.RaidManager.Tests
             return null;
         }
 
-        /// <summary>Only the mage carries a mana pool.</summary>
+        /// <summary>
+        /// The casters carry a mana pool each; the tank and the archer do not.
+        /// </summary>
+        /// <remarks>
+        /// Per caster rather than per party. Two healers really do have twice the sustain, and a
+        /// healer can run dry on its own while the mage still has plenty -- which is the whole point
+        /// of showing each of them a bar.
+        /// </remarks>
         [Test]
-        public void OnlyTheMage_HasMana()
+        public void OnlyTheCasters_HaveMana()
         {
             foreach (AdventurerRole role in System.Enum.GetValues(typeof(AdventurerRole)))
             {
                 var member = new Adventurer(role, Vector2Int.zero);
-                if (role == AdventurerRole.Mage)
+                bool caster = role is AdventurerRole.Mage or AdventurerRole.Healer;
+
+                if (caster)
                 {
-                    Assert.Greater(member.MaxMana, 0f, "the mage should have a pool");
-                    Assert.AreEqual(1f, member.ManaFraction, 0.001f, "and start full");
+                    Assert.Greater(member.MaxMana, 0f, $"{role} should have a pool");
+                    Assert.AreEqual(1f, member.ManaFraction, 0.001f, $"{role} should start full");
                 }
                 else
                 {

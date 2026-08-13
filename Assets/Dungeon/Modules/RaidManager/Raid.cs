@@ -275,6 +275,14 @@ namespace Dungeon.RaidManager
                 return false;
             }
 
+            // A door the party has picked or broken is jammed open for the rest of the raid. Without
+            // this the whole mechanic is theatre: the player would simply shut it again the instant
+            // the archer finished, and a single door would stall a party forever.
+            if (door.IsForced)
+            {
+                return false;
+            }
+
             door.IsOpen = !door.IsOpen;
             Effects.Raise(EffectKind.DoorToggled, cell);
             return true;

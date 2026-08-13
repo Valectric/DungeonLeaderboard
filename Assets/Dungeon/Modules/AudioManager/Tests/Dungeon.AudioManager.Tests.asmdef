@@ -1,20 +1,13 @@
 {
-    "name": "Dungeon.Game.Tests",
-    "rootNamespace": "Dungeon.Game.Tests",
+    "name": "Dungeon.AudioManager.Tests",
+    "rootNamespace": "Dungeon.AudioManager.Tests",
     "references": [
-        "Dungeon.Game",
-        "Dungeon.DungeonManager",
-        "Dungeon.PartyManager",
-        "Dungeon.MobManager",
-        "Dungeon.LeagueManager",
-        "Dungeon.RaidManager",
-        "Dungeon.ShopManager",
+        "Dungeon.AudioManager",
         "MooseRunner",
         "MooseRunner.helper",
         "UniTask",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
-        "Dungeon.AudioManager"
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

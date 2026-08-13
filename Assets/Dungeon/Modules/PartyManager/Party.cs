@@ -121,8 +121,6 @@ namespace Dungeon.PartyManager
         private readonly Vector2Int _entranceCell;
         private readonly HashSet<Vector2Int> _looted = new();
         private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
-        private readonly float _maxMana;
-        private float _mana;
         private float _healCooldown;
         private float _lootProgress;
         private float _combatGraceLeft;
@@ -146,10 +144,36 @@ namespace Dungeon.PartyManager
         public Vector2 Position => Living.FirstOrDefault()?.Position ?? _entranceCell;
 
         /// <summary>Whether the healer still has mana to spend.</summary>
-        public bool HasMana => _mana > 0f;
+        public bool HasMana => ManaFraction > 0f;
 
-        /// <summary>Mana the healers have left, from 1 down to 0.</summary>
-        public float ManaFraction => _maxMana <= 0f ? 0f : Mathf.Clamp01(_mana / _maxMana);
+        /// <summary>
+        /// Mana the living healers have left between them, from 1 down to 0.
+        /// </summary>
+        /// <remarks>
+        /// Derived from the healers themselves rather than from a party-level pool. Each caster owns
+        /// its mana now, so a total kept alongside them would be a second copy of the truth and would
+        /// drift the first time one of them died.
+        /// </remarks>
+        public float ManaFraction
+        {
+            get
+            {
+                float have = 0f;
+                float most = 0f;
+                foreach (Adventurer member in Living)
+                {
+                    if (member.Role != AdventurerRole.Healer)
+                    {
+                        continue;
+                    }
+
+                    have += member.Mana;
+                    most += member.MaxMana;
+                }
+
+                return most <= 0f ? 0f : Mathf.Clamp01(have / most);
+            }
+        }
 
         /// <summary>Which party walked in, for the HUD and the pre-raid warning.</summary>
         public PartyComposition Composition { get; }
@@ -212,8 +236,6 @@ namespace Dungeon.PartyManager
                 _members.Add(new Adventurer(role, entranceCell));
             }
 
-            _maxMana = Composition.Count(AdventurerRole.Healer) * ManaPerHealer;
-            _mana = _maxMana;
 
             // Seed the trail running back out of the entrance so the party starts strung out in
             // marching order rather than stacked on one square, and reads as walking in.
@@ -341,6 +363,7 @@ namespace Dungeon.PartyManager
                 }
             }
 
+            ForceDoors(leader, deltaTime, threats.Count);
             OpenChests(leader, deltaTime);
 
             if (Goal != PartyGoal.Fighting && Cell == _bossCell)
@@ -436,6 +459,19 @@ namespace Dungeon.PartyManager
                 return chest.Value;
             }
 
+            // A shut door blocks pathfinding entirely, so the route to the boss room comes back
+            // empty and the party would mill about with nowhere to go. Head for the door instead:
+            // it is the obstacle, and they have two ways of dealing with it.
+            // Walk to the square in front of the door, not to the door itself. A shut door is not
+            // walkable, so pathing to its own cell returns no route at all and the party simply
+            // stands where it is -- which is exactly what happened: nobody ever reached a door to
+            // work on it, and every roster made precisely zero progress.
+            Door blocking = BlockingDoor(leader);
+            if (blocking != null)
+            {
+                return ApproachCell(blocking, leader);
+            }
+
             List<Vector2Int> path = _grid.FindPath(leader.Cell, _bossCell);
             foreach (Vector2Int cell in path)
             {
@@ -446,6 +482,79 @@ namespace Dungeon.PartyManager
             }
 
             return _bossCell;
+        }
+
+        /// <summary>
+        /// The shut door standing between the party and the boss room, if any.
+        /// </summary>
+        /// <remarks>
+        /// Found by asking which door the party would path through if every door were open, then
+        /// checking whether that one is actually shut. Pathfinding cannot answer this directly --
+        /// a closed door is simply not walkable, so the route it would have been on does not exist.
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>The door to deal with, or null when the way is clear.</returns>
+        private Door BlockingDoor(Adventurer leader)
+        {
+            if (_grid.FindPath(leader.Cell, _bossCell).Count > 0)
+            {
+                return null;
+            }
+
+            int room = _grid.RoomAt(leader.Cell);
+            Door nearest = null;
+            float best = float.MaxValue;
+
+            foreach (Door door in _grid.Doors)
+            {
+                // Only a door on this room's threshold, and only one that still bars the way.
+                if (door.IsOpen || (door.RoomA != room && door.RoomB != room))
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(leader.Position, door.Cell);
+                if (distance < best)
+                {
+                    best = distance;
+                    nearest = door;
+                }
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// The walkable square beside a door, on the party's side of it.
+        /// </summary>
+        /// <param name="door">Door to approach.</param>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>A cell to stand on, or the door's own cell if none is walkable.</returns>
+        private Vector2Int ApproachCell(Door door, Adventurer leader)
+        {
+            Vector2Int best = door.Cell;
+            float bestDistance = float.MaxValue;
+
+            foreach (Vector2Int step in new[]
+                     {
+                         Vector2Int.left, Vector2Int.right, Vector2Int.up, Vector2Int.down
+                     })
+            {
+                Vector2Int candidate = door.Cell + step;
+                if (!_grid.IsWalkable(candidate))
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(leader.Position, candidate);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>Moves one adventurer toward a point.</summary>
@@ -580,6 +689,95 @@ namespace Dungeon.PartyManager
             }
         }
 
+        /// <summary>
+        /// How close someone must be to work on a door.
+        /// </summary>
+        /// <remarks>
+        /// Sized against the marching order, not against arm's length. The leader stops one cell
+        /// short of a shut door and the rest trail at <see cref="FollowSpacing"/> behind it, so the
+        /// archer -- second in the column -- stands about 1.6 cells away and a tighter reach left it
+        /// permanently unable to touch the lock. Every roster made exactly zero progress on a door
+        /// and the party simply stood there.
+        /// </remarks>
+        public const float DoorReach = 2.4f;
+
+        /// <summary>The door the party is currently working on, for the view to show a bar.</summary>
+        public Door WorkingOnDoor { get; private set; }
+
+        /// <summary>Whether the party is picking the lock rather than battering it.</summary>
+        public bool PickingLock { get; private set; }
+
+        /// <summary>
+        /// Deals with a shut door: the archer picks the lock, or the party breaks it down.
+        /// </summary>
+        /// <remarks>
+        /// This is what stops a closed door being an unanswerable stall. An archer opens it in a few
+        /// seconds and it is <b>jammed open for good</b>; a party with no archer has to batter
+        /// through twice a skeleton's health, which costs them most of a minute -- and every one of
+        /// those seconds is the player's income, so a tankless, archerless party being forced to
+        /// smash is a good outcome for the dungeon rather than a punishment.
+        /// <para>
+        /// Fighting comes first. A party sawing at a lock while a skeleton bites them would look
+        /// broken however sensible the priority list.
+        /// </para>
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        /// <param name="threats">How many monsters the party can see.</param>
+        private void ForceDoors(Adventurer leader, float deltaTime, int threats)
+        {
+            WorkingOnDoor = null;
+            PickingLock = false;
+
+            if (threats > 0 || Goal == PartyGoal.Retreating)
+            {
+                return;
+            }
+
+            Door door = BlockingDoor(leader);
+            if (door == null)
+            {
+                return;
+            }
+
+            // Whoever is nearest the door and can reach it does the work.
+            Adventurer picker = null;
+            foreach (Adventurer member in Living)
+            {
+                if (member.Role == AdventurerRole.Ranged &&
+                    Vector2.Distance(member.Position, door.Cell) <= DoorReach)
+                {
+                    picker = member;
+                    break;
+                }
+            }
+
+            if (picker != null)
+            {
+                WorkingOnDoor = door;
+                PickingLock = true;
+                door.Pick(deltaTime);
+                return;
+            }
+
+            // No archer in reach. Anyone who is close enough swings at it instead.
+            float force = 0f;
+            foreach (Adventurer member in Living)
+            {
+                if (member.Role != AdventurerRole.Ranged &&
+                    Vector2.Distance(member.Position, door.Cell) <= DoorReach)
+                {
+                    force += member.DamagePerSecond;
+                }
+            }
+
+            if (force > 0f)
+            {
+                WorkingOnDoor = door;
+                door.Batter(force * deltaTime);
+            }
+        }
+
         /// <summary>Where the mage blinked from this tick, for the view to draw the flash.</summary>
         public Vector2? BlinkedFrom { get; private set; }
 
@@ -694,31 +892,38 @@ namespace Dungeon.PartyManager
         /// </remarks>
         private void HealWounded(float deltaTime)
         {
-            // Every living healer casts on its own schedule, so two healers really do heal twice as
-            // fast and a party that has lost its last healer stops healing entirely. Counting the
-            // living rather than the roster is the point: killing the healer is how a player ruins
-            // their own raid, and it has to be felt immediately.
-            int healers = Living.Count(m => m.Role == AdventurerRole.Healer);
-            if (healers == 0)
-            {
-                return;
-            }
+            var living = Living.ToList();
 
-            _healCooldown = Mathf.Max(0f, _healCooldown - (deltaTime * healers));
-            if (_healCooldown > 0f)
+            // Each healer casts from its own pool on its own cooldown, so two healers genuinely have
+            // twice the sustain and a party that has lost its last healer stops healing at once --
+            // killing the healer is how a player ruins their own raid, and it has to be felt.
+            foreach (Adventurer healer in living)
             {
-                return;
-            }
+                if (healer.Role != AdventurerRole.Healer)
+                {
+                    continue;
+                }
 
-            Adventurer target = AdventurerAI.ChooseHealTarget(Living.ToList(), _mana);
-            if (target == null)
-            {
-                return;
-            }
+                healer.HealCooldown = Mathf.Max(0f, healer.HealCooldown - deltaTime);
+                if (healer.HealCooldown > 0f || !healer.CanCast(AdventurerAI.HealCost))
+                {
+                    continue;
+                }
 
-            target.Heal(AdventurerAI.HealAmount);
-            _mana -= AdventurerAI.HealCost;
-            _healCooldown = HealInterval;
+                // Note this runs whether or not a fight is happening. Healers patch the party up
+                // between rooms as well as during a brawl, which is exactly what makes them the
+                // player's best customer: the party they keep alive walks into the next ambush and
+                // bleeds all over again.
+                Adventurer target = AdventurerAI.ChooseHealTarget(living, healer.Mana);
+                if (target == null)
+                {
+                    continue;
+                }
+
+                target.Heal(AdventurerAI.HealAmount);
+                healer.SpendMana(AdventurerAI.HealCost);
+                healer.HealCooldown = HealInterval;
+            }
         }
 
         /// <summary>

@@ -38,6 +38,49 @@ namespace Dungeon.DungeonManager
         /// <summary>Whether the door currently lets anything through.</summary>
         public bool IsOpen { get; set; }
 
+        /// <summary>
+        /// Seconds of uninterrupted work an archer needs to pick the lock.
+        /// </summary>
+        /// <remarks>
+        /// Short on purpose. A door is the cheap, spammable verb, so it must not be an answer to
+        /// everything -- the party has to have a way through, or a player could simply shut one door
+        /// and farm a trapped party for the whole minute with no decision left to make.
+        /// </remarks>
+        public const float PickSeconds = 3.5f;
+
+        /// <summary>
+        /// How much punishment a door takes before it comes off its hinges.
+        /// </summary>
+        /// <remarks>
+        /// Twice a skeleton, so a party with no archer pays real time for the way through -- roughly
+        /// half a minute of the party's own damage output, which is the player's income while it
+        /// happens. Smashing is the slow, expensive route; picking is the fast one.
+        /// </remarks>
+        public const float MaxHealth = 520f;
+
+        /// <summary>Work done on the lock so far, in seconds.</summary>
+        public float PickProgress { get; private set; }
+
+        /// <summary>Punishment the door has absorbed.</summary>
+        public float Damage { get; private set; }
+
+        /// <summary>
+        /// Whether this door has been forced, by picking or by breaking.
+        /// </summary>
+        /// <remarks>
+        /// Once forced it is <b>stuck open for the rest of the raid</b> and the player's door verb
+        /// stops working on it. That is what stops a door being an unlimited stall: every door is
+        /// worth a finite number of seconds, and spending them is a decision about which threshold
+        /// is worth burning.
+        /// </remarks>
+        public bool IsForced { get; private set; }
+
+        /// <summary>How far along picking is, from 0 to 1.</summary>
+        public float PickFraction => Mathf.Clamp01(PickProgress / PickSeconds);
+
+        /// <summary>How battered the door is, from 0 to 1.</summary>
+        public float DamageFraction => Mathf.Clamp01(Damage / MaxHealth);
+
         /// <summary>Creates a door joining two rooms at a cell.</summary>
         /// <param name="cell">Grid cell the door occupies.</param>
         /// <param name="roomA">Room on one side.</param>
@@ -49,6 +92,53 @@ namespace Dungeon.DungeonManager
             RoomA = roomA;
             RoomB = roomB;
             IsOpen = isOpen;
+        }
+
+        /// <summary>Works on the lock, forcing the door open once the work is done.</summary>
+        /// <param name="seconds">Seconds of work this tick.</param>
+        /// <returns>True when this tick finished the job.</returns>
+        public bool Pick(float seconds)
+        {
+            if (IsForced || seconds <= 0f)
+            {
+                return false;
+            }
+
+            PickProgress += seconds;
+            if (PickProgress < PickSeconds)
+            {
+                return false;
+            }
+
+            Force();
+            return true;
+        }
+
+        /// <summary>Batters the door, breaking it open once it has taken enough.</summary>
+        /// <param name="amount">Damage this tick.</param>
+        /// <returns>True when this tick broke it.</returns>
+        public bool Batter(float amount)
+        {
+            if (IsForced || amount <= 0f)
+            {
+                return false;
+            }
+
+            Damage += amount;
+            if (Damage < MaxHealth)
+            {
+                return false;
+            }
+
+            Force();
+            return true;
+        }
+
+        /// <summary>Jams the door open for good.</summary>
+        private void Force()
+        {
+            IsForced = true;
+            IsOpen = true;
         }
     }
 

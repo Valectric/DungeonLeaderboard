@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq;
+using Dungeon.AudioManager;
 using Dungeon.DungeonManager;
 using Dungeon.LeagueManager;
 using Dungeon.MobManager;
@@ -608,6 +609,7 @@ namespace Dungeon.Game
                 if (_shop.Buy(item))
                 {
                     _loadout.Add(item);
+                    AudioFacade.Cue(Sfx.Purchase, 0.7f);
                 }
 
                 return;

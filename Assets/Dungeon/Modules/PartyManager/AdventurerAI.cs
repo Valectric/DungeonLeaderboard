@@ -428,9 +428,8 @@ namespace Dungeon.PartyManager
             foreach (Adventurer ally in allies)
             {
                 float missing = ally.MaxHealth - (ally.HealthFraction * ally.MaxHealth);
-                if (missing < HealAmount)
+                if (missing < TopUpThreshold)
                 {
-                    // A full heal would overflow, so the cast would waste mana. Wait.
                     continue;
                 }
 
@@ -444,6 +443,23 @@ namespace Dungeon.PartyManager
 
             return best;
         }
+
+        /// <summary>
+        /// How much health someone must be missing before a healer will spend a cast on them.
+        /// </summary>
+        /// <remarks>
+        /// This used to be a full heal's worth, on the reasoning that casting into an overflow wastes
+        /// a limited pool. In play that made the healer look broken: once the party's wounds dropped
+        /// below forty-five nobody qualified, so it stood there with a full bar doing nothing, and it
+        /// appeared to <b>stop healing the moment a fight ended</b> -- exactly when it should be
+        /// patching everyone up for the next room.
+        /// <para>
+        /// A modest overflow is the right trade now that mana regenerates: wasting a little of a
+        /// refilling pool costs nothing, and a party that walks into the next ambush at full health
+        /// has much further to fall, which is where the money is.
+        /// </para>
+        /// </remarks>
+        public const float TopUpThreshold = 12f;
 
         /// <summary>How much the healer values keeping each role alive.</summary>
         private static float RoleWeight(AdventurerRole role) => role switch

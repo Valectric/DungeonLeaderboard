@@ -342,6 +342,72 @@ namespace Dungeon.RaidManager.Tests
                 "the mage never got clear of the monster standing on it");
         }
 
+        /// <summary>
+        /// The healer keeps topping the party up after the fight is over.
+        /// </summary>
+        /// <remarks>
+        /// It did not, and it looked like a bug because it was one: the healer refused to cast unless
+        /// a full heal landed without overflowing, so once wounds fell below forty-five nobody
+        /// qualified and it stood there with a full bar. From the outside it read as the healer
+        /// downing tools the moment the monster died -- exactly when it should be patching everyone
+        /// up for the next room.
+        /// </remarks>
+        [Test]
+        public void TheHealer_TopsThePartyUpAfterTheFight()
+        {
+            var raid = new Raid(DungeonLayout.BuildCorridor());
+
+            // A shallow wound, well under a full heal's worth, and no monster anywhere.
+            foreach (Adventurer member in raid.Party.Living)
+            {
+                member.TakeDamage(member.MaxHealth * 0.18f);
+            }
+
+            float wounded = raid.Party.HealthFraction;
+            for (int step = 0; step < 900 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            float after = raid.Party.HealthFraction;
+            MooseRunnerFacade.Log(
+                $"out of combat: party went from {wounded:P0} to {after:P0}");
+
+            Assert.Greater(after, wounded + 0.05f,
+                "the healer did nothing between fights, so shallow wounds never got patched");
+        }
+
+        /// <summary>
+        /// Healers regenerate mana, so a long raid is not decided by the first thirty seconds.
+        /// </summary>
+        [Test]
+        public void HealerMana_RegeneratesOverTime()
+        {
+            var raid = new Raid(DungeonLayout.BuildCorridor());
+
+            Adventurer healer = null;
+            foreach (Adventurer member in raid.Party.Living)
+            {
+                if (member.Role == AdventurerRole.Healer)
+                {
+                    healer = member;
+                }
+            }
+
+            Assert.IsNotNull(healer, "the balanced party has a healer");
+            healer.SpendMana(healer.MaxMana * 0.8f);
+            float drained = healer.ManaFraction;
+
+            for (int step = 0; step < 250 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            MooseRunnerFacade.Log(
+                $"healer mana {drained:P0} -> {healer.ManaFraction:P0} after five seconds");
+            Assert.Greater(healer.ManaFraction, drained, "healer mana should refill over time");
+        }
+
         /// <summary>A composition never changes the raid's length or its ending conditions.</summary>
         [Test]
         public void EveryComposition_CanStillFinishARaid()

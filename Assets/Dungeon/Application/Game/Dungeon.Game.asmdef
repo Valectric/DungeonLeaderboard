@@ -8,7 +8,8 @@
         "Dungeon.RaidManager",
         "Dungeon.LeagueManager",
         "Dungeon.ShopManager",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Dungeon.AudioManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

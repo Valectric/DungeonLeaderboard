@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
+using Dungeon.AudioManager;
 using Dungeon.PartyManager;
 using Dungeon.RaidManager;
 using UnityEngine;
@@ -357,7 +358,51 @@ namespace Dungeon.Game
             RefreshTraps(raid.Layout);
             RefreshChests(raid.Party);
             RefreshShots(raid.Shots);
+            RefreshDoorWork(raid.Party);
             SpawnImpacts(raid);
+        }
+
+        private SpriteRenderer _doorWorkBack;
+        private SpriteRenderer _doorWorkFill;
+
+        /// <summary>
+        /// Shows the party working on a shut door.
+        /// </summary>
+        /// <remarks>
+        /// Without this a closed door simply opens by itself after a while and the player never
+        /// learns why -- or worse, assumes their verb failed. The colour says which of the two routes
+        /// is happening: amber for an archer picking the lock, red for the party breaking it down,
+        /// which is the slower and far more expensive answer.
+        /// </remarks>
+        /// <param name="party">Party to read.</param>
+        private void RefreshDoorWork(Party party)
+        {
+            _doorWorkBack ??= MakeBar("doorworkback", 62);
+            _doorWorkFill ??= MakeBar("doorworkfill", 63);
+
+            Door door = party.WorkingOnDoor;
+            bool show = door != null;
+            _doorWorkBack.enabled = show;
+            _doorWorkFill.enabled = show;
+            if (!show)
+            {
+                return;
+            }
+
+            float progress = party.PickingLock ? door.PickFraction : door.DamageFraction;
+            var origin = new Vector3(
+                (door.Cell.x * CellSize) - (BarWidth * 0.5f),
+                (door.Cell.y * CellSize) + 0.52f, -3f);
+
+            _doorWorkBack.transform.position = origin;
+            _doorWorkBack.transform.localScale = new Vector3(BarWidth, 0.10f, 1f);
+            _doorWorkBack.color = new Color(0.05f, 0.04f, 0.08f, 0.92f);
+
+            _doorWorkFill.transform.position = origin + new Vector3(0f, 0f, -0.01f);
+            _doorWorkFill.transform.localScale = new Vector3(BarWidth * progress, 0.10f, 1f);
+            _doorWorkFill.color = party.PickingLock
+                ? new Color(1f, 0.72f, 0.25f)
+                : new Color(0.95f, 0.35f, 0.30f);
         }
 
         private int _numbersSeen;
@@ -385,6 +430,12 @@ namespace Dungeon.Game
                 Burst(number.IsHeal ? "VfxHeal"
                     : number.Target == CombatTarget.Monster ? "VfxHitMonster"
                     : "VfxHitAdventurer", number.Origin);
+
+                // Sound comes off the same feed as the spark and the number, so all three can never
+                // disagree about what just happened.
+                AudioFacade.Cue(number.IsHeal ? Sfx.Heal
+                    : number.Target == CombatTarget.Monster ? Sfx.HitMonster
+                    : Sfx.HitAdventurer, number.IsHeal ? 0.5f : 0.35f);
             }
 
             _numbersSeen = numbers.Count;
@@ -400,6 +451,14 @@ namespace Dungeon.Game
                     EffectKind.MobDied => "VfxDeath",
                     _ => "VfxDoor"
                 }, effect.Position);
+
+                AudioFacade.Cue(effect.Kind switch
+                {
+                    EffectKind.TrapFired => Sfx.TrapFire,
+                    EffectKind.MobSpawned => Sfx.MobSpawn,
+                    EffectKind.MobDied => Sfx.MobDied,
+                    _ => Sfx.DoorToggle
+                }, effect.Kind == EffectKind.TrapFired ? 0.85f : 0.6f);
             }
 
             raid.Effects.Drain();
@@ -411,8 +470,15 @@ namespace Dungeon.Game
                 // a bigger flash -- it is the only thing in the game that moves instantly.
                 Shot shot = shots[i];
                 float distance = Vector2.Distance(shot.From, shot.To);
+                bool blink = shot.Kind == ShotKind.Bolt && distance > 3f;
+
                 Burst(shot.Kind == ShotKind.Arrow ? "VfxArrowImpact"
-                    : distance > 3f ? "VfxBlink" : "VfxHitMonster", shot.To);
+                    : blink ? "VfxBlink" : "VfxHitMonster", shot.To);
+
+                if (blink)
+                {
+                    AudioFacade.Cue(Sfx.Blink, 0.55f);
+                }
             }
 
             _shotsSeen = shots.Count;
