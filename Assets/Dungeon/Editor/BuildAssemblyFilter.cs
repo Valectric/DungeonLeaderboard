@@ -29,10 +29,21 @@ namespace Dungeon.Editor
         /// <summary>Runs early; the order relative to other filters does not matter here.</summary>
         public int callbackOrder => 0;
 
-        /// <summary>Assembly name fragments that must never reach a player build.</summary>
+        /// <summary>
+        /// Assembly name fragments that must never reach a player build.
+        /// </summary>
+        /// <remarks>
+        /// <c>MCPForUnity</c> is here for the same reason as MooseRunner, and was added the moment
+        /// the package was installed rather than after a build failed. It ships a
+        /// <c>MCPForUnity.Runtime</c> assembly with <c>includePlatforms: []</c>, so Unity compiles
+        /// editor-automation code into the shipped game -- code full of reflection-based version
+        /// compat shims, which is exactly what managed stripping and IL2CPP handle worst. Nothing in
+        /// this game references it.
+        /// </remarks>
         private static readonly string[] Excluded =
         {
             "MooseRunner",
+            "MCPForUnity",
             "nunit.framework",
             ".Tests"
         };
