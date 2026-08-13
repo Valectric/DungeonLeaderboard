@@ -202,16 +202,70 @@ namespace Dungeon.PartyManager
         /// Aggregate health of the living party, 1 down to 0.
         /// </summary>
         /// <remarks>
-        /// Averaged over the <i>living</i> only. Counting corpses as zero would make a half-dead
-        /// party look desperately wounded and pay out accordingly, which would reward killing --
-        /// the exact inversion the design forbids.
+        /// Over the <i>living</i> only. Counting corpses as zero would make a half-dead party look
+        /// desperately wounded and pay out accordingly, which would reward killing -- the exact
+        /// inversion the design forbids.
+        /// <para>
+        /// <b>Pooled health, not the mean of fractions.</b> The mean treated a wounded tank exactly
+        /// like a wounded mage, despite the tank carrying 220 of the party's 500 hit points -- so
+        /// once damage began landing only on whoever was in melee reach, a tank at death's door
+        /// beside three untouched allies read as a comfortable 77%, and the wound curve, which is a
+        /// fifth power, barely stirred. Measured across every roster, the rate never once passed
+        /// 4.1/s in a game whose curve is built to reach 32.
+        /// </para>
         /// </remarks>
         public float HealthFraction
         {
             get
             {
-                var living = Living.ToList();
-                return living.Count == 0 ? 0f : living.Average(m => m.HealthFraction);
+                float have = 0f;
+                float most = 0f;
+
+                foreach (Adventurer member in Living)
+                {
+                    have += member.HealthFraction * member.MaxHealth;
+                    most += member.MaxHealth;
+                }
+
+                return most <= 0f ? 0f : Mathf.Clamp01(have / most);
+            }
+        }
+
+        /// <summary>
+        /// How close the party's worst-off living member is to death, 1 down to 0.
+        /// </summary>
+        /// <remarks>
+        /// <b>This is what the energy curve reads</b>, and it is deliberately the single most wounded
+        /// survivor rather than any kind of average. CLAUDE.md states the intent in one line: "most
+        /// of the money is in the last sliver of a health bar" -- one bar, not the mean of four.
+        /// <para>
+        /// Measured, no aggregate could work. The tank carries 220 of the party's 500 hit points and
+        /// soaks nearly everything, so it reaches death's door while its allies are untouched: the
+        /// mean read 77%, pooled health read 63%, and a fifth-power curve ignores both. The rate
+        /// never passed <b>4.1/s in a game built to reach 32</b>, and a wipe out-earned every raid
+        /// where the party lived -- the exact inversion SPEC.md forbids.
+        /// </para>
+        /// <para>
+        /// Reading the worst survivor also punishes killing precisely as the design wants. Let the
+        /// nearly-dead tank die and the reading leaps back up to whoever is next worst, usually
+        /// somebody healthy, and the rate collapses. The player has to hold one bar on the edge
+        /// without tipping it over, which is exactly the tension the spec asks for.
+        /// </para>
+        /// </remarks>
+        public float WoundFraction
+        {
+            get
+            {
+                float worst = 1f;
+                bool any = false;
+
+                foreach (Adventurer member in Living)
+                {
+                    worst = Mathf.Min(worst, member.HealthFraction);
+                    any = true;
+                }
+
+                return any ? worst : 0f;
             }
         }
 

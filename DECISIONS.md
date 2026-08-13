@@ -178,6 +178,44 @@ without, 32.5s with.
 **Wrong if:** the party visibly opens a chest it is not standing on. Three cells of margin would look
 wrong; 0.8 does not, and the alternative failure mode is a game that stops.
 
+## 2026-08-13 — D12. The energy curve reads the party's *worst* survivor
+
+**Decided:** `energyRate` takes the health of the single most wounded living adventurer, not any
+average of the party. `Party.WoundFraction` is the input; `Party.HealthFraction` (now pooled hit
+points rather than a mean of fractions) survives only for the HUD and the review.
+**Why:** found by an exploratory sweep, not by a failing feature test. Measured across every roster
+and every player policy, **the rate never once exceeded 4.1/s in a game whose curve is built to reach
+32/s**, and **a wipe out-earned every raid in which the party lived (106 against 91)** — the exact
+inversion SPEC.md forbids, present in the shipped build.
+The cause is structural. The tank carries 220 of the party's 500 hit points and, since damage began
+landing only on whoever is in melee reach, it soaks nearly everything. So it arrives at death's door
+with three untouched allies: the mean read 77%, pooled health read 63%, and the wound curve is a
+*fifth power* — it barely stirs above 60%. The party went from "fine" to "members dying" without ever
+passing through the badly-wounded band where the money is, and average health then *rose* as members
+died, because the average is over the living.
+Reading the worst survivor implements CLAUDE.md's own sentence — *"most of the money is in the last
+sliver of a health bar"*, one bar, not the mean of four — and it punishes killing exactly as intended:
+let the nearly-dead tank die and the reading leaps to whoever is next worst, usually somebody healthy,
+and the rate collapses.
+After the change: peak rate 4.1 → **37.2/s**, ambushed harvest 105 → **209**, and survival (193) beats
+the best wipe (179) again.
+**Rules out:** mean-of-fractions and pooled-HP as curve inputs. Both are unreachable while a tank
+soaks.
+**Wrong if:** parking one member at 5% and farming becomes the whole game. It should be hard — the
+healer prioritises the worst-off, so holding one bar on the edge means out-damaging the healer on a
+single target — but if it proves trivial, the fix is a floor on the multiplier's sensitivity, not a
+return to averaging.
+
+### Open balance question for the author — not fixed unilaterally
+
+The same sweep found **THE SKIRMISHERS and THE GLASS CANNONS cap at 4.1/s and harvest ~30**, against
+120–209 for the rest. They kill mobs so fast that income collapses to the idle 0.05/s, and the player
+can then no longer afford the 25 it costs to spawn anything — an income death spiral that ends the
+raid at 100% party health. Two honest readings: glass cannons are *supposed* to be poor customers, or
+a roster the player cannot profit from at all is a dead minute. The measurement came from a bot that
+only spams spawns and never uses traps or doors, so it is a floor rather than a verdict. Left for the
+author.
+
 ### Why the one prior generation run failed — do not rediscover this
 
 The 00:55 run on 2026-08-12 produced six warm-tan 32x32 props. Three independent causes, all

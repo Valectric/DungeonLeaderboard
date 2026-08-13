@@ -510,8 +510,11 @@ namespace Dungeon.RaidManager
         /// <summary>Applies the energy curve for this instant and banks the result.</summary>
         private void AccrueEnergy(float deltaTime)
         {
+            // The curve reads the party's WORST survivor, not its average. See Party.WoundFraction:
+            // no aggregate can reach the steep end of the curve while a tank soaks for everyone, and
+            // measured across every roster the rate never passed 4.1/s in a game built to reach 32.
             int engaged = Party.Goal == PartyGoal.Fighting ? Party.LivingCount : 0;
-            float target = EnergyCurve.Rate(engaged, Party.HealthFraction);
+            float target = EnergyCurve.Rate(engaged, Party.WoundFraction);
 
             CurrentRate = Mathf.Lerp(
                 CurrentRate, target, Mathf.Clamp01(deltaTime / RateEaseSeconds));
