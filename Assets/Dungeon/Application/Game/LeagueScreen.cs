@@ -90,16 +90,17 @@ namespace Dungeon.Game
             GUI.DrawTexture(line, Texture2D.whiteTexture);
             GUI.color = was;
 
-            // Set above the line, not below it: below, this label sat straight on top of row 19's
-            // score.
+            // Below the whole table, not beside the line. Every row is full width -- rank, name and
+            // score -- so anything placed level with the line lands on top of a score, whichever
+            // side of it you choose. Two attempts collided before this one.
             var warn = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(11 * scale),
-                alignment = TextAnchor.MiddleRight
+                fontSize = Mathf.RoundToInt(12 * scale),
+                alignment = TextAnchor.MiddleCenter
             };
             warn.normal.textColor = RelegationRed;
-            GUI.Label(new Rect(left, lineY - (rowHeight * 0.9f), width, rowHeight),
-                "BOTTOM TWO ARE DESTROYED", warn);
+            GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 0.1f)),
+                Screen.width, rowHeight), "BOTTOM TWO ARE DESTROYED", warn);
 
             var promptStyle = new GUIStyle(GUI.skin.label)
             {
@@ -108,7 +109,7 @@ namespace Dungeon.Game
                 alignment = TextAnchor.MiddleCenter
             };
             promptStyle.normal.textColor = PlayerGreen;
-            GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 0.8f)),
+            GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 1.2f)),
                 Screen.width, rowHeight * 1.4f), prompt, promptStyle);
         }
 
