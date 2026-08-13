@@ -151,16 +151,36 @@ namespace Dungeon.Game
         }
 
         /// <summary>Draws one item card.</summary>
+        /// <remarks>
+        /// The colours here were set by looking at a WebGL build, not by picking values that read
+        /// well in a swatch. The first pass drew the description in the same grey the standings use
+        /// and it was <b>completely invisible</b> on every affordable card: those cards rendered far
+        /// lighter than the numbers suggested, so grey-on-dark became grey-on-grey. The cards are
+        /// near-black now and the description is bright, which is legible whichever way the
+        /// compositing goes.
+        /// </remarks>
         private static void DrawCard(Shop shop, ShopItem item, Rect card, float scale)
         {
             bool affordable = shop.CanAfford(item);
             int owned = shop.Loadout.Count(item);
 
             Color was = GUI.color;
+
+            // An outline, drawn as a slightly larger rectangle behind the fill. Affordable cards get
+            // a violet edge so they read as pressable rather than as coloured panels.
             GUI.color = affordable
-                ? new Color(0.20f, 0.15f, 0.30f, 0.95f)
-                : new Color(0.12f, 0.10f, 0.16f, 0.95f);
+                ? new Color(0.42f, 0.24f, 0.55f, 1f)
+                : new Color(0.10f, 0.09f, 0.13f, 1f);
             GUI.DrawTexture(card, Texture2D.whiteTexture);
+
+            float inset = Mathf.Max(1f, 2f * scale);
+            GUI.color = affordable
+                ? new Color(0.045f, 0.035f, 0.085f, 1f)
+                : new Color(0.03f, 0.028f, 0.04f, 1f);
+            GUI.DrawTexture(
+                new Rect(card.x + inset, card.y + inset,
+                    card.width - (inset * 2f), card.height - (inset * 2f)),
+                Texture2D.whiteTexture);
             GUI.color = was;
 
             var name = new GUIStyle(GUI.skin.label)
@@ -168,7 +188,7 @@ namespace Dungeon.Game
                 fontSize = Mathf.RoundToInt(16 * scale),
                 fontStyle = FontStyle.Bold
             };
-            name.normal.textColor = affordable ? Ink : Dim;
+            name.normal.textColor = affordable ? Ink : new Color(0.34f, 0.32f, 0.40f);
             GUI.Label(new Rect(card.x + (10f * scale), card.y + (8f * scale),
                 card.width - (20f * scale), 24f * scale), NameOf(item), name);
 
@@ -177,7 +197,9 @@ namespace Dungeon.Game
                 fontSize = Mathf.RoundToInt(11 * scale),
                 wordWrap = true
             };
-            body.normal.textColor = Dim;
+            body.normal.textColor = affordable
+                ? new Color(0.68f, 0.64f, 0.78f)
+                : new Color(0.28f, 0.27f, 0.33f);
             GUI.Label(new Rect(card.x + (10f * scale), card.y + (30f * scale),
                 card.width - (20f * scale), 36f * scale), DescriptionOf(item), body);
 
@@ -186,7 +208,7 @@ namespace Dungeon.Game
                 fontSize = Mathf.RoundToInt(17 * scale),
                 fontStyle = FontStyle.Bold
             };
-            price.normal.textColor = affordable ? Gold : new Color(0.5f, 0.35f, 0.4f);
+            price.normal.textColor = affordable ? Gold : new Color(0.42f, 0.24f, 0.28f);
             GUI.Label(new Rect(card.x + (10f * scale), card.yMax - (28f * scale),
                     card.width - (20f * scale), 24f * scale),
                 shop.Price(item).ToString("0", CultureInfo.InvariantCulture), price);

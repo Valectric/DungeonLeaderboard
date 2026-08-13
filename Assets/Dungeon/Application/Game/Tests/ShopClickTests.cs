@@ -161,6 +161,57 @@ namespace Dungeon.Game.Tests
                 "the raid should have started richer by the bonus");
         }
 
+        /// <summary>
+        /// No decorative prop is ever drawn over something the player has to tap.
+        /// </summary>
+        /// <remarks>
+        /// Props draw above spawners and traps, so a prop sharing a cell hides it completely. A
+        /// bought slime pit landed on exactly a decoration spot and was invisible under a banner in
+        /// the shipped build -- paid for, present in the layout, tappable, and impossible to see.
+        /// Nothing in the model could catch that, because nothing in the model was wrong.
+        /// </remarks>
+        [Test]
+        public async UniTask NoPropIsDrawnOverSomethingTappable(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            // Buy enough of everything to push fittings into the decoration spots.
+            foreach (ShopItem item in ShopScreen.Items)
+            {
+                _game.TapShop(CardPoint(item));
+                _game.TapShop(CardPoint(item));
+            }
+
+            _game.TapShop(ReadyPoint());
+            await UniTask.Yield(ct);
+            await UniTask.Yield(ct);
+
+            var tappable = new System.Collections.Generic.HashSet<Vector2Int>();
+            DungeonManager.DungeonLayout layout = _game.CurrentRaid.Layout;
+            foreach (Vector2Int cell in layout.SpawnerCells) { tappable.Add(cell); }
+            foreach (Vector2Int cell in layout.TrapCells) { tappable.Add(cell); }
+            foreach (Vector2Int cell in layout.ChestCells) { tappable.Add(cell); }
+            foreach (DungeonManager.Door door in layout.Grid.Doors) { tappable.Add(door.Cell); }
+
+            int checkedProps = 0;
+            foreach (Transform child in _game.transform)
+            {
+                if (!child.name.StartsWith("prop_"))
+                {
+                    continue;
+                }
+
+                checkedProps++;
+                Vector2Int cell = DungeonView.WorldToCell(child.position);
+                Assert.IsFalse(tappable.Contains(cell),
+                    $"prop {child.name} sits on {cell}, hiding something the player must tap");
+            }
+
+            MooseRunnerFacade.Log($"checked {checkedProps} props against {tappable.Count} tappables");
+            Assert.Greater(checkedProps, 0, "the dungeon should have been decorated at all");
+        }
+
         /// <summary>Anything bought in the shop is standing in the dungeon the next party enters.</summary>
         [Test]
         public async UniTask PurchasesAppearInTheNextDungeon(CancellationToken ct)

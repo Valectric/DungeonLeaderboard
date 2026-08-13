@@ -283,6 +283,15 @@ namespace Dungeon.Game
         /// </remarks>
         private void Decorate(DungeonLayout layout)
         {
+            // Nothing decorative may land on something the player taps. Props draw above spawners
+            // and traps, so a prop sharing a cell hides it completely -- a bought slime pit went in
+            // at exactly a decoration spot and was invisible under a banner in the shipped build.
+            var occupied = new HashSet<Vector2Int>();
+            foreach (Vector2Int cell in layout.SpawnerCells) { occupied.Add(cell); }
+            foreach (Vector2Int cell in layout.TrapCells) { occupied.Add(cell); }
+            foreach (Vector2Int cell in layout.ChestCells) { occupied.Add(cell); }
+            foreach (Door door in layout.Grid.Doors) { occupied.Add(door.Cell); }
+
             for (int room = 0; room < layout.RoomCentres.Count; room++)
             {
                 Vector2Int centre = layout.RoomCentres[room];
@@ -295,7 +304,7 @@ namespace Dungeon.Game
                 for (int i = 0; i < spots.Length; i++)
                 {
                     Vector2Int cell = spots[i];
-                    if (layout.Grid.RoomAt(cell) != room)
+                    if (layout.Grid.RoomAt(cell) != room || occupied.Contains(cell))
                     {
                         continue;
                     }
