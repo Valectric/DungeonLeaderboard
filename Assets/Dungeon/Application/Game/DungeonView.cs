@@ -483,7 +483,9 @@ namespace Dungeon.Game
 
             if (kind == CellKind.Floor)
             {
-                return spread % 23 == 0 ? "floor-drain"
+                // The drain is a strong, dark, readable shape, so it has to stay rare -- at every
+                // 23rd cell a corridor sprouted six of them and they read as holes in the floor.
+                return spread % 41 == 0 ? "floor-drain"
                     : spread % 5 == 0 ? "floor-cracked"
                     : spread % 7 == 0 ? "floor-rubble"
                     : "floor-plain";
