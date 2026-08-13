@@ -1,88 +1,110 @@
 # Handover
 
-**State: foundation only. No game code exists yet, by design.**
+**State: Milestone 1 built and playable. The gate is open for the author to judge.**
 
-The project is set up, the toolchain is verified working, and the design is written down. The next
-session builds Milestone 1.
-
-Last updated: 2026-08-12.
+Last updated: 2026-08-13.
 
 ---
 
 ## Read these first, in this order
 
-1. **`SPEC.md`** — the author's design, verbatim. It is the authority on what this game is.
-2. **`CLAUDE.md`** — architecture, working loop, and the toolchain traps carried over from the
-   sister project (BackroomsDemo). Several of those cost a day each there. They are not
-   hypothetical.
-3. **`PLAN.md`** — milestone order, and what Milestone 1's gate actually gates.
-4. **`DECISIONS.md`** — D1–D5. Read before reversing anything.
+1. **`SPEC.md`** — the author's design, verbatim. The authority on what this game is.
+2. **`CLAUDE.md`** — architecture, working loop, and the toolchain traps. Several cost a day each in
+   the sister project, and the sprite-generation section now carries four more that were paid for
+   here.
+3. **`PLAN.md`** — milestone order.
+4. **`DECISIONS.md`** — D1–D7. Read before reversing anything.
 
 ---
 
-## What is done
+## What exists now
 
-- Unity **6000.3.17f1**, **2D URP** (Renderer2D), from the Hub's 2D template.
-- `Packages/manifest.json` → Valectric + OpenUPM scoped registries, **MooseRunner 2.2.5**, UniTask,
-  `com.unity.recorder`. All resolved.
-- **`mooserunnerCli ping` answers `PONG`.** The licence is active machine-wide; no UI step needed.
-- `TestingGuidelines.md` and `ArchitectureGuidelines.md` generated from this project's own CLI, and
-  `@`-imported by `CLAUDE.md`.
-- `.gitignore`, git repo, clean history.
-- `Assets/Dungeon/Editor/` — WebGL builder, sentinel poller, build assembly filter. `Dungeon.Editor`
-  deliberately references **nothing**, so it does not constrain how the game is structured.
-- **Publishing works end to end, short of an actual upload:**
-  - GitHub: <https://github.com/Valectric/DungeonLeaderboard> — public, MIT.
-  - itch.io: <https://norritt42.itch.io/dungeon-leaderboard> — page created.
-  - butler installed and logged in; `Tools/itch_target` holds
-    `norritt42/dungeon-leaderboard:html5`.
-  - Verified by contrast rather than assumed: `butler status` on the real target returns "No channel
-    html5 found" (game reachable, channel empty) while a bogus slug returns "invalid game (400)".
-    So auth and target are good and only a build is missing.
-  - `bash Tools/publish-itch.sh` is the whole deploy. **No CI, no `BUTLER_API_KEY` secret** — there
-    is no artifact branch for a runner to push from, and none is wanted.
+**The sixty seconds runs.** One corridor of three rooms, a party of four entering left, boss room
+right, a 60-second clock, and the three verbs wired to mouse clicks on dungeon elements.
 
-## What is deliberately NOT done
-
-- **No game code.** Not a line. The next session writes it.
-- **No scene.** `Assets/Scenes/SampleScene.unity` is the template's and is untouched.
-- **`Assets/Dungeon/Modules/*`** contains empty `.asmdef` files for five speculative modules
-  (DungeonManager, PartyManager, MobManager, RaidManager, UIManager) with no code in them. They were
-  scaffolded before the "foundation only" instruction landed and a delete was declined, so they are
-  still there. **Treat them as a suggestion, not a decision** — rename, restructure or delete them
-  freely. Nothing depends on them.
-- **No build has ever been uploaded.** The itch page has no files on it, so the link plays nothing
-  until Milestone 1 produces one.
-
----
-
-## First moves for the next session
-
-```bash
-cd C:/Users/JohanHoltby/Documents/GitHub/DungeonLeaderboard
-./MooseRunner/mooserunnerCli.exe ping          # expect PONG
+```
+Assets/Dungeon/
+  Application/Game/   GameController (raid loop, clicks, HUD), DungeonView (all rendering),
+                      Scenes/Raid.unity (generated -- never hand-edit), Tests/ (E2E + verb clicks)
+  Modules/
+    RaidManager/      EnergyCurve (the formula), Raid (clock, verbs, combat, end conditions)
+    DungeonManager/   DungeonGrid (cells, rooms, doors, BFS), DungeonLayout (the corridor)
+    PartyManager/     Adventurer (roles, wounds), Party (advance / fight / retreat AI)
+    MobManager/       Mob, MobPack (spawning and room-bounded pursuit)
+  Editor/             scene builder, WebGL builder, sentinel poller, pixel-art importer
 ```
 
-Then start Milestone 1 from `PLAN.md`. The one thing worth deciding before writing code:
+**43 tests green**, console clean: 31 unit, 5 E2E against the shipped scene, 7 driving the verbs
+through real screen coordinates.
 
-**Make the energy rate a pure C# function and test the curve, not just the total.** The rate is the
-entire game — `base × engagement × wound`, and the spec wants the last sliver of a health bar to be
-where most of the money is. In the sister project a *rate* bug survived a fully green suite: pathing,
-states and catching were each individually correct while the thing that actually mattered — how often
-the player met a monster — was measured by nothing. A test that asserts "energy went up" would pass
-with a flat curve and a ruined game.
-
-One trap that will bite immediately if it is not known: **a brand-new test `.asmdef` needs TWO
-`force-recompile` passes** before `test --assembly` finds it. The first reports "Assembly not found
-in loaded assemblies". That is normal, not a broken setup.
+**49 sprites**, all 64x64 at PPU 64 so one tile is one world unit. 38 were cut from the moodboard by
+`Tools/extract-moodboard.py`; 11 tiles were sliced from a generated atlas by `Tools/slice-tileset.py`.
+Both are deterministic and rerunnable.
 
 ---
 
-## Open questions for the author
+## Three bugs that a fully green suite did not catch
 
-- **Those empty module asmdefs** — keep as a starting structure, or delete? Deferred by the author,
-  not forgotten.
-- **itch page presentation** — the embed size is a guess until the game renders at a known
-  resolution, and the itch embed frame paints its own background (light grey `#e5e5e5` by default),
-  which looks broken around a dark game. Both are fixed under **Edit theme** on itch, not in the
-  build. Worth doing once there is something to look at.
+Worth reading before trusting any future green run. Each was found by looking at the game or the
+console, never by an assertion.
+
+1. **Every verb was dead.** The project runs the Input System package, so each legacy
+   `UnityEngine.Input` call threw once per frame. The E2E passed because it called
+   `raid.SpawnMob(...)` directly instead of clicking. A test that reaches past the input layer
+   cannot fail when the input layer is what broke. `VerbClickTests` now drives all three verbs
+   through `GameController.ClickAt` at real screen positions, and one test asserts the frame loop
+   logs nothing.
+2. **The game was unplayable from frame one.** Starting energy was zero, the cheapest verb cost 25,
+   and an idle party earns 0.05/s — five hundred seconds to afford the first action, inside a
+   sixty-second raid. Fixed by `Raid.StartingEnergy`; guarded by
+   `Player_CanAffordAVerb_OnTheFirstFrame`.
+3. **Mobs evaporated.** The party dealt 41 dps into a 90 hp skeleton, so a fight lasted 2.2 seconds
+   and a whole raid harvested 11.7 energy. Fight length is a *rate*, and rates are what this game is
+   made of. Guarded by `AFight_LastsLongEnoughToEarn`.
+
+---
+
+## Working loop
+
+```bash
+mooserunnerCli ping
+mooserunnerCli test --assembly Dungeon.RaidManager.Tests
+mooserunnerCli test --class Dungeon.Game.Tests RaidE2E        # E2E: --class, never --method
+mooserunnerCli console --types error,warning --count 50        # ALWAYS, green or not
+```
+
+Scene and build are driven by sentinels, and **`force-recompile` first, then touch** — the poller
+defers while the editor is in Play Mode, which is where every test run leaves it:
+
+```bash
+mooserunnerCli force-recompile && touch .dungeon-build-scene   # regenerate Raid.unity
+mooserunnerCli force-recompile && touch .dungeon-build-webgl   # build into Builds/
+bash Tools/publish-itch.sh                                     # push to itch
+```
+
+Set the Unity process affinity to ~4 cores before a WebGL build (`(Get-Process -Id <pid>).ProcessorAffinity = [IntPtr]0xF`)
+— IL2CPP's child compilers inherit it and stop exhausting Windows commit memory.
+
+---
+
+## What to do next
+
+**First, answer Milestone 1's gate: is stalling a party with doors for a full minute satisfying?**
+That is the author's judgement and nothing downstream rescues a bad answer. Everything below is on
+hold until it is answered yes.
+
+If yes, `PLAN.md` M2 is the league — and it is the 10-second hook, so it is what a jam voter sees
+first.
+
+Known rough edges, none blocking the gate:
+
+- **Rooms are bare.** Eight atmosphere props are already extracted and unused (`Resources/props/`:
+  candles, crystals, banner, books, noticeboard, chest). Scattering them is a cheap, large win.
+- **No animation yet.** The spec wants wounded state read from limping and panicking, and only the
+  three static wound sprites carry it today. The path is proven: `--command character` with an
+  extracted sprite as the master routes to the deterministic rig, which renders identical frames
+  from the same rig JSON. ImageGen never touches the party.
+- **The HUD is immediate-mode.** Chosen so a missing dynamic font cannot black out a WebGL build. It
+  works but looks nothing like the moodboard's HUD.
+- **`Assets/Art/` is committed now** — regenerating art overwrites tracked files, so check
+  `git status` after any rerun of the art tools.

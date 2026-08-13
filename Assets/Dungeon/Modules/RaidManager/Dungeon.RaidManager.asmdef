@@ -3,7 +3,8 @@
     "rootNamespace": "Dungeon.RaidManager",
     "references": [
         "Dungeon.DungeonManager",
-        "Dungeon.PartyManager"
+        "Dungeon.PartyManager",
+        "Dungeon.MobManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -67,3 +67,56 @@ remove the reason the game is interesting. Writing it down where it can be diffe
 visible.
 **Wrong if:** it ossifies — a spec that cannot be argued with is worse than none. Supersede it here,
 deliberately.
+
+## 2026-08-13 — D6. 64x64 pixel tiles, PPU 64
+
+**Decided:** the art grid is **64x64 pixels per tile**, imported at **64 pixels per unit**, so one
+tile is exactly one world unit.
+**Why:** the author asked for 64px tiles, and the moodboard turns out to agree — its sprites measure
+58-73px natively, so 64 is the grid the art was already drawn on. Making PPU equal the tile size is
+what lets the dungeon grid (D4) sit on integer world coordinates, which keeps "which room is this
+mob in" an integer lookup rather than a float comparison. That lookup is load-bearing for the
+retreat valve.
+**Follows from this:** a 1280x720 canvas shows 20 x 11.25 tiles, so the camera's orthographic size
+is `720 / 2 / 64` = **5.625**. `PixelArtImportPostprocessor` enforces the import side.
+**Rules out:** 32px tiles, which the sprite generator defaults to and which would have halved the
+moodboard art's detail for nothing.
+**Wrong if:** 64px sprites make the readable dungeon too small on a 720p WebGL canvas — the fix is
+the camera, not the art.
+
+## 2026-08-13 — D7. Moodboard extraction is the primary art path
+
+**Decided:** game art is **cut from `Assets/Art/referance/MoodBoard.png`** by
+`Tools/extract-moodboard.py` (38 sprites: party 4 roles x 3 wound states, 7 mobs, 3 doors,
+3 spawners, chest, 4 trap impacts, 8 props). **Sprite Studio is reserved for what the moodboard
+lacks** — chiefly the terrain tileset atlas, later animation frames via the deterministic rig.
+**Why:** extraction is deterministic, free, and on-style *by construction* — the moodboard is the
+style authority, so a cut from it cannot drift. It also already contains the three wound states the
+spec demands, drawn by the author. Generation is a non-deterministic agent run; using it where a
+deterministic cut works trades certainty for nothing.
+**Extracted sprites are also the best generation reference available** — better than the moodboard
+crops, because they are clean cutouts with real alpha, no UI chrome or typography, and are already
+at the 64px target so they anchor *scale* too. `Assets/Art/referance/style-stone.png` is that
+anchor. This follows the tool's own guidance that approved output beats a moodboard.
+**Rules out:** hand-drawing, fetching art from the web, and generating the character set.
+**Wrong if:** the moodboard runs out of coverage — then generate, but promote each approved result
+to a reference before generating the next thing.
+
+### Why the one prior generation run failed — do not rediscover this
+
+The 00:55 run on 2026-08-12 produced six warm-tan 32x32 props. Three independent causes, all
+driving errors rather than tool faults; the ImageGen master itself was clean, competent pixel art:
+
+1. **Wrong harness.** It used `--command pack`, so a tileset request was built by the pack harness
+   and landed as six separate files in `assets/props/`. The router sends a tileset to the terrain
+   harness, whose contract is *one atlas PNG, never one file per tile*.
+2. **No palette steering.** The palette string and the cropped references were created at 01:06 —
+   *after* that run. They had never been applied to anything.
+3. **The downscale destroyed pixel discipline, not ImageGen.** The master renders each tile at
+   ~330px of clean art; normalising 330 -> 32 with anything but exact integer nearest-neighbour
+   yields mush. Measured: **610-746 unique colours in a 32x32 image**, i.e. ~65% of pixels unique,
+   against the tool's own gate of "3-6 main colours plus outline and highlight".
+
+The practical consequence is that **normalisation is ours to own**: masters are kept under
+`.sprite-studio/imagegen-sources/`, so take the master and downscale it deliberately rather than
+accepting whatever the harness emitted. Verify with a unique-colour count, not by eye alone.

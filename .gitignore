@@ -70,3 +70,11 @@ crashlytics-build.properties
 # WebGL build output. The payload is published to itch.io by butler, never committed —
 # a 20MB build committed every deploy is what put 34 of them into a sister project's history.
 /Builds/
+
+# Windows reserved device name. A stray "2>nul" redirect in a bash shell creates a real
+# file called nul, which git cannot add ("invalid path") and which blocks every commit.
+nul
+
+# Python bytecode and run logs from the art tools in Tools/.
+__pycache__/
+Tools/*.log

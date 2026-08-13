@@ -1,7 +1,9 @@
 {
     "name": "Dungeon.Editor",
     "rootNamespace": "Dungeon.Editor",
-    "references": [],
+    "references": [
+        "Dungeon.Game"
+    ],
     "includePlatforms": [
         "Editor"
     ],

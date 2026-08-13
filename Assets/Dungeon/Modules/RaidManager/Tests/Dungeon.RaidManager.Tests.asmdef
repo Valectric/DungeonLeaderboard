@@ -5,6 +5,7 @@
         "Dungeon.RaidManager",
         "Dungeon.DungeonManager",
         "Dungeon.PartyManager",
+        "Dungeon.MobManager",
         "MooseRunner",
         "MooseRunner.helper",
         "UniTask",

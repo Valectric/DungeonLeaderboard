@@ -5,17 +5,19 @@ onward, and Milestone 1 carries a **gate** that can stop the whole project.
 
 ---
 
-## M0 — Project setup ▸ *in progress*
+## M0 — Project setup ▸ *done*
 
 - [x] Unity 6000.3.17f1, 2D URP project from the template
 - [x] `Packages/manifest.json` → Valectric + OpenUPM scoped registries, MooseRunner 2.2.5, UniTask,
       `com.unity.recorder`
 - [x] `.gitignore` (Unity + MooseRunner binaries + `Builds/` + recorder output), git repo, first commit
 - [x] `SPEC.md` recorded verbatim, `CLAUDE.md` written with the sister project's toolchain traps
-- [ ] MooseRunner resolved and `mooserunnerCli ping` answering
-- [ ] Doctrine files regenerated from the CLI
-- [ ] Module asmdefs scaffolded
-- [ ] WebGL builder + sentinel triggers + `Tools/publish-itch.sh`
+- [x] MooseRunner resolved and `mooserunnerCli ping` answering
+- [x] Doctrine files regenerated from the CLI
+- [x] Module asmdefs scaffolded
+- [x] WebGL builder + sentinel triggers + `Tools/publish-itch.sh`
+- [x] Pixel-art import rules (`PixelArtImportPostprocessor`, Point / uncompressed / PPU 64)
+- [x] 38 sprites extracted from the moodboard into `Assets/Art/Sprites/` — see D6/D7
 
 ---
 

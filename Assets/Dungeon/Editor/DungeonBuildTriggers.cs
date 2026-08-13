@@ -58,8 +58,7 @@ namespace Dungeon.Editor
             if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
 
             TryRun(BuildWebGL, DungeonWebGLBuilder.BuildWebGL);
-            TryRun(BuildScene, () => Debug.LogWarning(
-                "[Dungeon] .dungeon-build-scene fired, but there is no scene builder yet."));
+            TryRun(BuildScene, DungeonSceneBuilder.BuildScene);
         }
 
         /// <summary>

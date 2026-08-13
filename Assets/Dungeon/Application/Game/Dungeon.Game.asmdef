@@ -6,7 +6,8 @@
         "Dungeon.PartyManager",
         "Dungeon.MobManager",
         "Dungeon.RaidManager",
-        "Dungeon.UIManager"
+        "Dungeon.UIManager",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
