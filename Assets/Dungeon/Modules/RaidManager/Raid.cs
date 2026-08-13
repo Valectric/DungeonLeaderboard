@@ -119,6 +119,9 @@ namespace Dungeon.RaidManager
         public Raid(DungeonLayout layout, float bonusEnergy = 0f,
             PartyComposition composition = null)
         {
+            // Start already at the idle rate rather than easing up from zero, so the HUD opens on
+            // the true number instead of a fifth of a second of meaningless ramp.
+            CurrentRate = EnergyCurve.Rate(0, 1f);
             TotalEnergy = StartingEnergy + Mathf.Max(0f, bonusEnergy);
             Layout = layout;
             Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell, composition);
@@ -261,11 +264,30 @@ namespace Dungeon.RaidManager
             Party.DistributeDamage(Mobs.DamageOutputAgainst(Party.Cell) * deltaTime);
         }
 
+        /// <summary>
+        /// Seconds the rate takes to cover most of the distance to a new value.
+        /// </summary>
+        /// <remarks>
+        /// Engagement is binary -- a party is in combat or it is not -- so the raw curve steps
+        /// straight from the idle 0.05/s to 4/s or beyond the instant a fight begins. Measured, that
+        /// is a <b>4.03/s jump in a single frame</b>, and on screen the game's largest number simply
+        /// teleports. Easing it over a fifth of a second reads as the core spinning up.
+        /// <para>
+        /// Energy accrues at the eased rate, not the raw one, so the number on screen and the money
+        /// in the bank are the same number. A HUD that displayed one figure while paying another
+        /// would be a worse bug than the flicker.
+        /// </para>
+        /// </remarks>
+        public const float RateEaseSeconds = 0.22f;
+
         /// <summary>Applies the energy curve for this instant and banks the result.</summary>
         private void AccrueEnergy(float deltaTime)
         {
             int engaged = Party.Goal == PartyGoal.Fighting ? Party.LivingCount : 0;
-            CurrentRate = EnergyCurve.Rate(engaged, Party.HealthFraction);
+            float target = EnergyCurve.Rate(engaged, Party.HealthFraction);
+
+            CurrentRate = Mathf.Lerp(
+                CurrentRate, target, Mathf.Clamp01(deltaTime / RateEaseSeconds));
 
             float earned = CurrentRate * deltaTime;
             TotalEnergy += earned;

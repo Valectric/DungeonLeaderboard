@@ -39,13 +39,40 @@ namespace Dungeon.Game
         /// before it opens -- composition is the game's main source of variety, and finding out who
         /// was in the party only after killing them is not a decision.
         /// </param>
+        /// <summary>
+        /// Where the "press any key" prompt lands, so a test can check it is on screen.
+        /// </summary>
+        /// <remarks>
+        /// Shared with <see cref="Draw"/> rather than duplicated, so the two cannot drift. The line
+        /// that tells a player how to start the game is the one line the screen cannot afford to
+        /// lose, and it was lost once already when the next-party announcement was added.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="hasNextParty">Whether the party announcement is shown.</param>
+        /// <returns>The prompt's rectangle in GUI space.</returns>
+        public static Rect PromptRect(float scale, bool hasNextParty)
+        {
+            float rowHeight = 26f * scale;
+            float top = Mathf.Max(8f * scale,
+                (Screen.height - (rowHeight * (LeagueTable.Size + 7))) * 0.5f);
+            float listTop = top + (rowHeight * 2.6f);
+            float promptRow = LeagueTable.Size + 1.2f + (hasNextParty ? 1.9f : 0f);
+            return new Rect(0f, listTop + (rowHeight * promptRow), Screen.width, rowHeight * 1.4f);
+        }
+
         public static void Draw(LeagueTable league, float scale, float shift, string prompt,
             PartyManager.PartyComposition nextParty = null)
         {
             float width = Mathf.Min(Screen.width * 0.9f, 620f * scale);
             float left = (Screen.width - width) * 0.5f;
             float rowHeight = 26f * scale;
-            float top = Mathf.Max(12f * scale, (Screen.height - (rowHeight * (LeagueTable.Size + 4))) * 0.5f);
+
+            // Twenty rows plus the title, the relegation warning, the next-party announcement and
+            // the prompt. Budgeting for four spare rows instead of seven pushed the prompt clean off
+            // the bottom of a 960x600 canvas the moment the announcement was added -- the standings
+            // still looked fine, and the line telling the player how to start the game was gone.
+            float top = Mathf.Max(8f * scale,
+                (Screen.height - (rowHeight * (LeagueTable.Size + 7))) * 0.5f);
 
             // Darken the dungeon behind. It should still be visible -- the standings sit over the
             // player's own dungeon, which is the joke -- but at full brightness the torchlight and
@@ -131,7 +158,6 @@ namespace Dungeon.Game
                 GUI.Label(new Rect(0f, listTop + (rowHeight * (promptRow + 0.85f)),
                     Screen.width, rowHeight), nextParty.Warning, warnStyle);
 
-                promptRow += 1.9f;
             }
 
             var promptStyle = new GUIStyle(GUI.skin.label)
@@ -141,8 +167,7 @@ namespace Dungeon.Game
                 alignment = TextAnchor.MiddleCenter
             };
             promptStyle.normal.textColor = PlayerGreen;
-            GUI.Label(new Rect(0f, listTop + (rowHeight * promptRow),
-                Screen.width, rowHeight * 1.4f), prompt, promptStyle);
+            GUI.Label(PromptRect(scale, nextParty != null), prompt, promptStyle);
         }
 
         /// <summary>Draws one standings row.</summary>

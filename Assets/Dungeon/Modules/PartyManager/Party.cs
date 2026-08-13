@@ -45,6 +45,21 @@ namespace Dungeon.PartyManager
         public const float RecoverThreshold = 0.62f;
 
         /// <summary>
+        /// Seconds a party stays in combat after the last threat leaves its room.
+        /// </summary>
+        /// <remarks>
+        /// Engagement decides the energy rate, and without this it is a knife edge: a mob shuffling
+        /// across a room threshold, or a moment's gap between one dying and the next arriving, flips
+        /// the party out of combat for a frame and drops the rate from about 4/s to 0.05/s and back.
+        /// The player sees the game's most important number snapping through its whole range.
+        /// <para>
+        /// It is also honest about what is happening -- a party that has just killed something is
+        /// still braced, weapons out, and not walking on.
+        /// </para>
+        /// </remarks>
+        public const float CombatGrace = 1.4f;
+
+        /// <summary>
         /// Cells walked per second while advancing.
         /// </summary>
         /// <remarks>
@@ -110,6 +125,7 @@ namespace Dungeon.PartyManager
         private float _mana;
         private float _healCooldown;
         private float _lootProgress;
+        private float _combatGraceLeft;
 
         /// <summary>Every member, alive or dead, in spawn order.</summary>
         public IReadOnlyList<Adventurer> Members => _members;
@@ -242,7 +258,7 @@ namespace Dungeon.PartyManager
             }
 
             HealWounded(deltaTime);
-            ChooseGoal(threats.Count);
+            ChooseGoal(threats.Count, deltaTime);
 
             var living = Living.ToList();
             Adventurer leader = living[0];
@@ -514,9 +530,17 @@ namespace Dungeon.PartyManager
         }
 
         /// <summary>Picks a goal from the party's health and what is in the room with it.</summary>
-        private void ChooseGoal(int threatsInRoom)
+        /// <param name="threatsInRoom">Living mobs the party can see.</param>
+        /// <param name="deltaTime">Seconds since the last tick, for the combat grace timer.</param>
+        private void ChooseGoal(int threatsInRoom, float deltaTime)
         {
             float health = HealthFraction;
+
+            // Reset on sight, decay when nothing is there. Everything below asks whether the party is
+            // still braced rather than whether a monster exists this exact frame.
+            _combatGraceLeft = threatsInRoom > 0
+                ? CombatGrace
+                : Mathf.Max(0f, _combatGraceLeft - deltaTime);
 
             if (Goal == PartyGoal.Retreating)
             {
@@ -536,7 +560,7 @@ namespace Dungeon.PartyManager
                 return;
             }
 
-            Goal = threatsInRoom > 0 ? PartyGoal.Fighting : PartyGoal.Advancing;
+            Goal = _combatGraceLeft > 0f ? PartyGoal.Fighting : PartyGoal.Advancing;
         }
 
         /// <summary>

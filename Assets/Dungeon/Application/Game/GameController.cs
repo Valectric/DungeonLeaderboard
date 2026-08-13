@@ -126,6 +126,12 @@ namespace Dungeon.Game
             // rather than the player opening on an empty void.
             StartRaid();
             _phase = Phase.Standings;
+
+            // That raid is scenery and is thrown away the moment the player presses a key -- but it
+            // consumed the opening party on its way past, so the first party the player actually
+            // faced was a random one. The title screen announced THE SKIRMISHERS, a roster with no
+            // tank, as the first thing a new player would ever meet. Put the balanced party back.
+            _nextParty = PartyComposition.Opening;
         }
 
         /// <summary>
