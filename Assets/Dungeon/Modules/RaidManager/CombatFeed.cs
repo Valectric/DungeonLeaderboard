@@ -18,15 +18,28 @@ namespace Dungeon.RaidManager
         /// <summary>Seconds since it appeared.</summary>
         public float Age { get; private set; }
 
+        /// <summary>
+        /// Sideways offset in cells, so consecutive numbers do not stack into one column.
+        /// </summary>
+        /// <remarks>
+        /// Everything a monster takes originates from the same point, so without this the numbers
+        /// pile straight up on top of each other and the result is an unreadable clump rather than
+        /// legible hits. Assigned in rotating lanes rather than randomly, so a replayed seed shows
+        /// the identical picture.
+        /// </remarks>
+        public float Spread { get; }
+
         /// <summary>Creates a number at a position.</summary>
         /// <param name="origin">Where it appeared.</param>
         /// <param name="amount">How much.</param>
         /// <param name="isHeal">True for healing.</param>
-        public CombatNumber(Vector2 origin, int amount, bool isHeal)
+        /// <param name="spread">Sideways offset in cells.</param>
+        public CombatNumber(Vector2 origin, int amount, bool isHeal, float spread)
         {
             Origin = origin;
             Amount = amount;
             IsHeal = isHeal;
+            Spread = spread;
         }
 
         /// <summary>Ages the number.</summary>
@@ -50,14 +63,42 @@ namespace Dungeon.RaidManager
     /// </remarks>
     public sealed class CombatFeed
     {
-        /// <summary>Damage that must accumulate before a number is shown.</summary>
-        public const float DamageThreshold = 6f;
+        /// <summary>
+        /// Damage that must accumulate before a number is shown.
+        /// </summary>
+        /// <remarks>
+        /// Sized against the party's 20 dps, which at a threshold of 6 produced a number three times
+        /// a second and a solid unreadable column of them. At 14 a fight pops about twice a second,
+        /// which reads as blows landing.
+        /// </remarks>
+        public const float DamageThreshold = 14f;
 
         /// <summary>Seconds a number stays on screen.</summary>
         public const float Lifetime = 1.1f;
 
+        /// <summary>
+        /// How many lanes numbers are spread across, and how far apart they sit.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately narrow: the whole spread is about one number's width either side of the
+        /// source, which is enough to stop consecutive hits overlapping without scattering them so
+        /// far that it stops being obvious what they came off. At 0.26 they drifted a half-cell out
+        /// and read as belonging to whatever they had wandered over.
+        /// </remarks>
+        private const int Lanes = 5;
+        private const float LaneWidth = 0.16f;
+
         private readonly List<CombatNumber> _numbers = new();
         private readonly Dictionary<object, float> _pending = new();
+        private int _released;
+
+        /// <summary>Next lane offset, rotating so consecutive numbers never overlap.</summary>
+        private float NextSpread()
+        {
+            float lane = ((_released % Lanes) - ((Lanes - 1) * 0.5f)) * LaneWidth;
+            _released++;
+            return lane;
+        }
 
         /// <summary>Numbers currently floating.</summary>
         public IReadOnlyList<CombatNumber> Numbers => _numbers;
@@ -83,7 +124,7 @@ namespace Dungeon.RaidManager
             }
 
             _pending[source] = 0f;
-            _numbers.Add(new CombatNumber(position, Mathf.RoundToInt(total), false));
+            _numbers.Add(new CombatNumber(position, Mathf.RoundToInt(total), false, NextSpread()));
         }
 
         /// <summary>Adds a heal, which is always a single discrete cast and shows immediately.</summary>
@@ -93,7 +134,8 @@ namespace Dungeon.RaidManager
         {
             if (amount > 0f)
             {
-                _numbers.Add(new CombatNumber(position, Mathf.RoundToInt(amount), true));
+                _numbers.Add(new CombatNumber(
+                    position, Mathf.RoundToInt(amount), true, NextSpread()));
             }
         }
 

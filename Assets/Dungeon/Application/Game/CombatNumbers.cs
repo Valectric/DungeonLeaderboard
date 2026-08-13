@@ -24,8 +24,26 @@ namespace Dungeon.Game
     /// </remarks>
     public static class CombatNumbers
     {
-        /// <summary>How far a number drifts upward over its life, in world units.</summary>
-        private const float Rise = 0.85f;
+        /// <summary>How far a number travels upward over its life, in world units.</summary>
+        private const float Rise = 1.35f;
+
+        /// <summary>How far a number fans sideways as it rises, on top of its lane offset.</summary>
+        /// <remarks>
+        /// A hint of separation, not a scatter. Combined with the lane offsets the total spread stays
+        /// within about one number's width either side of whatever is bleeding, so a hit always
+        /// clearly belongs to the thing it came off.
+        /// </remarks>
+        private const float Drift = 0.12f;
+
+        /// <summary>How much larger a number is at the instant it appears.</summary>
+        /// <remarks>
+        /// The punch is what catches the eye. A number that simply fades in at its final size is easy
+        /// to miss entirely in a busy room, which was the whole complaint.
+        /// </remarks>
+        private const float PopScale = 1.7f;
+
+        /// <summary>Fraction of a number's life spent shrinking back from the pop.</summary>
+        private const float PopFraction = 0.22f;
 
         private static readonly Color Damage = new(1f, 0.32f, 0.30f);
         private static readonly Color Healing = new(0.45f, 1f, 0.45f);
@@ -47,9 +65,16 @@ namespace Dungeon.Game
             {
                 float life = Mathf.Clamp01(number.Age / CombatFeed.Lifetime);
 
+                // Leaps, then hangs. An ease-out rise reads as something being knocked loose; a
+                // linear drift reads as a label sliding, which is what this looked like before.
+                float climb = 1f - ((1f - life) * (1f - life));
+
+                // Fans outward as it goes, so a burst of hits opens into a spray instead of a stack.
+                float sideways = number.Spread * (1f + (Drift * life));
+
                 var world = new Vector3(
-                    number.Origin.x * DungeonView.CellSize,
-                    (number.Origin.y * DungeonView.CellSize) + 0.4f + (Rise * life),
+                    (number.Origin.x + sideways) * DungeonView.CellSize,
+                    (number.Origin.y * DungeonView.CellSize) + 0.4f + (Rise * climb),
                     0f);
 
                 Vector3 point = camera.WorldToScreenPoint(world);
@@ -61,8 +86,22 @@ namespace Dungeon.Game
                 // A number scales with the camera, so it stays the same size on the dungeon whatever
                 // the player has zoomed to. Fixed-size text would be a shout when zoomed in and
                 // unreadable when zoomed out.
+                // Sized against the sprites rather than the screen. At 0.42 the numbers were taller
+                // than the adventurers they were coming off.
                 float zoom = Screen.height / (camera.orthographicSize * 2f);
-                int size = Mathf.Clamp(Mathf.RoundToInt(zoom * 0.42f), 9, 46);
+                float baseSize = zoom * 0.30f;
+
+                // A big hit is a bigger number. Free information: the player learns which of their
+                // verbs actually hurt without reading anything.
+                baseSize *= 1f + Mathf.Clamp01(number.Amount / 60f) * 0.45f;
+
+                // The pop: oversized for the first fifth of its life, settling to normal. This is
+                // what makes a hit catch the eye in a busy room.
+                float pop = life < PopFraction
+                    ? Mathf.Lerp(PopScale, 1f, life / PopFraction)
+                    : 1f;
+
+                int size = Mathf.Clamp(Mathf.RoundToInt(baseSize * pop), 9, 44);
 
                 var style = new GUIStyle(GUI.skin.label)
                 {
