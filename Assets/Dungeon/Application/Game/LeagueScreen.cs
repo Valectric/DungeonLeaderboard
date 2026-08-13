@@ -41,6 +41,14 @@ namespace Dungeon.Game
             float rowHeight = 26f * scale;
             float top = Mathf.Max(12f * scale, (Screen.height - (rowHeight * (LeagueTable.Size + 4))) * 0.5f);
 
+            // Darken the dungeon behind. It should still be visible -- the standings sit over the
+            // player's own dungeon, which is the joke -- but at full brightness the torchlight and
+            // masonry compete with twenty rows of small text and the board stops being readable.
+            Color previous = GUI.color;
+            GUI.color = new Color(0.06f, 0.05f, 0.09f, 0.82f);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = previous;
+
             var title = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(30 * scale),
@@ -82,13 +90,15 @@ namespace Dungeon.Game
             GUI.DrawTexture(line, Texture2D.whiteTexture);
             GUI.color = was;
 
+            // Set above the line, not below it: below, this label sat straight on top of row 19's
+            // score.
             var warn = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(12 * scale),
-                alignment = TextAnchor.UpperRight
+                fontSize = Mathf.RoundToInt(11 * scale),
+                alignment = TextAnchor.MiddleRight
             };
             warn.normal.textColor = RelegationRed;
-            GUI.Label(new Rect(left, lineY + (2f * scale), width, rowHeight),
+            GUI.Label(new Rect(left, lineY - (rowHeight * 0.9f), width, rowHeight),
                 "BOTTOM TWO ARE DESTROYED", warn);
 
             var promptStyle = new GUIStyle(GUI.skin.label)
@@ -189,7 +199,7 @@ namespace Dungeon.Game
         /// <summary>Shortens a name so the strip cannot overflow its column.</summary>
         private static string Trim(string value, int length)
         {
-            return value.Length <= length ? value : value[..(length - 1)] + "…";
+            return value.Length <= length ? value : value[..(length - 2)] + "..";
         }
     }
 }

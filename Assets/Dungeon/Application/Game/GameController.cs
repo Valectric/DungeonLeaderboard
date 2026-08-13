@@ -525,8 +525,8 @@ namespace Dungeon.Game
                 string prompt = _phase == Phase.Destroyed
                     ? $"YOUR DUNGEON COLLAPSED IN {Ordinal(_finalPosition)}.  PRESS ANY KEY TO BEGIN AGAIN"
                     : _league.Round == 0
-                        ? "PRESS ANY KEY — THE FIRST PARTY ENTERS"
-                        : "PRESS ANY KEY — THE NEXT PARTY ENTERS";
+                        ? "PRESS ANY KEY  -  THE FIRST PARTY ENTERS"
+                        : "PRESS ANY KEY  -  THE NEXT PARTY ENTERS";
 
                 LeagueScreen.Draw(_league, scale, _shift, prompt);
                 return;
@@ -583,8 +583,8 @@ namespace Dungeon.Game
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
 
             GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
-                "TAP A DOOR TO STALL  ·  A SPAWNER TO AMBUSH  ·  A TRAP TO WOUND"
-                + "  ·  SCROLL OR PINCH TO ZOOM  ·  RIGHT-DRAG OR TWO FINGERS TO MOVE",
+                "TAP A DOOR TO STALL   /   A SPAWNER TO AMBUSH   /   A TRAP TO WOUND"
+                + "   /   SCROLL OR PINCH TO ZOOM   /   RIGHT-DRAG OR TWO FINGERS TO MOVE",
                 caption);
 
         }
