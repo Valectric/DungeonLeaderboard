@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 520f0b3f0bb6f8d49802ed7b47593cee
+guid: d448e51c12efeba49b5572ef8cd96d23
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4336302111185404966
-    second: corner-tr_0
+      213: 8340366444989249998
+    second: floor-drain_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -126,7 +126,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: corner-tr_0
+      name: floor-drain_0
       rect:
         serializedVersion: 2
         x: 0
@@ -141,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: adb7400643c52d3c0800000000000000
-      internalID: -4336302111185404966
+      spriteID: ec9fb22b71feeb370800000000000000
+      internalID: 8340366444989249998
       vertices: []
       indices: 
       edges: []

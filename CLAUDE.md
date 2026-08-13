@@ -277,6 +277,25 @@ the flags you typed.
 - `inferred preset` may read oddly (e.g. `inventory prop`) even when routing is correct. Harmless
   **provided** `--width/--height/--frames/--fps` are all given explicitly, since the harness brief
   outranks the preset. Do not rely on preset defaults.
+- **`--command pack` ignores `--width/--height`.** Its composed prompt carries no
+  `logical canvas:` line at all, and the agent picks a size from the style presets regardless —
+  asking for 64 produced 32. Plan on an exact **x2 nearest-neighbour upscale** rather than fighting
+  it; a non-integer resample would soften exactly what point filtering preserves.
+- **A pack writes to `worktrees/<slug>/assets/`, not the workspace root.** The agent's own summary
+  says `assets/props/...` and it is wrong. Enumerate the filesystem, as always.
+
+### Attach the reference that shows the thing you are asking for
+
+Obvious in hindsight, and the single biggest cause of bad output here. A tile request that attached
+only the palette swatches and a strip of **objects** came back flat: 2-4 colours, floor and wall the
+same value, no relief — because nothing in the run showed what a floor or a wall was meant to look
+like. Re-running with `style-tiles.png` (the moodboard's own TILE / ROOM EXAMPLES strip) attached as
+`art_style` produced 7-12 colours, a 0-133 luminance range, and walls twice as bright as floors.
+
+Also **describe the value structure explicitly**, because it is what carries the style: "light
+blue-grey blocks with a pale top-edge highlight and near-black shadow beneath, against a much darker
+floor". And never ask for "flat colour blocks" or "a compact palette" unless flat is genuinely what
+is wanted — that phrasing alone produced the 2-colour tiles.
 
 ### Traps — read before first use
 

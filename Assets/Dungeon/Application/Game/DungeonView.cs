@@ -103,6 +103,54 @@ namespace Dungeon.Game
             "props/candle-skull", "props/books", "props/crystals-large"
         };
 
+        /// <summary>Warm light for flame props; cold arcane light for crystals.</summary>
+        private static readonly Color Candlelight = new(1f, 0.55f, 0.18f, 0.30f);
+
+        /// <summary>Colour of the glow cast by crystal props.</summary>
+        private static readonly Color ArcaneLight = new(0.84f, 0.32f, 0.86f, 0.26f);
+
+        private Sprite _glow;
+
+        /// <summary>
+        /// Builds the soft radial sprite used for light pools, once.
+        /// </summary>
+        /// <remarks>
+        /// Generated in code rather than imported, and drawn with the SpriteRenderer's own default
+        /// material. Reaching for <c>Shader.Find</c> here would be the obvious move and the wrong
+        /// one: shaders found that way are stripped from a player build unless registered in
+        /// Graphics Settings, and the game then renders magenta.
+        /// </remarks>
+        private Sprite Glow()
+        {
+            if (_glow != null)
+            {
+                return _glow;
+            }
+
+            const int size = 64;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            float centre = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float distance = Vector2.Distance(new Vector2(x, y), new Vector2(centre, centre));
+                    // Squared falloff reads as light rather than as a flat disc with a hard rim.
+                    float fade = Mathf.Clamp01(1f - (distance / centre));
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, fade * fade));
+                }
+            }
+
+            texture.Apply();
+            _glow = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
+            return _glow;
+        }
+
         /// <summary>
         /// Scatters atmosphere props around the edges of each room.
         /// </summary>
@@ -133,6 +181,26 @@ namespace Dungeon.Game
 
                     string prop = Decorations[((room * 2) + i) % Decorations.Length];
                     Make($"prop_{room}_{i}", prop, CellToWorld(cell, 7f), 4);
+
+                    // A pool of light under anything that burns or glows. This is most of what
+                    // makes the moodboard's rooms read: its torchlit panels spike to 212-252
+                    // luminance against a floor sitting near 11, and flat tiles alone cannot
+                    // produce that range.
+                    bool flame = prop.Contains("lantern") || prop.Contains("candle");
+                    bool arcane = prop.Contains("crystal");
+                    if (!flame && !arcane)
+                    {
+                        continue;
+                    }
+
+                    var light = new GameObject($"glow_{room}_{i}");
+                    light.transform.SetParent(_root, false);
+                    light.transform.position = CellToWorld(cell, 8f);
+                    light.transform.localScale = Vector3.one * (flame ? 4.6f : 3.8f);
+                    var renderer = light.AddComponent<SpriteRenderer>();
+                    renderer.sprite = Glow();
+                    renderer.color = flame ? Candlelight : ArcaneLight;
+                    renderer.sortingOrder = 3;
                 }
             }
         }
@@ -233,10 +301,26 @@ namespace Dungeon.Game
             }
         }
 
-        /// <summary>Chooses the tile art for a cell from its kind and its neighbours.</summary>
+        /// <summary>
+        /// Chooses the tile art for a cell.
+        /// </summary>
+        /// <remarks>
+        /// There is deliberately no edge or corner logic. Viewed from directly overhead a masonry
+        /// wall looks the same on every side, so one wall tile covers every orientation -- which is
+        /// also why this set cannot suffer the corner mismatches the previous, atlas-sliced set had.
+        /// <para>
+        /// Variant choice is a hash of the cell, never <see cref="Random"/>: a random pick would
+        /// shimmer between frames and differ between a test, a screenshot and the shipped build.
+        /// </para>
+        /// </remarks>
+        /// <param name="grid">Dungeon being drawn.</param>
+        /// <param name="cell">Cell to choose art for.</param>
+        /// <returns>A sprite name under <c>tiles/</c>, or null to leave the cell empty.</returns>
         private static string TileFor(DungeonGrid grid, Vector2Int cell)
         {
             CellKind kind = grid.KindAt(cell);
+            int spread = (cell.x * 7) + (cell.y * 13);
+
             if (kind == CellKind.Doorway)
             {
                 return "floor-plain";
@@ -244,26 +328,17 @@ namespace Dungeon.Game
 
             if (kind == CellKind.Floor)
             {
-                // A cheap deterministic scatter of variants. Random would shimmer between frames and
-                // differ between a test and the build; this stays put.
-                int hash = (cell.x * 7) + (cell.y * 13);
-                return hash % 5 == 0 ? "floor-cracked" : hash % 7 == 0 ? "floor-rubble" : "floor-plain";
+                return spread % 23 == 0 ? "floor-drain"
+                    : spread % 5 == 0 ? "floor-cracked"
+                    : spread % 7 == 0 ? "floor-rubble"
+                    : "floor-plain";
             }
 
-            bool floorBelow = grid.KindAt(cell + Vector2Int.down) != CellKind.Wall;
-            bool floorAbove = grid.KindAt(cell + Vector2Int.up) != CellKind.Wall;
-            bool floorLeft = grid.KindAt(cell + Vector2Int.left) != CellKind.Wall;
-            bool floorRight = grid.KindAt(cell + Vector2Int.right) != CellKind.Wall;
-
-            if (floorBelow && floorRight) return "corner-tl";
-            if (floorBelow && floorLeft) return "corner-tr";
-            if (floorAbove && floorRight) return "corner-bl";
-            if (floorAbove && floorLeft) return "corner-br";
-            if (floorBelow) return "wall-top";
-            if (floorAbove) return "wall-bottom";
-            if (floorRight) return "wall-left";
-            if (floorLeft) return "wall-right";
-            return null;
+            // Every wall cell is drawn, with no "does it border floor" shortcut. That optimisation
+            // left unpainted black columns between rooms -- the masonry either side of a doorway
+            // read as a hole straight through the dungeon. The whole grid is around 130 cells, so
+            // the saving was never worth the failure mode.
+            return spread % 11 == 0 ? "wall-moss" : "wall";
         }
 
         /// <summary>Lowercase role name used in sprite paths.</summary>

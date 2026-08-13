@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: a26e827005d16af43bf8b2dc4fe85ee7
+guid: 882768b443fface47bffc20c94ff1c30
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 803949111627562348
-    second: wall-right_0
+      213: 2894897856790564996
+    second: wall-moss_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -126,7 +126,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: wall-right_0
+      name: wall-moss_0
       rect:
         serializedVersion: 2
         x: 0
@@ -141,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: c6d3d002573382b00800000000000000
-      internalID: 803949111627562348
+      spriteID: 4809a0f434ebc2820800000000000000
+      internalID: 2894897856790564996
       vertices: []
       indices: 
       edges: []
