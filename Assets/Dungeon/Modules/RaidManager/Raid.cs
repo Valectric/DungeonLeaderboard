@@ -129,7 +129,7 @@ namespace Dungeon.RaidManager
             int threats = Mobs.CountInRoom(partyRoom);
 
             ResolveCombat(deltaTime, threats);
-            Mobs.Tick(deltaTime, Party.Cell);
+            Mobs.Tick(deltaTime, Party.Position);
             Party.Tick(deltaTime, Mobs.CountInRoom(Layout.Grid.RoomAt(Party.Cell)));
 
             AccrueEnergy(deltaTime);

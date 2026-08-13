@@ -255,19 +255,20 @@ namespace Dungeon.Game
                 }
 
                 view.enabled = true;
-                // Fan the four members out inside the cell so they read as a party rather than one
-                // sprite. Purely presentational -- the simulation keeps them on a single cell.
-                var offset = new Vector3(((i % 2) - 0.5f) * 0.42f, ((i / 2) - 0.5f) * 0.34f, 0f);
 
-                // The bob and lean are how a player reads how hurt someone is, since the spec
-                // forbids ever showing a number. Phase is per-member so the four do not march in
-                // lockstep like one object.
+                // Drawn straight from the simulation's continuous position -- the party genuinely
+                // occupies a column of the corridor in marching order, so no cosmetic fan-out is
+                // needed to make four sprites look like four people.
                 (float lift, float tilt) = SpriteMotion.ForAdventurer(
                     party.Goal, member.Wounds, _time, i * 1.7f);
-                view.transform.position = CellToWorld(member.Cell, -1f) + offset + (Vector3.up * lift);
+                view.transform.position =
+                    new Vector3(member.Position.x * CellSize, (member.Position.y * CellSize) + lift, -1f);
                 view.transform.rotation = Quaternion.Euler(0f, 0f, tilt);
                 view.sprite = Load($"party/{RoleName(member.Role)}-{StateName(member.Wounds)}");
-                view.sortingOrder = 20 + i;
+
+                // Whoever is lower on screen draws in front, so the party overlaps believably as it
+                // rounds a corner instead of the back rank punching through the front.
+                view.sortingOrder = 20 - Mathf.RoundToInt(member.Position.y * 4f);
             }
         }
 
@@ -295,9 +296,12 @@ namespace Dungeon.Game
 
                 bool engaged = grid.RoomAt(mob.Cell) == partyRoom;
                 float lift = SpriteMotion.ForMob(engaged, _time, i * 0.9f);
-                view.transform.position =
-                    CellToWorld(mob.Cell, -1f) + new Vector3(0f, 0.1f + lift, 0f);
+                view.transform.position = new Vector3(
+                    mob.Position.x * CellSize,
+                    (mob.Position.y * CellSize) + 0.1f + lift,
+                    -1f);
                 view.sprite = Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
+                view.sortingOrder = 15 - Mathf.RoundToInt(mob.Position.y * 4f);
             }
         }
 

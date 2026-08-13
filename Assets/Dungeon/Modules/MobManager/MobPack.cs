@@ -28,8 +28,11 @@ namespace Dungeon.MobManager
         /// <summary>Room this mob will never leave.</summary>
         public int HomeRoom { get; }
 
-        /// <summary>Current cell.</summary>
-        public Vector2Int Cell { get; set; }
+        /// <summary>Continuous position in grid units, so a mob can stand between cells.</summary>
+        public Vector2 Position { get; set; }
+
+        /// <summary>Grid cell this mob currently stands in.</summary>
+        public Vector2Int Cell => new(Mathf.RoundToInt(Position.x), Mathf.RoundToInt(Position.y));
 
         /// <summary>Damage dealt per second while in contact with the party.</summary>
         public float DamagePerSecond { get; }
@@ -44,7 +47,7 @@ namespace Dungeon.MobManager
         public Mob(MobKind kind, Vector2Int cell, int homeRoom)
         {
             Kind = kind;
-            Cell = cell;
+            Position = cell;
             HomeRoom = homeRoom;
             // Sized against the party's 20 dps so a slime holds them ~6s and a skeleton ~13s. Mobs
             // exist to keep the party standing still and bleeding, not to kill it, so health matters
@@ -81,7 +84,6 @@ namespace Dungeon.MobManager
     {
         private readonly List<Mob> _mobs = new();
         private readonly DungeonGrid _grid;
-        private float _stepTimer;
 
         /// <summary>Cells a mob shuffles per second while closing on the party.</summary>
         public const float ChaseSpeed = 1.9f;
@@ -126,21 +128,30 @@ namespace Dungeon.MobManager
             return Living.Count(m => _grid.RoomAt(m.Cell) == room);
         }
 
+        /// <summary>How close a mob closes before it stops, so it fights beside the party not on it.</summary>
+        public const float ContactRange = 0.85f;
+
+        /// <summary>How close two mobs may stand before they shoulder each other apart.</summary>
+        public const float MobSpacing = 0.7f;
+
         /// <summary>
-        /// Moves every mob one step toward the party, but only within its own room.
+        /// Moves every mob toward the party, but only within its own room.
         /// </summary>
         /// <param name="deltaTime">Seconds since the last tick.</param>
-        /// <param name="partyCell">Where the party currently stands.</param>
-        public void Tick(float deltaTime, Vector2Int partyCell)
+        /// <param name="partyPosition">Where the party's leader currently stands.</param>
+        public void Tick(float deltaTime, Vector2 partyPosition)
         {
-            _stepTimer += deltaTime * ChaseSpeed;
-            if (_stepTimer < 1f)
-            {
-                return;
-            }
-
-            _stepTimer -= 1f;
+            var partyCell = new Vector2Int(
+                Mathf.RoundToInt(partyPosition.x), Mathf.RoundToInt(partyPosition.y));
             int partyRoom = _grid.RoomAt(partyCell);
+
+            // Separation runs for every mob, including those the party has left behind. Gating it on
+            // the party's room meant two mobs spawned from the same spawner stayed welded together
+            // until the party happened to arrive.
+            foreach (Mob mob in Living)
+            {
+                Separate(mob, deltaTime);
+            }
 
             foreach (Mob mob in Living)
             {
@@ -152,19 +163,51 @@ namespace Dungeon.MobManager
                     continue;
                 }
 
+                // Stop at arm's length. Walking onto the party's own square is what made a skeleton
+                // appear to stand on top of the adventurers it was fighting.
+                if (Vector2.Distance(mob.Position, partyPosition) <= ContactRange)
+                {
+                    continue;
+                }
+
                 List<Vector2Int> path = _grid.FindPath(mob.Cell, partyCell);
-                if (path.Count == 0)
+                Vector2 waypoint = path.Count > 0 ? path[0] : partyPosition;
+                if (path.Count > 0 && _grid.RoomAt(path[0]) != mob.HomeRoom)
                 {
                     continue;
                 }
 
-                Vector2Int next = path[0];
-                if (_grid.RoomAt(next) != mob.HomeRoom)
+                mob.Position = Vector2.MoveTowards(
+                    mob.Position, waypoint, ChaseSpeed * deltaTime);
+            }
+        }
+
+        /// <summary>Pushes a mob away from any neighbour it is standing too close to.</summary>
+        private void Separate(Mob mob, float deltaTime)
+        {
+            foreach (Mob other in Living)
+            {
+                if (ReferenceEquals(other, mob))
                 {
                     continue;
                 }
 
-                mob.Cell = next;
+                Vector2 away = mob.Position - other.Position;
+                float distance = away.magnitude;
+                if (distance >= MobSpacing)
+                {
+                    continue;
+                }
+
+                // Two mobs spawned on the same cell have no separating direction, so nudge one
+                // along a stable axis rather than leaving them welded together forever.
+                Vector2 direction = distance > 0.001f ? away / distance : Vector2.up;
+                Vector2 pushed = mob.Position + (direction * ChaseSpeed * deltaTime);
+                if (_grid.RoomAt(new Vector2Int(
+                        Mathf.RoundToInt(pushed.x), Mathf.RoundToInt(pushed.y))) == mob.HomeRoom)
+                {
+                    mob.Position = pushed;
+                }
             }
         }
 

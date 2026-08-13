@@ -64,11 +64,28 @@ namespace Dungeon.PartyManager
         /// <summary>Healing per second the healer restores while it has mana.</summary>
         public const float HealPerSecond = 14f;
 
+        /// <summary>Distance in cells between one member and the next in the marching order.</summary>
+        public const float FollowSpacing = 0.62f;
+
+        /// <summary>
+        /// Marching order, front to back.
+        /// </summary>
+        /// <remarks>
+        /// The tank leads because it draws aggro and is built to soak it, and the healer walks last
+        /// because it is the party's whole survivability -- and, per SPEC.md, the player's best
+        /// customer. A healer that walks into the front rank dies early and takes the raid's earning
+        /// potential with it.
+        /// </remarks>
+        private static readonly AdventurerRole[] MarchOrder =
+        {
+            AdventurerRole.Tank, AdventurerRole.Ranged, AdventurerRole.Mage, AdventurerRole.Healer
+        };
+
         private readonly List<Adventurer> _members = new();
+        private readonly List<Vector2> _trail = new();
         private readonly DungeonGrid _grid;
         private readonly Vector2Int _bossCell;
         private readonly Vector2Int _entranceCell;
-        private float _stepTimer;
         private float _mana = 100f;
 
         /// <summary>Every member, alive or dead, in spawn order.</summary>
@@ -83,8 +100,11 @@ namespace Dungeon.PartyManager
         /// <summary>Count of living members.</summary>
         public int LivingCount => _members.Count(m => m.IsAlive);
 
-        /// <summary>Cell the party as a whole occupies, taken from its first living member.</summary>
+        /// <summary>Cell the party as a whole occupies, taken from whoever is leading.</summary>
         public Vector2Int Cell => Living.FirstOrDefault()?.Cell ?? _entranceCell;
+
+        /// <summary>Continuous position of the party's leader, for anything chasing it.</summary>
+        public Vector2 Position => Living.FirstOrDefault()?.Position ?? _entranceCell;
 
         /// <summary>Whether the healer still has mana to spend.</summary>
         public bool HasMana => _mana > 0f;
@@ -115,14 +135,20 @@ namespace Dungeon.PartyManager
             _grid = grid;
             _entranceCell = entranceCell;
             _bossCell = bossCell;
-            foreach (AdventurerRole role in new[]
-                     {
-                         AdventurerRole.Tank, AdventurerRole.Healer,
-                         AdventurerRole.Ranged, AdventurerRole.Mage
-                     })
+
+            foreach (AdventurerRole role in MarchOrder)
             {
                 _members.Add(new Adventurer(role, entranceCell));
             }
+
+            // Seed the trail running back out of the entrance so the party starts strung out in
+            // marching order rather than stacked on one square, and reads as walking in.
+            for (int step = 8; step >= 0; step--)
+            {
+                _trail.Add(new Vector2(entranceCell.x - (step * 0.25f), entranceCell.y));
+            }
+
+            PlaceFollowers();
         }
 
         /// <summary>
@@ -248,16 +274,15 @@ namespace Dungeon.PartyManager
             _mana = Mathf.Max(0f, _mana - (healed * 0.5f));
         }
 
-        /// <summary>Walks every living member one step along the path toward a target cell.</summary>
+        /// <summary>
+        /// Glides the leader along its path and drags the rest of the party behind it.
+        /// </summary>
+        /// <remarks>
+        /// Movement is continuous rather than a cell-sized hop every 1/WalkSpeed seconds, which is
+        /// what made the party look like it was teleporting between squares.
+        /// </remarks>
         private void StepToward(Vector2Int target, float deltaTime)
         {
-            _stepTimer += deltaTime * WalkSpeed;
-            if (_stepTimer < 1f)
-            {
-                return;
-            }
-
-            _stepTimer -= 1f;
             Adventurer leader = Living.FirstOrDefault();
             if (leader == null)
             {
@@ -269,14 +294,75 @@ namespace Dungeon.PartyManager
             {
                 // No route: the player has shut a door. Standing still is the correct behaviour and
                 // is precisely the stall the whole game is built around.
+                PlaceFollowers();
                 return;
             }
 
-            Vector2Int next = path[0];
-            foreach (Adventurer member in Living)
+            // Aim at the second waypoint once the first is nearly reached, so the leader cuts the
+            // corner smoothly instead of stopping dead on each cell centre.
+            Vector2 waypoint = path[0];
+            if (path.Count > 1 && Vector2.Distance(leader.Position, waypoint) < 0.25f)
             {
-                member.Cell = next;
+                waypoint = path[1];
             }
+
+            Vector2 step = Vector2.MoveTowards(
+                leader.Position, waypoint, WalkSpeed * deltaTime);
+            leader.Position = step;
+
+            if (_trail.Count == 0 || Vector2.Distance(_trail[^1], step) > 0.06f)
+            {
+                _trail.Add(step);
+            }
+
+            // The trail only needs to reach back past the last member. Trimming keeps this from
+            // growing without bound across a sixty-second raid.
+            int keep = Mathf.CeilToInt((_members.Count * FollowSpacing) / 0.06f) + 8;
+            if (_trail.Count > keep)
+            {
+                _trail.RemoveRange(0, _trail.Count - keep);
+            }
+
+            PlaceFollowers();
+        }
+
+        /// <summary>
+        /// Places each member the right distance back along the leader's trail.
+        /// </summary>
+        /// <remarks>
+        /// Following a breadcrumb trail rather than holding a fixed offset means the party rounds
+        /// corners in single file and threads doorways one at a time, instead of a rigid block
+        /// sliding sideways through walls.
+        /// </remarks>
+        private void PlaceFollowers()
+        {
+            var living = Living.ToList();
+            for (int rank = 1; rank < living.Count; rank++)
+            {
+                living[rank].Position = PositionBehind(rank * FollowSpacing);
+            }
+        }
+
+        /// <summary>Walks back along the trail by a distance and returns the point reached.</summary>
+        /// <param name="distance">How far behind the leader to sample, in cells.</param>
+        /// <returns>A position on the trail, or its oldest point if the trail is too short.</returns>
+        private Vector2 PositionBehind(float distance)
+        {
+            float remaining = distance;
+            for (int i = _trail.Count - 1; i > 0; i--)
+            {
+                float segment = Vector2.Distance(_trail[i], _trail[i - 1]);
+                if (segment >= remaining)
+                {
+                    return segment <= 0.0001f
+                        ? _trail[i - 1]
+                        : Vector2.Lerp(_trail[i], _trail[i - 1], remaining / segment);
+                }
+
+                remaining -= segment;
+            }
+
+            return _trail.Count > 0 ? _trail[0] : _entranceCell;
         }
     }
 }

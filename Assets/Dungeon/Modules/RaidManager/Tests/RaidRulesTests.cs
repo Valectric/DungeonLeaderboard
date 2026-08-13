@@ -369,6 +369,99 @@ namespace Dungeon.RaidManager.Tests
                 "current hit points must not be readable from outside the party module");
         }
 
+        /// <summary>
+        /// The party occupies a column of the corridor rather than stacking on one square.
+        /// </summary>
+        [Test]
+        public void Party_MarchesInFormation_RatherThanStackingUp()
+        {
+            var raid = new Raid(Corridor());
+            Advance(raid, 6f);
+
+            var living = raid.Party.Living.ToList();
+            for (int a = 0; a < living.Count; a++)
+            {
+                for (int b = a + 1; b < living.Count; b++)
+                {
+                    float gap = Vector2.Distance(living[a].Position, living[b].Position);
+                    Assert.Greater(gap, 0.3f,
+                        $"{living[a].Role} and {living[b].Role} are standing on each other");
+                }
+            }
+        }
+
+        /// <summary>The tank leads, and the healer walks last where it is safest.</summary>
+        [Test]
+        public void Party_LeadsWithTheTankAndTrailsWithTheHealer()
+        {
+            var raid = new Raid(Corridor());
+            Advance(raid, 8f);
+
+            var byProgress = raid.Party.Living.OrderByDescending(m => m.Position.x).ToList();
+            MooseRunnerFacade.Log("order: " + string.Join(" -> ", byProgress.Select(m => m.Role)));
+            Assert.AreEqual(AdventurerRole.Tank, byProgress.First().Role,
+                "the tank draws aggro, so it must walk in front");
+            Assert.AreEqual(AdventurerRole.Healer, byProgress.Last().Role,
+                "the healer sustains the party and must walk at the back");
+        }
+
+        /// <summary>
+        /// Movement is continuous. A party that jumps a whole cell per step reads as teleporting.
+        /// </summary>
+        [Test]
+        public void Party_MovesContinuously_NotACellAtATime()
+        {
+            var raid = new Raid(Corridor());
+            const float step = 1f / 50f;
+            float biggest = 0f;
+
+            for (int i = 0; i < 300; i++)
+            {
+                Vector2 before = raid.Party.Position;
+                raid.Tick(step);
+                biggest = Mathf.Max(biggest, Vector2.Distance(before, raid.Party.Position));
+            }
+
+            MooseRunnerFacade.Log($"largest single-tick move = {biggest:F4} cells");
+            Assert.Less(biggest, 0.5f, "the party jumped most of a cell in one tick");
+            Assert.Greater(biggest, 0f, "the party never moved at all");
+        }
+
+        /// <summary>A mob closes to arm's length and stops, instead of standing on the party.</summary>
+        [Test]
+        public void Mobs_StopBesideTheParty_NotOnTopOfIt()
+        {
+            DungeonLayout layout = Corridor();
+            var raid = new Raid(layout);
+            raid.Mobs.Spawn(MobKind.Skeleton, layout.RoomCentres[0]);
+
+            // Eight seconds: long enough to close and settle, short enough that the skeleton is
+            // still alive. It dies around thirteen, and asserting against a corpse proves nothing.
+            Advance(raid, 8f);
+
+            Mob mob = raid.Mobs.Living.First();
+            float nearest = raid.Party.Living.Min(m => Vector2.Distance(m.Position, mob.Position));
+            MooseRunnerFacade.Log($"closest adventurer is {nearest:F2} cells from the mob");
+            Assert.Greater(nearest, 0.3f, "a mob is standing on top of an adventurer");
+        }
+
+        /// <summary>Two mobs sharing a spawner shoulder apart instead of welding together.</summary>
+        [Test]
+        public void Mobs_SeparateFromEachOther()
+        {
+            DungeonLayout layout = Corridor();
+            var raid = new Raid(layout);
+            raid.Mobs.Spawn(MobKind.Slime, layout.RoomCentres[1]);
+            raid.Mobs.Spawn(MobKind.Slime, layout.RoomCentres[1]);
+
+            Advance(raid, 8f);
+
+            var mobs = raid.Mobs.Living.ToList();
+            float gap = Vector2.Distance(mobs[0].Position, mobs[1].Position);
+            MooseRunnerFacade.Log($"two mobs settled {gap:F2} cells apart");
+            Assert.Greater(gap, 0.25f, "mobs spawned together never separated");
+        }
+
         /// <summary>Wound state tracks health downward through all three bands.</summary>
         [Test]
         public void WoundState_TracksHealthDownward()

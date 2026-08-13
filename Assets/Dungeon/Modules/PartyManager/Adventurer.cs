@@ -57,8 +57,19 @@ namespace Dungeon.PartyManager
         /// <summary>Damage dealt per second while fighting.</summary>
         public float DamagePerSecond { get; }
 
-        /// <summary>Current cell in the dungeon grid.</summary>
-        public Vector2Int Cell { get; set; }
+        /// <summary>
+        /// Continuous position in grid units, so an adventurer can stand between cells.
+        /// </summary>
+        /// <remarks>
+        /// The party used to store a bare cell and jump a whole cell at a time, which read as
+        /// teleporting rather than walking and forced all four members onto one square. Position is
+        /// the authority now; <see cref="Cell"/> is derived from it for the room and pathing lookups
+        /// that genuinely want a discrete answer.
+        /// </remarks>
+        public Vector2 Position { get; set; }
+
+        /// <summary>Grid cell this adventurer currently stands in.</summary>
+        public Vector2Int Cell => new(Mathf.RoundToInt(Position.x), Mathf.RoundToInt(Position.y));
 
         /// <summary>Whether this adventurer is still alive.</summary>
         public bool IsAlive => _health > 0f;
@@ -78,7 +89,7 @@ namespace Dungeon.PartyManager
         public Adventurer(AdventurerRole role, Vector2Int cell)
         {
             Role = role;
-            Cell = cell;
+            Position = cell;
             MaxHealth = role switch
             {
                 AdventurerRole.Tank => 220f,
