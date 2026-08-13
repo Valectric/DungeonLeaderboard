@@ -210,6 +210,36 @@ namespace Dungeon.DungeonManager
         /// </returns>
         public List<Vector2Int> FindPath(Vector2Int from, Vector2Int to)
         {
+            return FindPath(from, to, null);
+        }
+
+        /// <summary>
+        /// Breadth-first path that also steers around a set of cells.
+        /// </summary>
+        /// <param name="from">Starting cell.</param>
+        /// <param name="to">Target cell.</param>
+        /// <param name="avoid">
+        /// Cells to route around if at all possible -- armed traps, typically. When no route exists
+        /// that avoids them the search is retried without the restriction, because an adventurer
+        /// walking through a trap is far better behaviour than one standing still forever.
+        /// </param>
+        /// <returns>Cells to walk, excluding <paramref name="from"/>. Empty when no route exists.</returns>
+        public List<Vector2Int> FindPath(
+            Vector2Int from, Vector2Int to, IReadOnlyCollection<Vector2Int> avoid)
+        {
+            // Hashed once here rather than scanned per candidate cell: the search tests every
+            // neighbour it visits, so a linear lookup would be inside the hot loop.
+            HashSet<Vector2Int> blocked =
+                avoid == null || avoid.Count == 0 ? null : new HashSet<Vector2Int>(avoid);
+
+            List<Vector2Int> route = Search(from, to, blocked);
+            return route.Count > 0 || blocked == null ? route : Search(from, to, null);
+        }
+
+        /// <summary>Runs one breadth-first search, optionally treating some cells as blocked.</summary>
+        private List<Vector2Int> Search(
+            Vector2Int from, Vector2Int to, HashSet<Vector2Int> avoid)
+        {
             var result = new List<Vector2Int>();
             if (!IsWalkable(to) || !InBounds(from) || from == to)
             {
@@ -236,6 +266,13 @@ namespace Dungeon.DungeonManager
                         continue;
                     }
 
+                    // The destination is always reachable even if it is itself avoided, otherwise
+                    // "walk to the trap and disarm it" style goals become impossible to express.
+                    if (avoid != null && step != to && avoid.Contains(step))
+                    {
+                        continue;
+                    }
+
                     seen.Add(step);
                     cameFrom[step] = current;
                     queue.Enqueue(step);
@@ -243,6 +280,34 @@ namespace Dungeon.DungeonManager
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Whether an unobstructed straight line runs between two points.
+        /// </summary>
+        /// <remarks>
+        /// Walks the line in small steps and fails on the first cell that cannot be stood in, so a
+        /// closed door blocks sight exactly as it blocks movement. That matters: the player shutting
+        /// a door should hide the party from whatever was about to charge it.
+        /// </remarks>
+        /// <param name="from">Viewer position, in grid units.</param>
+        /// <param name="to">Target position, in grid units.</param>
+        /// <returns>True when nothing solid lies between them.</returns>
+        public bool HasLineOfSight(Vector2 from, Vector2 to)
+        {
+            float distance = Vector2.Distance(from, to);
+            int steps = Mathf.Max(1, Mathf.CeilToInt(distance * 4f));
+            for (int i = 1; i <= steps; i++)
+            {
+                Vector2 point = Vector2.Lerp(from, to, i / (float)steps);
+                var cell = new Vector2Int(Mathf.RoundToInt(point.x), Mathf.RoundToInt(point.y));
+                if (!IsWalkable(cell))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>Four-way neighbours of a cell. Diagonals are excluded so paths hug the grid.</summary>

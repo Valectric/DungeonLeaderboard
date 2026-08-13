@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
 using Dungeon.PartyManager;
@@ -130,7 +132,24 @@ namespace Dungeon.RaidManager
 
             ResolveCombat(deltaTime, threats);
             Mobs.Tick(deltaTime, Party.Position);
-            Party.Tick(deltaTime, Mobs.CountInRoom(Layout.Grid.RoomAt(Party.Cell)));
+
+            // Flatten the mobs the party can see into bare coordinates. PartyManager and MobManager
+            // are siblings that must never reference each other, so the raid is the only place that
+            // knows about both, and it hands the party positions rather than monsters.
+            int room = Layout.Grid.RoomAt(Party.Cell);
+            var visible = Mobs.Living
+                .Where(mob => Layout.Grid.RoomAt(mob.Cell) == room)
+                .Select(mob => mob.Position)
+                .ToList();
+
+            Party.Tick(deltaTime, visible, Layout.ArmedTrapCells());
+
+            // The party reports the work it did; the dungeon owns the trap and applies it. Keeps
+            // PartyManager from having to know what a trap is beyond a cell to stand on.
+            if (Party.DisarmingCell.HasValue)
+            {
+                Layout.TrapAt(Party.DisarmingCell.Value)?.Disarm(Party.DisarmSeconds);
+            }
 
             AccrueEnergy(deltaTime);
 
@@ -189,12 +208,25 @@ namespace Dungeon.RaidManager
                 return false;
             }
 
+            // A trap the rogue already defused is spent. This is the pressure the disarm timer
+            // creates: use it before they reach it, or lose it.
+            Trap trap = Layout.TrapAt(cell);
+            if (trap is not { IsArmed: true })
+            {
+                return false;
+            }
+
             TotalEnergy -= TrapCost;
             _trapReadyAt = TrapCooldown;
+            trap.Fire();
 
-            if (Party.Cell == cell)
+            // Anyone standing on the plate takes it, not just whoever happens to be leading.
+            foreach (PartyManager.Adventurer member in Party.Living)
             {
-                Party.DistributeDamage(TrapDamage);
+                if (member.Cell == cell)
+                {
+                    member.TakeDamage(TrapDamage);
+                }
             }
 
             return true;

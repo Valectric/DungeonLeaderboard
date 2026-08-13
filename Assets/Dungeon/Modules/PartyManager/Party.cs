@@ -61,8 +61,8 @@ namespace Dungeon.PartyManager
         /// </remarks>
         public const float WalkSpeed = 0.6f;
 
-        /// <summary>Healing per second the healer restores while it has mana.</summary>
-        public const float HealPerSecond = 14f;
+        /// <summary>Seconds between the healer's casts.</summary>
+        public const float HealInterval = 2.2f;
 
         /// <summary>Distance in cells between one member and the next in the marching order.</summary>
         public const float FollowSpacing = 0.62f;
@@ -87,6 +87,7 @@ namespace Dungeon.PartyManager
         private readonly Vector2Int _bossCell;
         private readonly Vector2Int _entranceCell;
         private float _mana = 100f;
+        private float _healCooldown;
 
         /// <summary>Every member, alive or dead, in spawn order.</summary>
         public IReadOnlyList<Adventurer> Members => _members;
@@ -108,6 +109,15 @@ namespace Dungeon.PartyManager
 
         /// <summary>Whether the healer still has mana to spend.</summary>
         public bool HasMana => _mana > 0f;
+
+        /// <summary>Mana the healer has left, from 1 down to 0.</summary>
+        public float ManaFraction => Mathf.Clamp01(_mana / 100f);
+
+        /// <summary>Trap the rogue is working on this tick, or null.</summary>
+        public Vector2Int? DisarmingCell { get; private set; }
+
+        /// <summary>Seconds of disarming work done this tick, for the raid to apply.</summary>
+        public float DisarmSeconds { get; private set; }
 
         /// <summary>
         /// Aggregate health of the living party, 1 down to 0.
@@ -155,8 +165,15 @@ namespace Dungeon.PartyManager
         /// Advances the party by one step of simulation.
         /// </summary>
         /// <param name="deltaTime">Seconds since the last tick.</param>
-        /// <param name="threatsInRoom">How many mobs are alive in the party's current room.</param>
-        public void Tick(float deltaTime, int threatsInRoom)
+        /// <param name="threats">
+        /// Positions of living mobs the party can see. Bare coordinates rather than mob objects,
+        /// because PartyManager and MobManager are siblings that must not reference each other.
+        /// </param>
+        /// <param name="traps">Trap cells the party would rather walk around.</param>
+        public void Tick(
+            float deltaTime,
+            IReadOnlyList<Vector2> threats,
+            IReadOnlyCollection<Vector2Int> traps)
         {
             if (Goal is PartyGoal.Escaped or PartyGoal.Wiped)
             {
@@ -170,19 +187,140 @@ namespace Dungeon.PartyManager
             }
 
             HealWounded(deltaTime);
-            ChooseGoal(threatsInRoom);
+            ChooseGoal(threats.Count);
 
-            if (Goal == PartyGoal.Fighting)
+            var living = Living.ToList();
+            Adventurer leader = living[0];
+
+            // Retreating overrides every individual decision: the whole party runs for the entrance
+            // together. This is the player's safety valve, and it must not be second-guessed by a
+            // tank that still fancies its chances.
+            if (Goal == PartyGoal.Retreating)
+            {
+                MoveAlongPath(leader, _entranceCell, deltaTime, traps);
+                RecordTrail(leader.Position);
+                for (int rank = 1; rank < living.Count; rank++)
+                {
+                    Glide(living[rank], PositionBehind(rank * FollowSpacing), deltaTime);
+                }
+
+                return;
+            }
+
+            var view = new Perception
+            {
+                Threats = threats,
+                Allies = living,
+                Grid = _grid,
+                Objective = NextObjective(leader),
+                Traps = traps
+            };
+
+            // The tank decides first and publishes its target, so the mage focuses the same enemy.
+            Glide(leader, AdventurerAI.DesiredPosition(leader, view), deltaTime);
+            RecordTrail(leader.Position);
+
+            DisarmingCell = null;
+            DisarmSeconds = 0f;
+
+            for (int rank = 1; rank < living.Count; rank++)
+            {
+                Adventurer member = living[rank];
+                var slot = new Perception
+                {
+                    Threats = threats,
+                    Allies = living,
+                    Grid = _grid,
+                    Objective = view.Objective,
+                    Traps = traps,
+                    FormationSlot = PositionBehind(rank * FollowSpacing),
+                    TankTarget = view.TankTarget
+                };
+
+                Vector2 desired = AdventurerAI.DesiredPosition(member, slot);
+                Glide(member, desired, deltaTime);
+
+                if (member.Role != AdventurerRole.Ranged || threats.Count > 0)
+                {
+                    continue;
+                }
+
+                // Standing on the plate is the work. Reported outward so the view can show a
+                // countdown, because a trap quietly vanishing would be the worst kind of surprise.
+                Vector2Int? trap = AdventurerAI.NearestArmedTrap(member.Position, slot);
+                if (trap.HasValue &&
+                    Vector2.Distance(member.Position, trap.Value) <= AdventurerAI.DisarmReach)
+                {
+                    DisarmingCell = trap.Value;
+                    DisarmSeconds = deltaTime;
+                }
+            }
+
+            if (Goal != PartyGoal.Fighting && Cell == _bossCell)
+            {
+                Goal = PartyGoal.Escaped;
+            }
+        }
+
+        /// <summary>
+        /// The next door on the way to the boss room, or the boss room itself.
+        /// </summary>
+        /// <remarks>
+        /// Steering door to door rather than straight at the boss is what makes the tank commit to a
+        /// threshold, which is where the player's door-closing actually bites.
+        /// </remarks>
+        private Vector2Int NextObjective(Adventurer leader)
+        {
+            List<Vector2Int> path = _grid.FindPath(leader.Cell, _bossCell);
+            foreach (Vector2Int cell in path)
+            {
+                if (_grid.KindAt(cell) == CellKind.Doorway)
+                {
+                    return cell;
+                }
+            }
+
+            return _bossCell;
+        }
+
+        /// <summary>Moves one adventurer toward a point at walking pace.</summary>
+        private static void Glide(Adventurer member, Vector2 desired, float deltaTime)
+        {
+            member.Position = Vector2.MoveTowards(member.Position, desired, WalkSpeed * deltaTime);
+        }
+
+        /// <summary>Moves an adventurer one step along a path toward a cell.</summary>
+        private void MoveAlongPath(
+            Adventurer member, Vector2Int target, float deltaTime,
+            IReadOnlyCollection<Vector2Int> traps)
+        {
+            List<Vector2Int> path = _grid.FindPath(member.Cell, target, traps);
+            if (path.Count == 0)
             {
                 return;
             }
 
-            Vector2Int target = Goal == PartyGoal.Retreating ? _entranceCell : _bossCell;
-            StepToward(target, deltaTime);
-
-            if (Goal == PartyGoal.Advancing && Cell == _bossCell)
+            Vector2 waypoint = path[0];
+            if (path.Count > 1 && Vector2.Distance(member.Position, waypoint) < 0.25f)
             {
-                Goal = PartyGoal.Escaped;
+                waypoint = path[1];
+            }
+
+            Glide(member, waypoint, deltaTime);
+        }
+
+        /// <summary>Appends to the breadcrumb trail the rest of the party follows.</summary>
+        private void RecordTrail(Vector2 position)
+        {
+            if (_trail.Count == 0 || Vector2.Distance(_trail[^1], position) > 0.06f)
+            {
+                _trail.Add(position);
+            }
+
+            int keep = Mathf.CeilToInt((_members.Count * FollowSpacing) / 0.06f) + 8;
+            if (_trail.Count > keep)
+            {
+                _trail.RemoveRange(0, _trail.Count - keep);
             }
         }
 
@@ -254,76 +392,39 @@ namespace Dungeon.PartyManager
             Goal = threatsInRoom > 0 ? PartyGoal.Fighting : PartyGoal.Advancing;
         }
 
-        /// <summary>Runs the healer, who spends a limited pool keeping the worst-off alive.</summary>
+        /// <summary>
+        /// Runs the healer, who spends a limited pool keeping the worst-off alive.
+        /// </summary>
+        /// <remarks>
+        /// Discrete casts rather than a continuous trickle, so the healer's mana buys a known number
+        /// of heals and the player can watch it run dry. Target choice and the decision to cast at
+        /// all live in <see cref="AdventurerAI.ChooseHealTarget"/>: it refuses to cast unless a full
+        /// heal would land without overflowing, which is what stops a limited pool being frittered
+        /// away topping people up.
+        /// </remarks>
         private void HealWounded(float deltaTime)
         {
             Adventurer healer = Living.FirstOrDefault(m => m.Role == AdventurerRole.Healer);
-            if (healer == null || _mana <= 0f)
+            if (healer == null)
             {
                 return;
             }
 
-            Adventurer worst = Living.OrderBy(m => m.HealthFraction).FirstOrDefault();
-            if (worst == null || worst.HealthFraction >= 0.999f)
+            _healCooldown = Mathf.Max(0f, _healCooldown - deltaTime);
+            if (_healCooldown > 0f)
             {
                 return;
             }
 
-            float healed = HealPerSecond * deltaTime;
-            worst.Heal(healed);
-            _mana = Mathf.Max(0f, _mana - (healed * 0.5f));
-        }
-
-        /// <summary>
-        /// Glides the leader along its path and drags the rest of the party behind it.
-        /// </summary>
-        /// <remarks>
-        /// Movement is continuous rather than a cell-sized hop every 1/WalkSpeed seconds, which is
-        /// what made the party look like it was teleporting between squares.
-        /// </remarks>
-        private void StepToward(Vector2Int target, float deltaTime)
-        {
-            Adventurer leader = Living.FirstOrDefault();
-            if (leader == null)
+            Adventurer target = AdventurerAI.ChooseHealTarget(Living.ToList(), _mana);
+            if (target == null)
             {
                 return;
             }
 
-            List<Vector2Int> path = _grid.FindPath(leader.Cell, target);
-            if (path.Count == 0)
-            {
-                // No route: the player has shut a door. Standing still is the correct behaviour and
-                // is precisely the stall the whole game is built around.
-                PlaceFollowers();
-                return;
-            }
-
-            // Aim at the second waypoint once the first is nearly reached, so the leader cuts the
-            // corner smoothly instead of stopping dead on each cell centre.
-            Vector2 waypoint = path[0];
-            if (path.Count > 1 && Vector2.Distance(leader.Position, waypoint) < 0.25f)
-            {
-                waypoint = path[1];
-            }
-
-            Vector2 step = Vector2.MoveTowards(
-                leader.Position, waypoint, WalkSpeed * deltaTime);
-            leader.Position = step;
-
-            if (_trail.Count == 0 || Vector2.Distance(_trail[^1], step) > 0.06f)
-            {
-                _trail.Add(step);
-            }
-
-            // The trail only needs to reach back past the last member. Trimming keeps this from
-            // growing without bound across a sixty-second raid.
-            int keep = Mathf.CeilToInt((_members.Count * FollowSpacing) / 0.06f) + 8;
-            if (_trail.Count > keep)
-            {
-                _trail.RemoveRange(0, _trail.Count - keep);
-            }
-
-            PlaceFollowers();
+            target.Heal(AdventurerAI.HealAmount);
+            _mana -= AdventurerAI.HealCost;
+            _healCooldown = HealInterval;
         }
 
         /// <summary>

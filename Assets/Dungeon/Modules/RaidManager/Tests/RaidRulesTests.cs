@@ -462,6 +462,109 @@ namespace Dungeon.RaidManager.Tests
             Assert.Greater(gap, 0.25f, "mobs spawned together never separated");
         }
 
+        /// <summary>The healer backs away from anything that gets within a cell of it.</summary>
+        [Test]
+        public void Healer_RunsFromAnythingThatGetsClose()
+        {
+            DungeonLayout layout = Corridor();
+            var raid = new Raid(layout);
+            Advance(raid, 4f);
+
+            Adventurer healer = raid.Party.Living.First(m => m.Role == AdventurerRole.Healer);
+            Mob mob = raid.Mobs.Spawn(MobKind.Slime, healer.Cell);
+            Assert.IsNotNull(mob, "the test needs a mob beside the healer");
+
+            float before = Vector2.Distance(healer.Position, mob.Position);
+            Advance(raid, 3f);
+            float after = Vector2.Distance(healer.Position, mob.Position);
+
+            MooseRunnerFacade.Log($"healer distance from mob {before:F2} -> {after:F2}");
+            Assert.Greater(after, before, "the healer stood its ground instead of running");
+        }
+
+        /// <summary>The healer will not cast when the heal would overflow and waste mana.</summary>
+        [Test]
+        public void Healer_WillNotWasteAFullHealOnAScratch()
+        {
+            var raid = new Raid(Corridor());
+            var allies = raid.Party.Living.ToList();
+            Adventurer tank = allies.First(m => m.Role == AdventurerRole.Tank);
+
+            tank.TakeDamage(5f);
+            Assert.IsNull(AdventurerAI.ChooseHealTarget(allies, 100f),
+                "a scratch must not draw a full heal");
+
+            tank.TakeDamage(AdventurerAI.HealAmount + 10f);
+            Assert.AreEqual(tank, AdventurerAI.ChooseHealTarget(allies, 100f),
+                "a wound worth a full heal must be healed");
+        }
+
+        /// <summary>With no mana left, nobody gets healed.</summary>
+        [Test]
+        public void Healer_CannotCastWithoutMana()
+        {
+            var raid = new Raid(Corridor());
+            var allies = raid.Party.Living.ToList();
+            allies.First(m => m.Role == AdventurerRole.Tank).TakeDamage(120f);
+
+            Assert.IsNull(AdventurerAI.ChooseHealTarget(allies, AdventurerAI.HealCost - 1f));
+        }
+
+        /// <summary>The tank outranks a squishier ally wounded by the same fraction.</summary>
+        [Test]
+        public void Healer_PrioritisesTheTankOverAnEquallyHurtAlly()
+        {
+            var raid = new Raid(Corridor());
+            var allies = raid.Party.Living.ToList();
+            Adventurer tank = allies.First(m => m.Role == AdventurerRole.Tank);
+            Adventurer mage = allies.First(m => m.Role == AdventurerRole.Mage);
+
+            tank.TakeDamage(tank.MaxHealth * 0.5f);
+            mage.TakeDamage(mage.MaxHealth * 0.5f);
+
+            Assert.AreEqual(tank, AdventurerAI.ChooseHealTarget(allies, 100f));
+        }
+
+        /// <summary>The rogue walks to an armed trap and defuses it when nothing is attacking.</summary>
+        [Test]
+        public void Ranged_DisarmsTrapsWhenThereIsNothingToShoot()
+        {
+            DungeonLayout layout = Corridor();
+            var raid = new Raid(layout);
+            Trap trap = layout.Traps[0];
+            Assert.IsTrue(trap.IsArmed, "the trap should start armed");
+
+            Advance(raid, 40f);
+
+            MooseRunnerFacade.Log($"trap disarm {trap.DisarmFraction:P0} after 40s, armed={trap.IsArmed}");
+            Assert.IsFalse(trap.IsArmed, "an unopposed party should have defused the first trap");
+        }
+
+        /// <summary>A trap the party defused can no longer be fired.</summary>
+        [Test]
+        public void FiringADisarmedTrap_Fails()
+        {
+            DungeonLayout layout = Corridor();
+            var raid = new Raid(layout);
+            layout.Traps[0].Disarm(999f);
+
+            Assert.IsFalse(raid.FireTrap(layout.TrapCells[0]),
+                "a defused trap must not fire");
+        }
+
+        /// <summary>Pathing steers around armed traps when a way round exists.</summary>
+        [Test]
+        public void Pathing_RoutesAroundArmedTraps()
+        {
+            DungeonLayout layout = Corridor();
+            var avoid = new[] { layout.TrapCells[0] };
+
+            var around = layout.Grid.FindPath(layout.EntranceCell, layout.BossCell, avoid);
+            Assert.Greater(around.Count, 0, "there should still be a route");
+            CollectionAssert.DoesNotContain(around, layout.TrapCells[0],
+                "the route should have gone around the trap");
+        }
+
         /// <summary>Wound state tracks health downward through all three bands.</summary>
         [Test]
         public void WoundState_TracksHealthDownward()

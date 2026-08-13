@@ -4,6 +4,69 @@ using UnityEngine;
 namespace Dungeon.DungeonManager
 {
     /// <summary>
+    /// One placed trap, which the party's rogue can defuse given long enough.
+    /// </summary>
+    /// <remarks>
+    /// Traps being disarmable is what stops them from being free damage the player fires whenever
+    /// the cooldown allows. A trap the party is standing next to is on a clock, so the player has to
+    /// decide whether to spend it now or lose it -- and a rogue crouched over a trap is four seconds
+    /// the party is not walking toward the boss room, which is itself worth energy.
+    /// </remarks>
+    public sealed class Trap
+    {
+        /// <summary>Where the trap sits.</summary>
+        public Vector2Int Cell { get; }
+
+        /// <summary>Seconds of uninterrupted work needed to defuse it.</summary>
+        public float DisarmSeconds { get; }
+
+        /// <summary>Work done so far, in seconds.</summary>
+        public float DisarmProgress { get; private set; }
+
+        /// <summary>Whether the trap can still be fired.</summary>
+        public bool IsArmed { get; private set; } = true;
+
+        /// <summary>How far along disarming is, from 0 to 1.</summary>
+        public float DisarmFraction =>
+            DisarmSeconds <= 0f ? 1f : Mathf.Clamp01(DisarmProgress / DisarmSeconds);
+
+        /// <summary>Creates an armed trap.</summary>
+        /// <param name="cell">Where it sits.</param>
+        /// <param name="disarmSeconds">How long it takes to defuse.</param>
+        public Trap(Vector2Int cell, float disarmSeconds)
+        {
+            Cell = cell;
+            DisarmSeconds = Mathf.Max(0.5f, disarmSeconds);
+        }
+
+        /// <summary>Advances disarming, disarming the trap once the work is complete.</summary>
+        /// <param name="seconds">Seconds of work done this tick.</param>
+        /// <returns>True when this tick finished the job.</returns>
+        public bool Disarm(float seconds)
+        {
+            if (!IsArmed || seconds <= 0f)
+            {
+                return false;
+            }
+
+            DisarmProgress += seconds;
+            if (DisarmProgress < DisarmSeconds)
+            {
+                return false;
+            }
+
+            IsArmed = false;
+            return true;
+        }
+
+        /// <summary>Spends the trap, so a fired trap cannot be fired again.</summary>
+        public void Fire()
+        {
+            IsArmed = false;
+        }
+    }
+
+    /// <summary>
     /// A built dungeon: the grid plus the cells the game needs to refer to by name.
     /// </summary>
     /// <remarks>
@@ -32,6 +95,41 @@ namespace Dungeon.DungeonManager
         /// <summary>Cells holding a trap the player can fire.</summary>
         public IReadOnlyList<Vector2Int> TrapCells { get; }
 
+        /// <summary>The placed traps, with their disarm state.</summary>
+        public IReadOnlyList<Trap> Traps { get; private set; }
+
+        /// <summary>Cells of traps that are still armed, for the party to route around.</summary>
+        /// <returns>The armed trap cells.</returns>
+        public IReadOnlyCollection<Vector2Int> ArmedTrapCells()
+        {
+            var armed = new List<Vector2Int>();
+            foreach (Trap trap in Traps)
+            {
+                if (trap.IsArmed)
+                {
+                    armed.Add(trap.Cell);
+                }
+            }
+
+            return armed;
+        }
+
+        /// <summary>Finds the trap occupying a cell, if any.</summary>
+        /// <param name="cell">Cell to test.</param>
+        /// <returns>The trap, or null.</returns>
+        public Trap TrapAt(Vector2Int cell)
+        {
+            foreach (Trap trap in Traps)
+            {
+                if (trap.Cell == cell)
+                {
+                    return trap;
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>Creates a layout. Use <see cref="BuildCorridor"/> rather than calling this.</summary>
         /// <param name="grid">The built grid.</param>
         /// <param name="entrance">Party entry cell.</param>
@@ -49,6 +147,16 @@ namespace Dungeon.DungeonManager
             RoomCentres = roomCentres;
             SpawnerCells = spawners;
             TrapCells = traps;
+
+            // Disarm times vary per trap so the rogue's detour is a different gamble each time --
+            // a four-second trap is worth walking to, a ten-second one may not be.
+            var placed = new List<Trap>();
+            for (int i = 0; i < traps.Count; i++)
+            {
+                placed.Add(new Trap(traps[i], 4f + (i * 2.5f)));
+            }
+
+            Traps = placed;
         }
 
         /// <summary>

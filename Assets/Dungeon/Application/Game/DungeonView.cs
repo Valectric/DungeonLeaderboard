@@ -110,6 +110,26 @@ namespace Dungeon.Game
         private static readonly Color ArcaneLight = new(0.84f, 0.32f, 0.86f, 0.26f);
 
         private Sprite _glow;
+        private Sprite _solid;
+        private readonly List<SpriteRenderer> _healthBacks = new();
+        private readonly List<SpriteRenderer> _healthFills = new();
+        private readonly List<SpriteRenderer> _disarmBacks = new();
+        private readonly List<SpriteRenderer> _disarmFills = new();
+
+        /// <summary>A single opaque pixel, stretched to draw bars.</summary>
+        private Sprite Solid()
+        {
+            if (_solid != null)
+            {
+                return _solid;
+            }
+
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            _solid = Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0f, 0.5f), 1f);
+            return _solid;
+        }
 
         /// <summary>
         /// Builds the soft radial sprite used for light pools, once.
@@ -217,6 +237,48 @@ namespace Dungeon.Game
             RefreshDoors(raid.Layout.Grid);
             RefreshParty(raid.Party);
             RefreshMobs(raid.Mobs, raid.Layout.Grid, raid.Layout.Grid.RoomAt(raid.Party.Cell));
+            RefreshTraps(raid.Layout);
+        }
+
+        /// <summary>
+        /// Shows how far the rogue has got with each trap it is defusing.
+        /// </summary>
+        /// <remarks>
+        /// Without this a trap simply stops working and the player never learns why. The bar is the
+        /// warning that a purchase is about to be taken away, and the whole point of the mechanic is
+        /// the decision it forces: spend the trap now, or lose it.
+        /// </remarks>
+        private void RefreshTraps(DungeonLayout layout)
+        {
+            for (int i = 0; i < layout.Traps.Count; i++)
+            {
+                Trap trap = layout.Traps[i];
+                bool show = trap.IsArmed && trap.DisarmProgress > 0f;
+
+                while (_disarmBacks.Count <= i)
+                {
+                    _disarmBacks.Add(MakeBar($"disarmback_{_disarmBacks.Count}", 58));
+                    _disarmFills.Add(MakeBar($"disarmfill_{_disarmFills.Count}", 59));
+                }
+
+                _disarmBacks[i].enabled = show;
+                _disarmFills[i].enabled = show;
+                if (!show)
+                {
+                    continue;
+                }
+
+                Vector3 origin = CellToWorld(trap.Cell, -3f)
+                    + new Vector3(-BarWidth * 0.5f, 0.45f, 0f);
+                _disarmBacks[i].transform.position = origin;
+                _disarmBacks[i].transform.localScale = new Vector3(BarWidth, 0.09f, 1f);
+                _disarmBacks[i].color = new Color(0.05f, 0.04f, 0.08f, 0.92f);
+
+                _disarmFills[i].transform.position = origin + new Vector3(0f, 0f, -0.01f);
+                _disarmFills[i].transform.localScale =
+                    new Vector3(BarWidth * trap.DisarmFraction, 0.09f, 1f);
+                _disarmFills[i].color = new Color(1f, 0.62f, 0.2f);
+            }
         }
 
         /// <summary>Swaps each door sprite for its open or closed art.</summary>
@@ -251,6 +313,12 @@ namespace Dungeon.Game
                 if (!member.IsAlive)
                 {
                     view.enabled = false;
+                    if (i < _healthBacks.Count)
+                    {
+                        _healthBacks[i].enabled = false;
+                        _healthFills[i].enabled = false;
+                    }
+
                     continue;
                 }
 
@@ -269,7 +337,64 @@ namespace Dungeon.Game
                 // Whoever is lower on screen draws in front, so the party overlaps believably as it
                 // rounds a corner instead of the back rank punching through the front.
                 view.sortingOrder = 20 - Mathf.RoundToInt(member.Position.y * 4f);
+
+                DrawHealthBar(i, member, view.transform.position);
             }
+        }
+
+        /// <summary>Width of an adventurer's health bar, in world units.</summary>
+        private const float BarWidth = 0.62f;
+
+        /// <summary>
+        /// Draws one adventurer's health bar.
+        /// </summary>
+        /// <remarks>
+        /// SPEC.md originally banned any HP readout, on the grounds that ambiguity between "nearly
+        /// dead" and "dead in one hit" is where the tension lives. In play that ambiguity produced
+        /// deaths the player could not see coming, and a party wipe is the one outcome the whole
+        /// design is built to avoid -- so the player needs data they can act on. Superseded
+        /// deliberately; see DECISIONS.md D8.
+        /// <para>
+        /// Colour carries the same information as length, so the state is readable at a glance and
+        /// in the corner of the eye, not only by measuring a bar.
+        /// </para>
+        /// </remarks>
+        private void DrawHealthBar(int index, Adventurer member, Vector3 spritePosition)
+        {
+            while (_healthBacks.Count <= index)
+            {
+                _healthBacks.Add(MakeBar($"hpback_{_healthBacks.Count}", 60));
+                _healthFills.Add(MakeBar($"hpfill_{_healthFills.Count}", 61));
+            }
+
+            SpriteRenderer back = _healthBacks[index];
+            SpriteRenderer fill = _healthFills[index];
+            back.enabled = true;
+            fill.enabled = true;
+
+            var origin = new Vector3(
+                spritePosition.x - (BarWidth * 0.5f), spritePosition.y + 0.52f, -3f);
+            back.transform.position = origin;
+            back.transform.localScale = new Vector3(BarWidth, 0.10f, 1f);
+            back.color = new Color(0.05f, 0.04f, 0.08f, 0.92f);
+
+            float health = member.HealthFraction;
+            fill.transform.position = origin + new Vector3(0f, 0f, -0.01f);
+            fill.transform.localScale = new Vector3(BarWidth * health, 0.10f, 1f);
+            fill.color = health > 0.6f ? new Color(0.45f, 0.9f, 0.4f)
+                : health > 0.3f ? new Color(0.95f, 0.78f, 0.25f)
+                : new Color(0.95f, 0.28f, 0.28f);
+        }
+
+        /// <summary>Creates one bar quad under the view root.</summary>
+        private SpriteRenderer MakeBar(string name, int sortingOrder)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(_root, false);
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = Solid();
+            renderer.sortingOrder = sortingOrder;
+            return renderer;
         }
 
         /// <summary>Positions mob sprites, creating views as mobs are spawned.</summary>

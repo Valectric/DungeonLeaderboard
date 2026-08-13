@@ -102,6 +102,46 @@ anchor. This follows the tool's own guidance that approved output beats a moodbo
 **Wrong if:** the moodboard runs out of coverage — then generate, but promote each approved result
 to a reference before generating the next thing.
 
+## 2026-08-13 — D8. Health bars on adventurers, superseding SPEC.md §3
+
+**Decided:** each adventurer carries a **continuous health bar**, colour-coded green / amber / red.
+This directly supersedes SPEC.md's "**Never show a number for adventurer HP**", and goes further than
+the spec's own fallback of "coarse three-state indicators".
+**Why:** the author played it and could not read the party's state. The spec anticipated this exact
+outcome — *"if this proves unreadable in playtesting, fall back to coarse three-state"* — and the
+playtest verdict was stronger than that: deaths were arriving unseen. The author's words were that it
+must not be a *"wtf, I did not see that"*.
+That reasoning is sound and it is not a matter of taste. A party wipe is the single worst outcome in
+the design, it is the player's fault by construction, and the player is the only one who can prevent
+it. Information the player needs to avoid the losing state cannot be the information the game hides.
+The spec's instinct was that ambiguity between "nearly dead" and "dead in one hit" creates tension;
+in play it created unfair surprise instead, which is a different thing.
+**Rules out:** the hidden-HP reading of §3. Wound sprites and limping still carry the state too — the
+bar is added information, not a replacement, so the readable-from-behaviour work stays.
+**Wrong if:** the raid starts to feel like a spreadsheet rather than a place, or players optimise
+against the bar instead of watching the party. The colour bands exist so the bar can be read at a
+glance without measuring it; going further, to numbers or percentages, would be the actual mistake.
+
+## 2026-08-13 — D9. Per-role adventurer AI, and disarmable traps
+
+**Decided:** each archetype runs its own behaviour rather than the party sharing one brain. The tank
+leads and charges the nearest enemy it has line of sight to, otherwise walking to the next door and
+routing around armed traps; the mage focuses whatever the tank picked; the ranged attacker takes the
+closest enemy and, when nothing is attacking, walks to an armed trap and defuses it on a visible
+timer; the healer flees anything within a cell and casts by a priority equation.
+**Why:** four sprites sharing one decision read as one object. Distinct behaviour per role is also
+what makes party composition the spec's "primary source of run-to-run variation" — a party AI cannot
+express that, because every composition plays identically.
+**The healer refuses to cast unless a full heal would land without overflowing**, so a limited mana
+pool is never frittered on topping someone up, and it weights the tank above squishier allies at the
+same health fraction because the tank's survival is what keeps the rest alive.
+**Traps are now disarmable**, each with its own timer. That turns a trap from free damage into a
+decision with a clock: spend it before the rogue reaches it, or lose it. A rogue crouched over a
+plate is also several seconds the party is not advancing, which is itself worth energy.
+**Rules out:** the single party-level movement brain, and traps as a permanent fixture.
+**Wrong if:** roles scatter and stop reading as a party. The formation slot is the guard against
+that — any role with nothing to do falls back to it, so travel still looks like a column.
+
 ### Why the one prior generation run failed — do not rediscover this
 
 The 00:55 run on 2026-08-12 produced six warm-tan 32x32 props. Three independent causes, all
