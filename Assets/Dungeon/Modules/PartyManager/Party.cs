@@ -44,8 +44,22 @@ namespace Dungeon.PartyManager
         /// <summary>Health fraction at which a retreating party turns around and pushes on again.</summary>
         public const float RecoverThreshold = 0.62f;
 
-        /// <summary>Cells walked per second while advancing.</summary>
-        public const float WalkSpeed = 2.4f;
+        /// <summary>
+        /// Cells walked per second while advancing.
+        /// </summary>
+        /// <remarks>
+        /// This is a rate, and it sets the pace of the entire game. At the first pass it was 2.4,
+        /// which walked the party across the whole sixteen-cell corridor in <b>under seven seconds</b>
+        /// of a sixty-second raid: the run ended before the player could click anything and harvested
+        /// nothing. Every test passed, because they asserted that the party escapes and never asked
+        /// how quickly.
+        /// <para>
+        /// At 0.6 an unopposed crossing takes about twenty-seven seconds — long enough to read the
+        /// board and act, short enough that doing nothing still throws away half the earning window.
+        /// Guarded by <c>UnopposedParty_TakesMostOfTheClockToCross</c>.
+        /// </para>
+        /// </remarks>
+        public const float WalkSpeed = 0.6f;
 
         /// <summary>Healing per second the healer restores while it has mana.</summary>
         public const float HealPerSecond = 14f;

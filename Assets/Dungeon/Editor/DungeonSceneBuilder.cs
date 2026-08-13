@@ -61,8 +61,17 @@ namespace Dungeon.Editor
         /// Makes the play scene the first (and only) enabled scene in Build Settings.
         /// </summary>
         /// <remarks>
-        /// A WebGL build with no scene registered produces a black page rather than an error, which
-        /// is a slow thing to diagnose from a browser tab.
+        /// A WebGL build with the wrong scene registered does not fail -- it happily ships the
+        /// template's empty SampleScene, and the result is a player that loads, runs, and shows a
+        /// blank blue camera. That is indistinguishable from a dozen other faults from inside a
+        /// browser tab, and it cost a full 19-minute rebuild here.
+        /// <para>
+        /// <see cref="AssetDatabase.SaveAssets"/> is the load-bearing line. Assigning
+        /// <see cref="EditorBuildSettings.scenes"/> only changes the in-memory list; Unity flushes
+        /// it on its own schedule, so an editor that dies before that -- a crash, or in this case a
+        /// Windows reboot -- loses the registration silently and the next build picks up the stale
+        /// list from disk.
+        /// </para>
         /// </remarks>
         private static void RegisterInBuildSettings()
         {
@@ -76,6 +85,7 @@ namespace Dungeon.Editor
                 .Select(existing => new EditorBuildSettingsScene(existing.path, false)));
 
             EditorBuildSettings.scenes = scenes.ToArray();
+            AssetDatabase.SaveAssets();
         }
     }
 }

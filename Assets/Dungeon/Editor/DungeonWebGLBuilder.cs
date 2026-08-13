@@ -37,6 +37,19 @@ namespace Dungeon.Editor
                 return;
             }
 
+            // Refuse to ship the wrong scene. A build whose enabled scene is the template's
+            // SampleScene succeeds, weighs 13MB, loads in the browser, and renders an empty blue
+            // camera — a failure that looks identical to a broken renderer and costs a full rebuild
+            // to discover. Checking the list is far cheaper than that round trip.
+            if (!scenes.Contains(DungeonSceneBuilder.ScenePath))
+            {
+                Debug.LogError(
+                    $"[Dungeon] '{DungeonSceneBuilder.ScenePath}' is not an enabled scene in Build "
+                    + $"Settings — enabled: [{string.Join(", ", scenes)}]. "
+                    + "Rebuild the play scene first (touch .dungeon-build-scene) and try again.");
+                return;
+            }
+
             ApplySettings();
 
             string output = Path.GetFullPath(

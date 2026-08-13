@@ -92,6 +92,49 @@ namespace Dungeon.Game
             {
                 Make($"trap_{trap.x}", "effects/trap-spikes", CellToWorld(trap, 6f), 1);
             }
+
+            Decorate(layout);
+        }
+
+        /// <summary>Props that dress a room without ever affecting play.</summary>
+        private static readonly string[] Decorations =
+        {
+            "props/lanterns", "props/crystals-small", "props/banner",
+            "props/candle-skull", "props/books", "props/crystals-large"
+        };
+
+        /// <summary>
+        /// Scatters atmosphere props around the edges of each room.
+        /// </summary>
+        /// <remarks>
+        /// Purely cosmetic, and deliberately placed against the walls rather than in the middle so
+        /// they never sit under the party or a mob and confuse what is happening. Selection is by
+        /// room index rather than randomly, so the dungeon looks identical in a screenshot, a test
+        /// and the shipped build.
+        /// </remarks>
+        private void Decorate(DungeonLayout layout)
+        {
+            for (int room = 0; room < layout.RoomCentres.Count; room++)
+            {
+                Vector2Int centre = layout.RoomCentres[room];
+                var spots = new[]
+                {
+                    new Vector2Int(centre.x - 1, centre.y + 2),
+                    new Vector2Int(centre.x + 1, centre.y - 2)
+                };
+
+                for (int i = 0; i < spots.Length; i++)
+                {
+                    Vector2Int cell = spots[i];
+                    if (layout.Grid.RoomAt(cell) != room)
+                    {
+                        continue;
+                    }
+
+                    string prop = Decorations[((room * 2) + i) % Decorations.Length];
+                    Make($"prop_{room}_{i}", prop, CellToWorld(cell, 7f), 4);
+                }
+            }
         }
 
         /// <summary>Redraws everything that moves. Call once per frame.</summary>

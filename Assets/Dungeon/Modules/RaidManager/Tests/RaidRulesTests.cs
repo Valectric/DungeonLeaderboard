@@ -170,6 +170,35 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
+        /// The crossing must take a meaningful share of the clock.
+        /// </summary>
+        /// <remarks>
+        /// This guards the bug that <c>UndisturbedParty_ReachesTheBossRoom</c> sailed past: the party
+        /// did reach the boss room, in under seven seconds, ending the raid before a player could
+        /// click anything and harvesting nothing at all. Asserting the outcome without asserting the
+        /// pace tests the wrong half of the behaviour.
+        /// </remarks>
+        [Test]
+        public void UnopposedParty_TakesMostOfTheClockToCross()
+        {
+            var raid = new Raid(Corridor());
+            const float step = 1f / 50f;
+
+            float elapsed = 0f;
+            while (raid.IsRunning && elapsed < Raid.RaidSeconds)
+            {
+                raid.Tick(step);
+                elapsed += step;
+            }
+
+            MooseRunnerFacade.Log($"unopposed crossing took {elapsed:F1}s ({raid.Outcome})");
+            Assert.Greater(elapsed, 18f,
+                "an unopposed crossing must leave the player time to react");
+            Assert.Less(elapsed, Raid.RaidSeconds,
+                "doing nothing must still cost the player the rest of the window");
+        }
+
+        /// <summary>
         /// Letting the party stroll out earns far less than the full minute is worth. This is the
         /// spec's "ending early is a loss of earning window" expressed as a number.
         /// </summary>

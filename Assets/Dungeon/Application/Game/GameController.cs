@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
@@ -200,8 +201,11 @@ namespace Dungeon.Game
             rate.normal.textColor = Color.Lerp(
                 new Color(0.45f, 0.45f, 0.5f), new Color(0.55f, 1f, 0.45f),
                 Mathf.Clamp01(_raid.CurrentRate / 20f));
+            // Invariant culture throughout the HUD. The build picks up the machine's locale, and on
+            // this one the rate rendered as "0,1/s" -- a comma reads as a thousands separator to
+            // most players and makes the game's most important number ambiguous.
             GUI.Label(new Rect(0f, 10f * scale, Screen.width, 80f * scale),
-                $"{_raid.CurrentRate:0.0}/s", rate);
+                _raid.CurrentRate.ToString("0.0", CultureInfo.InvariantCulture) + "/s", rate);
 
             caption.normal.textColor = new Color(0.7f, 0.7f, 0.78f);
             GUI.Label(new Rect(0f, 66f * scale, Screen.width, 30f * scale), "ENERGY RATE",
@@ -215,9 +219,9 @@ namespace Dungeon.Game
             };
             total.normal.textColor = new Color(0.85f, 0.7f, 1f);
             GUI.Label(new Rect(0f, 16f * scale, Screen.width - (24f * scale), 44f * scale),
-                $"{_raid.EnergyHarvested:0}", total);
+                _raid.EnergyHarvested.ToString("0", CultureInfo.InvariantCulture), total);
             GUI.Label(new Rect(0f, 50f * scale, Screen.width - (24f * scale), 30f * scale),
-                $"HARVESTED   spend {_raid.TotalEnergy:0}",
+                "HARVESTED   spend " + _raid.TotalEnergy.ToString("0", CultureInfo.InvariantCulture),
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
 
             GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
@@ -252,7 +256,7 @@ namespace Dungeon.Game
             float y = Screen.height * 0.42f;
             GUI.Label(new Rect(0f, y, Screen.width, 44f * scale), headline, banner);
             GUI.Label(new Rect(0f, y + (46f * scale), Screen.width, 40f * scale),
-                $"HARVESTED {_raid.EnergyHarvested:0}",
+                "HARVESTED " + _raid.EnergyHarvested.ToString("0", CultureInfo.InvariantCulture),
                 new GUIStyle(banner) { fontSize = Mathf.RoundToInt(24 * scale) });
             GUI.Label(new Rect(0f, y + (86f * scale), Screen.width, 34f * scale),
                 "CLICK OR PRESS SPACE FOR THE NEXT PARTY",

@@ -126,9 +126,16 @@ namespace Dungeon.Game.Tests
             Camera camera = Camera.main;
             Vector2Int spawner = raid.Layout.SpawnerCells[0];
             Controller.ClickAt(camera.WorldToScreenPoint(DungeonView.CellToWorld(spawner)));
-
-            await UniTask.WaitForSeconds(6f, cancellationToken: ct);
+            await UniTask.NextFrame(ct);
             Assert.Greater(raid.Mobs.Mobs.Count, 0, "clicking the spawner should have spawned a mob");
+
+            // Wait for contact rather than a fixed sleep. The mob is bound to its own room and the
+            // party now walks deliberately slowly, so how long it takes them to meet depends on
+            // pacing constants -- a hard-coded delay here would break every time those are tuned.
+            for (int i = 0; i < 40 && raid.CurrentRate <= idleRate * 5f && raid.IsRunning; i++)
+            {
+                await UniTask.WaitForSeconds(1f, cancellationToken: ct);
+            }
 
             MooseRunnerFacade.Log($"rate {idleRate:F2}/s -> {raid.CurrentRate:F2}/s, " +
                                   $"harvested {raid.EnergyHarvested:F1}");
