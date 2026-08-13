@@ -90,6 +90,20 @@ namespace Dungeon.Game
         /// <summary>Whether the shop is currently on screen.</summary>
         public bool IsShopping => _phase == Phase.Shopping;
 
+        /// <summary>
+        /// Whether a raid is actually being played.
+        /// </summary>
+        /// <remarks>
+        /// Not the same question as <c>CurrentRaid.IsRunning</c>, and the difference has already
+        /// caught one test out. A raid is built and left running <i>behind the title screen</i> so
+        /// the standings have a dungeon to sit over, so a running raid says nothing about whether
+        /// the player is in one.
+        /// </remarks>
+        public bool IsRaiding => _phase == Phase.Raiding;
+
+        /// <summary>Whether the adventurers' review of the last raid is on screen.</summary>
+        public bool IsReviewing => _phase == Phase.Reviewing;
+
         /// <summary>Builds the dungeon and starts the first raid.</summary>
         private void Awake()
         {
@@ -515,8 +529,15 @@ namespace Dungeon.Game
             _phase = Phase.Standings;
         }
 
-        /// <summary>Moves on from the standings: into the next raid, or into a new run.</summary>
-        private void Advance()
+        /// <summary>
+        /// Moves on from the standings: into the shop, the next raid, or a new run.
+        /// </summary>
+        /// <remarks>
+        /// Public so a test can press the button rather than reach past it. Every transition in this
+        /// game is guarded by something -- a keypress, a clock, a lockout, a shift animation -- and a
+        /// guard that never releases strands the player on a screen that has stopped responding.
+        /// </remarks>
+        public void Advance()
         {
             if (_shift < 1f)
             {
