@@ -142,6 +142,42 @@ plate is also several seconds the party is not advancing, which is itself worth 
 **Wrong if:** roles scatter and stop reading as a party. The formation slot is the guard against
 that — any role with nothing to do falls back to it, so travel still looks like a column.
 
+## 2026-08-13 — D10. The shop spends *leftovers*, and Ready buys starting energy
+
+**Decided:** the shop's purse is whatever the previous raid left **unspent**, unspent purse is lost
+when the shop closes, and the **Ready** bonus is carried into the next raid as extra *starting*
+energy rather than being paid into the purse of a shop that is shutting. Purchases are permanent for
+the rest of the season.
+**Why:** the alternative — shopping with the harvest — would have made the score and the currency the
+same number, and the league would then rank shopping restraint instead of ranking how well a party
+was milked. Keeping them separate means `EnergyHarvested` stays exactly what SPEC.md says it is.
+Spending leftovers gives restraint *during* a raid a use without letting it score: a player who
+hoards buys a permanent spawner with it, and a player who spends everything on stalling scores higher
+this round and starts the next one with nothing.
+The bonus had to leave the shop or it would be worth nothing at all: paying it into a purse that is
+about to be discarded is a number that goes up and is then thrown away, which is worse than no button.
+**Rules out:** shopping out of the harvest; a bonus that rolls into the purse; carrying the leftover
+purse forward (which would make Ready indistinguishable from simply not buying anything).
+**Wrong if:** "unspent energy is lost" reads as a punishment rather than a deadline. It is stated on
+the shop screen for that reason. If players still hoard and feel robbed, the fix is to carry the
+purse and cut the Ready bonus, not to soften both.
+
+## 2026-08-13 — D11. Chests are a stall, and the reach that makes them one
+
+**Decided:** a bought chest is a detour target the party leader walks to, opens over three seconds,
+and then ignores. The reach at which the leader starts opening it is **0.8 cells** — deliberately
+generous.
+**Why:** the tank stops the instant its *cell* equals its objective, which on a diagonal approach can
+leave it two thirds of a cell from the centre. At the first, tighter reach of 0.45 the leader parked
+next to the chest without ever opening it; the chest therefore stayed the objective, and the party
+stood there until the clock ran out. Every assertion about placement, price and drawing passed. The
+raid was deadlocked and it looked, from the outside, like an extremely effective chest.
+Measured after the fix: one chest costs an unopposed party **5.6s** of a 60s raid — 26.9s to cross
+without, 32.5s with.
+**Rules out:** cell-exact loot triggers, and any test of a chest that does not measure seconds.
+**Wrong if:** the party visibly opens a chest it is not standing on. Three cells of margin would look
+wrong; 0.8 does not, and the alternative failure mode is a game that stops.
+
 ### Why the one prior generation run failed — do not rediscover this
 
 The 00:55 run on 2026-08-12 produced six warm-tan 32x32 props. Three independent causes, all

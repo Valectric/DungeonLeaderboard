@@ -79,7 +79,7 @@ namespace Dungeon.RaidManager
         public float TimeRemaining { get; private set; } = RaidSeconds;
 
         /// <summary>Energy available to spend on verbs. Starts at <see cref="StartingEnergy"/>.</summary>
-        public float TotalEnergy { get; private set; } = StartingEnergy;
+        public float TotalEnergy { get; private set; }
 
         /// <summary>
         /// Energy harvested from the party during this raid. <b>This is the score.</b>
@@ -107,8 +107,14 @@ namespace Dungeon.RaidManager
 
         /// <summary>Starts a raid on a freshly built dungeon.</summary>
         /// <param name="layout">Dungeon to raid.</param>
-        public Raid(DungeonLayout layout)
+        /// <param name="bonusEnergy">
+        /// Extra spendable energy carried in from the shop's Ready button. It is spendable but is
+        /// not score -- <see cref="EnergyHarvested"/> still counts only what was taken from the
+        /// adventurers, so a player cannot climb the league by skipping shops.
+        /// </param>
+        public Raid(DungeonLayout layout, float bonusEnergy = 0f)
         {
+            TotalEnergy = StartingEnergy + Mathf.Max(0f, bonusEnergy);
             Layout = layout;
             Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell);
             Mobs = new MobPack(layout.Grid);
@@ -142,7 +148,7 @@ namespace Dungeon.RaidManager
                 .Select(mob => mob.Position)
                 .ToList();
 
-            Party.Tick(deltaTime, visible, Layout.ArmedTrapCells());
+            Party.Tick(deltaTime, visible, Layout.ArmedTrapCells(), Layout.ChestCells);
 
             // The party reports the work it did; the dungeon owns the trap and applies it. Keeps
             // PartyManager from having to know what a trap is beyond a cell to stand on.
@@ -178,16 +184,22 @@ namespace Dungeon.RaidManager
         /// Spawns a monster at a spawner, if the player can afford it.
         /// </summary>
         /// <param name="cell">Spawner cell to fire.</param>
-        /// <param name="kind">Monster to spawn.</param>
+        /// <param name="kind">
+        /// Monster to spawn. Left null the spawner decides: the ones the dungeon was built with
+        /// produce skeletons, and a slime spawner bought in the shop produces slimes.
+        /// </param>
         /// <returns>True when a monster was spawned.</returns>
-        public bool SpawnMob(Vector2Int cell, MobKind kind = MobKind.Slime)
+        public bool SpawnMob(Vector2Int cell, MobKind? kind = null)
         {
             if (TotalEnergy < SpawnCost || !IsRunning)
             {
                 return false;
             }
 
-            if (Mobs.Spawn(kind, cell) == null)
+            MobKind spawning = kind ??
+                (Layout.SpawnerTierAt(cell) == 0 ? MobKind.Slime : MobKind.Skeleton);
+
+            if (Mobs.Spawn(spawning, cell) == null)
             {
                 return false;
             }

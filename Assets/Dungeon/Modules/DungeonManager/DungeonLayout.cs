@@ -92,11 +92,48 @@ namespace Dungeon.DungeonManager
         /// <summary>Cells holding a mob spawner the player can fire.</summary>
         public IReadOnlyList<Vector2Int> SpawnerCells { get; }
 
+        /// <summary>
+        /// How heavy a monster each spawner produces: 0 for the cheap kind, 1 for the tough one.
+        /// </summary>
+        /// <remarks>
+        /// An integer rather than a <c>MobKind</c> on purpose. MobManager depends on DungeonManager,
+        /// so the dependency cannot run the other way without a cycle -- the dungeon describes what
+        /// sort of spawner sits where, and the raid, which knows both modules, turns that into an
+        /// actual monster.
+        /// </remarks>
+        public IReadOnlyList<int> SpawnerTiers { get; }
+
+        /// <summary>The tier of the spawner on a cell.</summary>
+        /// <param name="cell">Cell to look up.</param>
+        /// <returns>The tier, or 1 when the cell holds no spawner.</returns>
+        public int SpawnerTierAt(Vector2Int cell)
+        {
+            for (int i = 0; i < SpawnerCells.Count; i++)
+            {
+                if (SpawnerCells[i] == cell)
+                {
+                    return SpawnerTiers[i];
+                }
+            }
+
+            return 1;
+        }
+
         /// <summary>Cells holding a trap the player can fire.</summary>
         public IReadOnlyList<Vector2Int> TrapCells { get; }
 
         /// <summary>The placed traps, with their disarm state.</summary>
         public IReadOnlyList<Trap> Traps { get; private set; }
+
+        /// <summary>
+        /// Cells holding a chest.
+        /// </summary>
+        /// <remarks>
+        /// SPEC.md section 5 calls chests "useful stalling infrastructure": they give the party a
+        /// reason to leave the shortest path to the boss room, and every second spent detouring is a
+        /// second still earning.
+        /// </remarks>
+        public IReadOnlyList<Vector2Int> ChestCells { get; }
 
         /// <summary>Cells of traps that are still armed, for the party to route around.</summary>
         /// <returns>The armed trap cells.</returns>
@@ -137,10 +174,15 @@ namespace Dungeon.DungeonManager
         /// <param name="roomCentres">Centre of each room.</param>
         /// <param name="spawners">Spawner cells.</param>
         /// <param name="traps">Trap cells.</param>
+        /// <param name="chests">Chest cells.</param>
+        /// <param name="spawnerTiers">Tier of each spawner, parallel to <paramref name="spawners"/>.</param>
         private DungeonLayout(DungeonGrid grid, Vector2Int entrance, Vector2Int boss,
             IReadOnlyList<Vector2Int> roomCentres, IReadOnlyList<Vector2Int> spawners,
-            IReadOnlyList<Vector2Int> traps)
+            IReadOnlyList<Vector2Int> traps, IReadOnlyList<Vector2Int> chests,
+            IReadOnlyList<int> spawnerTiers)
         {
+            ChestCells = chests;
+            SpawnerTiers = spawnerTiers;
             Grid = grid;
             EntranceCell = entrance;
             BossCell = boss;
@@ -169,9 +211,15 @@ namespace Dungeon.DungeonManager
         /// Whether doors begin open. They do: a party that cannot move at all never demonstrates
         /// that stalling is a choice the player is making.
         /// </param>
+        /// <param name="extraSlimeSpawners">Slime spawners bought in the shop.</param>
+        /// <param name="extraSkeletonSpawners">Skeleton spawners bought in the shop.</param>
+        /// <param name="extraTraps">Extra traps bought in the shop.</param>
+        /// <param name="chests">Chests bought in the shop.</param>
         /// <returns>The built layout.</returns>
         public static DungeonLayout BuildCorridor(
-            int roomCount = 3, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true)
+            int roomCount = 3, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true,
+            int extraSlimeSpawners = 0, int extraSkeletonSpawners = 0, int extraTraps = 0,
+            int chests = 0)
         {
             roomCount = Mathf.Max(2, roomCount);
             roomWidth = Mathf.Max(2, roomWidth);
@@ -184,6 +232,7 @@ namespace Dungeon.DungeonManager
 
             var centres = new List<Vector2Int>();
             var spawners = new List<Vector2Int>();
+            var spawnerTiers = new List<int>();
             var traps = new List<Vector2Int>();
             int midY = margin + (roomHeight / 2);
 
@@ -204,13 +253,57 @@ namespace Dungeon.DungeonManager
                 if (room > 0)
                 {
                     spawners.Add(new Vector2Int(x0 + roomWidth - 1, margin));
+                    spawnerTiers.Add(1);
                     traps.Add(new Vector2Int(x0 + 1, midY));
+                }
+            }
+
+            // Bought equipment goes into the rooms the party walks through. Placed on the rows above
+            // and below the party's route rather than on it, so a purchase never blocks the corridor
+            // the whole game depends on being walkable.
+            // Two traps on one cell would draw over each other and be firable twice from a single
+            // tap, so every placement below refuses a cell that is already taken.
+            int extraSpawners = extraSlimeSpawners + extraSkeletonSpawners;
+            for (int i = 0; i < extraSpawners; i++)
+            {
+                int room = 1 + (i % Mathf.Max(1, roomCount - 1));
+                int x0 = margin + (room * (roomWidth + 1));
+                var cell = new Vector2Int(
+                    x0 + 1 + (i % Mathf.Max(1, roomWidth - 2)), margin + roomHeight - 1);
+                if (!spawners.Contains(cell))
+                {
+                    spawners.Add(cell);
+                    spawnerTiers.Add(i < extraSlimeSpawners ? 0 : 1);
+                }
+            }
+
+            for (int i = 0; i < extraTraps; i++)
+            {
+                int room = 1 + (i % Mathf.Max(1, roomCount - 1));
+                int x0 = margin + (room * (roomWidth + 1));
+                var cell = new Vector2Int(x0 + 2 + (i % Mathf.Max(1, roomWidth - 3)), midY);
+                if (!traps.Contains(cell))
+                {
+                    traps.Add(cell);
+                }
+            }
+
+            var chestCells = new List<Vector2Int>();
+            for (int i = 0; i < chests; i++)
+            {
+                int room = 1 + (i % Mathf.Max(1, roomCount - 1));
+                int x0 = margin + (room * (roomWidth + 1));
+                var cell = new Vector2Int(x0 + 1 + (i % 2), margin);
+                if (!chestCells.Contains(cell) && !spawners.Contains(cell))
+                {
+                    chestCells.Add(cell);
                 }
             }
 
             var entrance = new Vector2Int(margin, midY);
             var boss = new Vector2Int(margin + interiorWidth - 1, midY);
-            return new DungeonLayout(grid, entrance, boss, centres, spawners, traps);
+            return new DungeonLayout(
+                grid, entrance, boss, centres, spawners, traps, chestCells, spawnerTiers);
         }
     }
 }

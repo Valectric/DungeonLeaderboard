@@ -55,17 +55,29 @@ anything else does.
 
 ---
 
-## M3 — The shop
+## M3 — The shop ▸ *done*
 
 30s countdown, six items (two mobs, two traps, a door, a chest), **Ready** button granting an energy
 bonus scaled to the time skipped.
+
+Shipped as built:
+
+- Purse is **whatever the last raid left unspent**, so restraint during a raid buys permanence
+  between them. Unspent purse is lost when the shop closes — the phase has to be a decision.
+- **Ready** pays 4/s of the time skipped, carried into the next raid as extra *starting* energy, not
+  into the purse of a shop that is closing. It is spendable and it is **not** score: the league still
+  ranks harvest only, so no one climbs by skipping shops.
+- Purchases are **permanent for the season** and land in the dungeon: slime pit and bone pile become
+  real spawners of their own kind, traps become more plates, a hall lengthens the corridor (capped at
+  five rooms so the boss room stays reachable), and a chest is a detour the party actually takes.
+- Measured: one chest costs the party **5.6s** of a 60s raid (26.9s → 32.5s unopposed crossing).
 
 ---
 
 ## M4 — Everything else
 
 Party composition variation (the spec's primary source of run-to-run variety — exploit it before
-adding dungeon content), mob variety, chests, art pass, end-of-raid star reviews.
+adding dungeon content), mob variety, art pass, end-of-raid star reviews.
 
 ---
 

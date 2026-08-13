@@ -4,6 +4,7 @@ using Dungeon.DungeonManager;
 using Dungeon.LeagueManager;
 using Dungeon.MobManager;
 using Dungeon.RaidManager;
+using Dungeon.ShopManager;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -33,7 +34,10 @@ namespace Dungeon.Game
             Raiding = 1,
 
             /// <summary>The run is over: the player finished in the relegation zone.</summary>
-            Destroyed = 2
+            Destroyed = 2,
+
+            /// <summary>The thirty seconds between raids, spending what the last one left over.</summary>
+            Shopping = 3
         }
 
         /// <summary>Seconds the standings take to slide into their new order.</summary>
@@ -47,9 +51,22 @@ namespace Dungeon.Game
         private Phase _phase = Phase.Standings;
         private float _shift = 1f;
         private int _finalPosition;
+        private Shop _shop;
+        private Loadout _loadout = new();
+        private float _bonusEnergy;
+        private float _carriedEnergy;
 
         /// <summary>The raid in progress. Read-only; tests observe, they do not drive.</summary>
         public Raid CurrentRaid => _raid;
+
+        /// <summary>The shop between raids, or null outside it. Read-only; tests observe.</summary>
+        public Shop CurrentShop => _shop;
+
+        /// <summary>Everything bought so far this run. Purchases are permanent for the season.</summary>
+        public Loadout Loadout => _loadout;
+
+        /// <summary>Whether the shop is currently on screen.</summary>
+        public bool IsShopping => _phase == Phase.Shopping;
 
         /// <summary>Builds the dungeon and starts the first raid.</summary>
         private void Awake()
@@ -81,6 +98,10 @@ namespace Dungeon.Game
             _league = new LeagueTable(System.Environment.TickCount);
             _phase = Phase.Standings;
             _shift = 1f;
+            _loadout = new Loadout();
+            _shop = null;
+            _bonusEnergy = 0f;
+            _carriedEnergy = 0f;
 
             // A raid exists even on the title screen, so the dungeon is drawn behind the standings
             // rather than the player opening on an empty void.
@@ -104,11 +125,33 @@ namespace Dungeon.Game
             }
 
             _phase = Phase.Raiding;
-            _raid = new Raid(DungeonLayout.BuildCorridor());
+            _raid = new Raid(BuildFromLoadout(), _bonusEnergy);
+            _bonusEnergy = 0f;
             _view = new DungeonView(transform);
             _view.BuildStatic(_raid.Layout);
             FrameCamera();
             _view.Refresh(_raid);
+        }
+
+        /// <summary>Deepest the corridor is allowed to get, however many halls are bought.</summary>
+        /// <remarks>
+        /// A corridor that keeps growing eventually cannot be crossed in sixty seconds, at which
+        /// point buying another hall stops being a purchase and starts being a guarantee -- the party
+        /// can no longer reach the boss room whatever the player does, and the game's one losing
+        /// ending quietly stops existing.
+        /// </remarks>
+        private const int MaxRooms = 5;
+
+        /// <summary>Builds the dungeon the player has paid for.</summary>
+        /// <returns>The layout for the next raid.</returns>
+        private DungeonLayout BuildFromLoadout()
+        {
+            return DungeonLayout.BuildCorridor(
+                roomCount: Mathf.Min(MaxRooms, 3 + _loadout.Count(ShopItem.Door)),
+                extraSlimeSpawners: _loadout.Count(ShopItem.Slime),
+                extraSkeletonSpawners: _loadout.Count(ShopItem.Skeleton),
+                extraTraps: _loadout.Count(ShopItem.SpikeTrap) + _loadout.Count(ShopItem.PoisonDart),
+                chests: _loadout.Count(ShopItem.Chest));
         }
 
         /// <summary>
@@ -321,6 +364,12 @@ namespace Dungeon.Game
             _shift = Mathf.Min(1f, _shift + (Time.deltaTime / ShiftSeconds));
             _view.Refresh(_raid, Time.deltaTime);
 
+            if (_phase == Phase.Shopping)
+            {
+                TickShop(Time.deltaTime);
+                return;
+            }
+
             if (_phase != Phase.Raiding)
             {
                 HandleZoom();
@@ -370,6 +419,11 @@ namespace Dungeon.Game
             _league.SubmitRaid(_raid.EnergyHarvested);
             _shift = 0f;
 
+            // Whatever the player did not spend during the raid is what they take to the shop. It
+            // gives restraint a use -- a player who hoards energy buys a permanent spawner with it --
+            // without letting hoarding score points, since the league only counts harvest.
+            _carriedEnergy = _raid.TotalEnergy;
+
             if (_league.PlayerRelegated)
             {
                 _finalPosition = _league.PlayerPosition;
@@ -398,8 +452,94 @@ namespace Dungeon.Game
                 return;
             }
 
+            // No shop before the first party. The player has earned nothing yet, so it would be
+            // thirty seconds of looking at prices they cannot pay -- and the first thing a new player
+            // should see after the standings is a raid, not a menu.
+            if (_league.Round > 0)
+            {
+                OpenShop();
+                return;
+            }
+
             StartRaid();
             _phase = Phase.Raiding;
+        }
+
+        /// <summary>Opens the shop with whatever the last raid left unspent.</summary>
+        public void OpenShop()
+        {
+            OpenShopWith(_carriedEnergy);
+        }
+
+        /// <summary>
+        /// Opens the shop with a given purse.
+        /// </summary>
+        /// <remarks>
+        /// Public so a test can put a known amount of money on the table and then press real cards at
+        /// real screen coordinates, instead of asserting against the shop model and never finding out
+        /// whether the cards are clickable at all.
+        /// </remarks>
+        /// <param name="purse">Energy the player has to spend.</param>
+        public void OpenShopWith(float purse)
+        {
+            _shop = new Shop(purse);
+            _carriedEnergy = 0f;
+            _phase = Phase.Shopping;
+        }
+
+        /// <summary>
+        /// Runs the shop clock and reads taps on the cards and the Ready button.
+        /// </summary>
+        /// <param name="deltaTime">Seconds since the last frame.</param>
+        private void TickShop(float deltaTime)
+        {
+            _shop.Tick(deltaTime);
+
+            if (TryReadTap(out Vector2 tap))
+            {
+                TapShop(tap);
+            }
+
+            if (!_shop.IsOpen)
+            {
+                StartRaid();
+            }
+        }
+
+        /// <summary>
+        /// Resolves a tap on the shop: buy an item, or press Ready.
+        /// </summary>
+        /// <remarks>
+        /// Public so a test can press a real card from a real screen coordinate, the same way
+        /// <see cref="ClickAt"/> exists for the raid verbs. A shipped build once had every verb dead
+        /// while the suite stayed green, because the tests called the model instead of clicking.
+        /// </remarks>
+        /// <param name="screenPosition">Screen-space point that was tapped.</param>
+        public void TapShop(Vector2 screenPosition)
+        {
+            if (_shop is not { IsOpen: true })
+            {
+                return;
+            }
+
+            float scale = Screen.height / 720f;
+
+            if (ShopScreen.TryHitItem(screenPosition, scale, out ShopItem item))
+            {
+                if (_shop.Buy(item))
+                {
+                    _loadout.Add(item);
+                }
+
+                return;
+            }
+
+            if (ShopScreen.HitReady(screenPosition, scale))
+            {
+                // The bonus is carried into the next raid rather than paid into the purse being
+                // closed, so pressing Ready buys starting energy instead of buying nothing.
+                _bonusEnergy += _shop.Ready();
+            }
         }
 
         /// <summary>
@@ -493,7 +633,9 @@ namespace Dungeon.Game
 
             if (_raid.Layout.SpawnerCells.Contains(cell))
             {
-                _raid.SpawnMob(cell, MobKind.Skeleton);
+                // No kind passed: the spawner decides. A slime pit bought in the shop spawns slimes,
+                // everything else spawns skeletons.
+                _raid.SpawnMob(cell);
                 return;
             }
 
@@ -520,13 +662,19 @@ namespace Dungeon.Game
 
             float scale = Screen.height / 720f;
 
+            if (_phase == Phase.Shopping)
+            {
+                ShopScreen.Draw(_shop, scale);
+                return;
+            }
+
             if (_phase != Phase.Raiding)
             {
                 string prompt = _phase == Phase.Destroyed
                     ? $"YOUR DUNGEON COLLAPSED IN {Ordinal(_finalPosition)}.  PRESS ANY KEY TO BEGIN AGAIN"
                     : _league.Round == 0
                         ? "PRESS ANY KEY  -  THE FIRST PARTY ENTERS"
-                        : "PRESS ANY KEY  -  THE NEXT PARTY ENTERS";
+                        : "PRESS ANY KEY  -  SPEND WHAT YOU HAVE LEFT";
 
                 LeagueScreen.Draw(_league, scale, _shift, prompt);
                 return;

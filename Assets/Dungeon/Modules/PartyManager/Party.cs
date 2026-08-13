@@ -64,6 +64,28 @@ namespace Dungeon.PartyManager
         /// <summary>Seconds between the healer's casts.</summary>
         public const float HealInterval = 2.2f;
 
+        /// <summary>
+        /// Seconds the party spends prising a chest open.
+        /// </summary>
+        /// <remarks>
+        /// This, plus the walk to reach it, is the whole value of a chest to the player: it is time
+        /// the party spends not advancing, in a room the player has had a moment to fill. A chest
+        /// that opened instantly would be scenery.
+        /// </remarks>
+        public const float LootSeconds = 3f;
+
+        /// <summary>
+        /// How close the leader must be to a chest to start opening it.
+        /// </summary>
+        /// <remarks>
+        /// Generous on purpose, and it has to be. The tank stops as soon as its <i>cell</i> equals
+        /// its objective, which on a diagonal approach can leave it two thirds of a cell from the
+        /// centre. A tighter reach than that deadlocks the raid outright: the chest stays unlooted,
+        /// so it stays the objective, so the tank stands next to it doing nothing until the clock
+        /// runs out. That is exactly what a 0.45 reach did.
+        /// </remarks>
+        public const float LootReach = 0.8f;
+
         /// <summary>Distance in cells between one member and the next in the marching order.</summary>
         public const float FollowSpacing = 0.62f;
 
@@ -86,8 +108,11 @@ namespace Dungeon.PartyManager
         private readonly DungeonGrid _grid;
         private readonly Vector2Int _bossCell;
         private readonly Vector2Int _entranceCell;
+        private readonly HashSet<Vector2Int> _looted = new();
+        private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
         private float _mana = 100f;
         private float _healCooldown;
+        private float _lootProgress;
 
         /// <summary>Every member, alive or dead, in spawn order.</summary>
         public IReadOnlyList<Adventurer> Members => _members;
@@ -118,6 +143,20 @@ namespace Dungeon.PartyManager
 
         /// <summary>Seconds of disarming work done this tick, for the raid to apply.</summary>
         public float DisarmSeconds { get; private set; }
+
+        /// <summary>Chest the party is currently prising open, or null.</summary>
+        public Vector2Int? LootingCell { get; private set; }
+
+        /// <summary>How far through opening the current chest, 0 to 1.</summary>
+        public float LootFraction => Mathf.Clamp01(_lootProgress / LootSeconds);
+
+        /// <summary>Chests the party has already emptied, so the view can stop drawing them.</summary>
+        public IReadOnlyCollection<Vector2Int> LootedChests => _looted;
+
+        /// <summary>Whether a chest has already been emptied.</summary>
+        /// <param name="cell">Chest cell to test.</param>
+        /// <returns>True when the party has looted it.</returns>
+        public bool HasLooted(Vector2Int cell) => _looted.Contains(cell);
 
         /// <summary>
         /// Aggregate health of the living party, 1 down to 0.
@@ -170,11 +209,18 @@ namespace Dungeon.PartyManager
         /// because PartyManager and MobManager are siblings that must not reference each other.
         /// </param>
         /// <param name="traps">Trap cells the party would rather walk around.</param>
+        /// <param name="chests">
+        /// Chest cells. The party detours to any it has not yet emptied in the room it is standing
+        /// in, which is the entire point of a chest: it buys the player seconds.
+        /// </param>
         public void Tick(
             float deltaTime,
             IReadOnlyList<Vector2> threats,
-            IReadOnlyCollection<Vector2Int> traps)
+            IReadOnlyCollection<Vector2Int> traps,
+            IReadOnlyCollection<Vector2Int> chests = null)
         {
+            _chests = chests ?? System.Array.Empty<Vector2Int>();
+
             if (Goal is PartyGoal.Escaped or PartyGoal.Wiped)
             {
                 return;
@@ -256,10 +302,82 @@ namespace Dungeon.PartyManager
                 }
             }
 
+            OpenChests(leader, deltaTime);
+
             if (Goal != PartyGoal.Fighting && Cell == _bossCell)
             {
                 Goal = PartyGoal.Escaped;
             }
+        }
+
+        /// <summary>
+        /// Prises open whatever chest the leader is standing over.
+        /// </summary>
+        /// <remarks>
+        /// Only while advancing. A party in a fight has better things to do, and a party running for
+        /// the entrance stopping to loot would look like a bug.
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        private void OpenChests(Adventurer leader, float deltaTime)
+        {
+            Vector2Int? chest = NearestUnlootedChest(leader);
+            if (Goal != PartyGoal.Advancing || !chest.HasValue ||
+                Vector2.Distance(leader.Position, chest.Value) > LootReach)
+            {
+                LootingCell = null;
+                _lootProgress = 0f;
+                return;
+            }
+
+            // Restart the timer if they moved to a different chest, so progress cannot be banked on
+            // one chest and spent on another.
+            if (LootingCell != chest)
+            {
+                _lootProgress = 0f;
+            }
+
+            LootingCell = chest;
+            _lootProgress += deltaTime;
+
+            if (_lootProgress >= LootSeconds)
+            {
+                _looted.Add(chest.Value);
+                LootingCell = null;
+                _lootProgress = 0f;
+            }
+        }
+
+        /// <summary>The nearest chest in the leader's room that has not been emptied yet.</summary>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>The chest cell, or null.</returns>
+        private Vector2Int? NearestUnlootedChest(Adventurer leader)
+        {
+            int room = _grid.RoomAt(leader.Cell);
+            if (room == DungeonGrid.NoRoom)
+            {
+                return null;
+            }
+
+            Vector2Int? best = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Vector2Int chest in _chests)
+            {
+                if (_looted.Contains(chest) || _grid.RoomAt(chest) != room)
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(leader.Position, chest);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = chest;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>
@@ -271,6 +389,14 @@ namespace Dungeon.PartyManager
         /// </remarks>
         private Vector2Int NextObjective(Adventurer leader)
         {
+            // A chest in this room comes first. Greed beats progress, which is what makes a chest
+            // worth its price -- the party walks off the shortest route and the clock keeps running.
+            Vector2Int? chest = NearestUnlootedChest(leader);
+            if (chest.HasValue)
+            {
+                return chest.Value;
+            }
+
             List<Vector2Int> path = _grid.FindPath(leader.Cell, _bossCell);
             foreach (Vector2Int cell in path)
             {

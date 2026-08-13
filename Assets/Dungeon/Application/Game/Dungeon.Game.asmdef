@@ -7,6 +7,7 @@
         "Dungeon.MobManager",
         "Dungeon.RaidManager",
         "Dungeon.LeagueManager",
+        "Dungeon.ShopManager",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

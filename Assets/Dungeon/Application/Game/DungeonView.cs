@@ -26,6 +26,7 @@ namespace Dungeon.Game
 
         private readonly Transform _root;
         private readonly Dictionary<Vector2Int, SpriteRenderer> _doorViews = new();
+        private readonly Dictionary<Vector2Int, SpriteRenderer> _chestViews = new();
         private readonly List<SpriteRenderer> _partyViews = new();
         private readonly List<SpriteRenderer> _mobViews = new();
         private readonly Dictionary<string, Sprite> _cache = new();
@@ -86,14 +87,31 @@ namespace Dungeon.Game
                 _doorViews[door.Cell] = view;
             }
 
-            foreach (Vector2Int spawner in layout.SpawnerCells)
+            // Different art per tier, so a player can tell at a glance which spawner will give them a
+            // slime and which will give them a skeleton. They cost different money and buy different
+            // amounts of time; making them look identical would hide the only thing worth knowing.
+            for (int i = 0; i < layout.SpawnerCells.Count; i++)
             {
-                Make($"spawner_{spawner.x}", "dungeon/spawner-skull", CellToWorld(spawner, 4f), 3);
+                Vector2Int spawner = layout.SpawnerCells[i];
+                string art = layout.SpawnerTiers[i] == 0
+                    ? "dungeon/spawner-cauldron"
+                    : "dungeon/spawner-skull";
+                Make($"spawner_{spawner.x}_{spawner.y}", art, CellToWorld(spawner, 4f), 3);
             }
 
-            foreach (Vector2Int trap in layout.TrapCells)
+            // Alternating art for the same reason a dungeon is not one repeated tile: six identical
+            // spike plates in a row read as a texture rather than as six separate things to fire.
+            for (int i = 0; i < layout.TrapCells.Count; i++)
             {
-                Make($"trap_{trap.x}", "effects/trap-spikes", CellToWorld(trap, 6f), 1);
+                Vector2Int trap = layout.TrapCells[i];
+                string art = (i % 2) == 0 ? "effects/trap-spikes" : "effects/trap-poison";
+                Make($"trap_{trap.x}_{trap.y}", art, CellToWorld(trap, 6f), 1);
+            }
+
+            foreach (Vector2Int chest in layout.ChestCells)
+            {
+                _chestViews[chest] = Make(
+                    $"chest_{chest.x}_{chest.y}", "dungeon/chest", CellToWorld(chest, 5f), 3);
             }
 
             DrawApproach(layout);
@@ -323,6 +341,32 @@ namespace Dungeon.Game
             RefreshParty(raid.Party);
             RefreshMobs(raid.Mobs, raid.Layout.Grid, raid.Layout.Grid.RoomAt(raid.Party.Cell));
             RefreshTraps(raid.Layout);
+            RefreshChests(raid.Party);
+        }
+
+        /// <summary>
+        /// Shows a chest being opened, then takes it away once it is empty.
+        /// </summary>
+        /// <remarks>
+        /// A chest that stayed shut after being looted would have the party ignore it on the way back
+        /// for no visible reason. Shrinking as it opens gives the detour a readable payoff.
+        /// </remarks>
+        /// <param name="party">Party to read.</param>
+        private void RefreshChests(Party party)
+        {
+            foreach (KeyValuePair<Vector2Int, SpriteRenderer> pair in _chestViews)
+            {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
+                pair.Value.enabled = !party.HasLooted(pair.Key);
+
+                float opening = party.LootingCell == pair.Key ? party.LootFraction : 0f;
+                pair.Value.transform.localScale = Vector3.one * (1f - (opening * 0.4f));
+                pair.Value.color = Color.Lerp(Color.white, new Color(1f, 0.85f, 0.4f), opening);
+            }
         }
 
         /// <summary>
