@@ -62,8 +62,15 @@ namespace Dungeon.Game
             _view.Refresh(_raid);
         }
 
-        /// <summary>How far in the player may zoom, as a fraction of the fitted view.</summary>
-        private const float MaxZoomIn = 0.35f;
+        /// <summary>
+        /// How far in the player may zoom, as a fraction of the fitted view.
+        /// </summary>
+        /// <remarks>
+        /// The fitted view now covers the whole world -- dungeon plus forest approach -- so a limit
+        /// tuned when it covered only the dungeon left everything too small. Four times more range
+        /// than that, which brings a single room up to fill the screen.
+        /// </remarks>
+        private const float MaxZoomIn = 0.09f;
 
         /// <summary>How far out the player may zoom, as a fraction of the fitted view.</summary>
         private const float MaxZoomOut = 1.15f;
@@ -94,11 +101,23 @@ namespace Dungeon.Game
             // large would hide the world the party walks out of, which is the point of drawing it.
             Bounds world = _view.WorldBounds;
             _worldCentre = new Vector3(world.center.x, world.center.y, -10f);
-            _pan = Vector2.zero;
 
             float halfHeight = (world.extents.y) + 1.6f;   // room at the bottom for the HUD strip
             float halfWidth = world.extents.x + 0.5f;
             _fittedSize = Mathf.Max(halfHeight, halfWidth / _camera.aspect);
+
+            // Open framed on the dungeon, not on the whole world. Zoom 1 means "everything", which
+            // is the right thing to be able to reach but the wrong thing to start on -- the game
+            // happens in the corridor, and the forest is scenery the player can go and look at.
+            DungeonGrid grid = _raid.Layout.Grid;
+            float dungeonHalfHeight = (grid.Height * 0.5f) + 1.6f;
+            float dungeonHalfWidth = (grid.Width * 0.5f) + 0.5f;
+            float dungeonFit = Mathf.Max(dungeonHalfHeight, dungeonHalfWidth / _camera.aspect);
+
+            _zoom = Mathf.Clamp(dungeonFit / _fittedSize, MaxZoomIn, MaxZoomOut);
+            _pan = new Vector2(
+                ((grid.Width - 1) * 0.5f * DungeonView.CellSize) - _worldCentre.x,
+                ((grid.Height - 1) * 0.5f * DungeonView.CellSize) - _worldCentre.y);
 
             ApplyCamera();
         }
