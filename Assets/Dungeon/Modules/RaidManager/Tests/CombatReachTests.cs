@@ -214,7 +214,8 @@ namespace Dungeon.RaidManager.Tests
         public void TheCombatFeed_ReportsDamageAndHealing()
         {
             Raid raid = FightingRaid(0f);
-            bool sawDamage = false;
+            bool sawHurtAdventurer = false;
+            bool sawHurtMonster = false;
             bool sawHealing = false;
             int mostAtOnce = 0;
 
@@ -225,14 +226,22 @@ namespace Dungeon.RaidManager.Tests
 
                 foreach (CombatNumber number in raid.Feed.Numbers)
                 {
-                    sawDamage |= !number.IsHeal;
                     sawHealing |= number.IsHeal;
+                    sawHurtAdventurer |=
+                        !number.IsHeal && number.Target == CombatTarget.Adventurer;
+                    sawHurtMonster |= !number.IsHeal && number.Target == CombatTarget.Monster;
                 }
             }
 
             MooseRunnerFacade.Log(
-                $"feed saw damage={sawDamage} healing={sawHealing}, peak {mostAtOnce} at once");
-            Assert.IsTrue(sawDamage, "no damage number was ever produced during a fight");
+                $"feed saw adventurer-hurt={sawHurtAdventurer} monster-hurt={sawHurtMonster} " +
+                $"healing={sawHealing}, peak {mostAtOnce} at once");
+
+            // Both directions must be distinguishable. An adventurer bleeding is the player earning;
+            // their monster bleeding is the stall ending. Reporting both as plain "damage" left the
+            // player unable to tell a good fight from a losing one.
+            Assert.IsTrue(sawHurtAdventurer, "no adventurer damage was ever reported");
+            Assert.IsTrue(sawHurtMonster, "no monster damage was ever reported");
             Assert.IsTrue(sawHealing, "no healing number was ever produced during a fight");
 
             // Numbers expire, so the feed must never accumulate over a whole raid.

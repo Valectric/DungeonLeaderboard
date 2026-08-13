@@ -3,6 +3,22 @@ using UnityEngine;
 
 namespace Dungeon.RaidManager
 {
+    /// <summary>Who a floating number belongs to.</summary>
+    /// <remarks>
+    /// The distinction matters more here than in most games, because the two are opposite news. An
+    /// adventurer bleeding is the player's <b>income</b>; their monster bleeding is the player's
+    /// <b>asset dying</b> and the stall ending. Drawn in one colour they were indistinguishable, and
+    /// the player could not tell a good fight from a losing one at a glance.
+    /// </remarks>
+    public enum CombatTarget
+    {
+        /// <summary>An adventurer. Damage here is the player earning.</summary>
+        Adventurer = 0,
+
+        /// <summary>A monster. Damage here is the player's purchase being destroyed.</summary>
+        Monster = 1
+    }
+
     /// <summary>One number that should float up off something.</summary>
     public sealed class CombatNumber
     {
@@ -29,17 +45,23 @@ namespace Dungeon.RaidManager
         /// </remarks>
         public float Spread { get; }
 
+        /// <summary>Whether this happened to an adventurer or to a monster.</summary>
+        public CombatTarget Target { get; }
+
         /// <summary>Creates a number at a position.</summary>
         /// <param name="origin">Where it appeared.</param>
         /// <param name="amount">How much.</param>
         /// <param name="isHeal">True for healing.</param>
         /// <param name="spread">Sideways offset in cells.</param>
-        public CombatNumber(Vector2 origin, int amount, bool isHeal, float spread)
+        /// <param name="target">Who it happened to.</param>
+        public CombatNumber(
+            Vector2 origin, int amount, bool isHeal, float spread, CombatTarget target)
         {
             Origin = origin;
             Amount = amount;
             IsHeal = isHeal;
             Spread = spread;
+            Target = target;
         }
 
         /// <summary>Ages the number.</summary>
@@ -109,7 +131,8 @@ namespace Dungeon.RaidManager
         /// <param name="source">Whatever is taking the damage, used to keep tallies apart.</param>
         /// <param name="position">Where to show it.</param>
         /// <param name="amount">Damage this tick.</param>
-        public void Damage(object source, Vector2 position, float amount)
+        /// <param name="target">Whether an adventurer or a monster is taking it.</param>
+        public void Damage(object source, Vector2 position, float amount, CombatTarget target)
         {
             if (amount <= 0f)
             {
@@ -124,7 +147,8 @@ namespace Dungeon.RaidManager
             }
 
             _pending[source] = 0f;
-            _numbers.Add(new CombatNumber(position, Mathf.RoundToInt(total), false, NextSpread()));
+            _numbers.Add(new CombatNumber(
+                position, Mathf.RoundToInt(total), false, NextSpread(), target));
         }
 
         /// <summary>Adds a heal, which is always a single discrete cast and shows immediately.</summary>
@@ -135,7 +159,8 @@ namespace Dungeon.RaidManager
             if (amount > 0f)
             {
                 _numbers.Add(new CombatNumber(
-                    position, Mathf.RoundToInt(amount), true, NextSpread()));
+                    position, Mathf.RoundToInt(amount), true, NextSpread(),
+                    CombatTarget.Adventurer));
             }
         }
 

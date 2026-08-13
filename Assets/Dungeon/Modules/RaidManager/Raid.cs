@@ -196,12 +196,14 @@ namespace Dungeon.RaidManager
         {
             foreach (PartyManager.Adventurer member in Party.Members)
             {
-                Record(member, member.Position, member.HealthFraction * member.MaxHealth);
+                Record(member, member.Position, member.HealthFraction * member.MaxHealth,
+                    CombatTarget.Adventurer);
             }
 
             foreach (Mob mob in Mobs.Mobs)
             {
-                Record(mob, mob.Position, mob.HealthFraction * mob.MaxHealth);
+                Record(mob, mob.Position, mob.HealthFraction * mob.MaxHealth,
+                    CombatTarget.Monster);
             }
         }
 
@@ -209,7 +211,8 @@ namespace Dungeon.RaidManager
         /// <param name="who">Combatant, used only as a key.</param>
         /// <param name="position">Where to show the number.</param>
         /// <param name="health">Health right now.</param>
-        private void Record(object who, Vector2 position, float health)
+        /// <param name="target">Whether this is an adventurer or a monster.</param>
+        private void Record(object who, Vector2 position, float health, CombatTarget target)
         {
             if (!_lastHealth.TryGetValue(who, out float previous))
             {
@@ -222,7 +225,7 @@ namespace Dungeon.RaidManager
 
             if (change < 0f)
             {
-                Feed.Damage(who, position, -change);
+                Feed.Damage(who, position, -change, target);
             }
             else if (change > 0f)
             {

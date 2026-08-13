@@ -45,7 +45,20 @@ namespace Dungeon.Game
         /// <summary>Fraction of a number's life spent shrinking back from the pop.</summary>
         private const float PopFraction = 0.22f;
 
-        private static readonly Color Damage = new(1f, 0.32f, 0.30f);
+        /// <summary>
+        /// An adventurer bleeding. Red, matching the party's own health bar as it empties.
+        /// </summary>
+        /// <remarks>
+        /// The rule the player learns without being told: <b>a number is the colour of the bar it is
+        /// draining.</b> Nothing has to be memorised, and there is never a moment of working out
+        /// whose damage this was.
+        /// </remarks>
+        private static readonly Color AdventurerHurt = new(1f, 0.32f, 0.30f);
+
+        /// <summary>A monster bleeding. Violet, exactly the colour of its own health bar.</summary>
+        private static readonly Color MonsterHurt = new(0.78f, 0.42f, 0.95f);
+
+        /// <summary>Healing, which only ever happens to adventurers.</summary>
         private static readonly Color Healing = new(0.45f, 1f, 0.45f);
 
         /// <summary>
@@ -112,12 +125,25 @@ namespace Dungeon.Game
 
                 // Fades only at the end, so the number is fully legible for most of its life. Fading
                 // from the first frame makes fast, small hits almost invisible.
-                Color ink = number.IsHeal ? Healing : Damage;
+                Color ink = number.IsHeal ? Healing
+                    : number.Target == CombatTarget.Monster ? MonsterHurt
+                    : AdventurerHurt;
                 ink.a = 1f - Mathf.Clamp01((life - 0.65f) / 0.35f);
                 style.normal.textColor = ink;
 
-                string text = (number.IsHeal ? "+" : "-")
-                              + number.Amount.ToString(CultureInfo.InvariantCulture);
+                // Colour carries the meaning, but never colour alone: a monster's number is
+                // italic and bracketed so the two stay apart for a colour-blind player, and on a
+                // screenshot where the violet and the red sit over different torchlight.
+                if (number.Target == CombatTarget.Monster && !number.IsHeal)
+                {
+                    style.fontStyle = FontStyle.BoldAndItalic;
+                }
+
+                string text = number.IsHeal
+                    ? "+" + number.Amount.ToString(CultureInfo.InvariantCulture)
+                    : number.Target == CombatTarget.Monster
+                        ? "(" + number.Amount.ToString(CultureInfo.InvariantCulture) + ")"
+                        : "-" + number.Amount.ToString(CultureInfo.InvariantCulture);
 
                 // GUI space measures from the top, input and projection from the bottom.
                 var rect = new Rect(point.x - (60f * scale), Screen.height - point.y - (14f * scale),
