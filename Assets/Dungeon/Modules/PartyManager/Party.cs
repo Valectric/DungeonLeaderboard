@@ -90,18 +90,14 @@ namespace Dungeon.PartyManager
         public const float FollowSpacing = 0.62f;
 
         /// <summary>
-        /// Marching order, front to back.
+        /// Mana each healer brings.
         /// </summary>
         /// <remarks>
-        /// The tank leads because it draws aggro and is built to soak it, and the healer walks last
-        /// because it is the party's whole survivability -- and, per SPEC.md, the player's best
-        /// customer. A healer that walks into the front rank dies early and takes the raid's earning
-        /// potential with it.
+        /// Per healer, not per party. A party with two healers genuinely has twice the sustain, which
+        /// is what makes THE PILGRIMAGE the best raid on the board and THE UNSHRIVEN the most
+        /// dangerous -- a pool that stayed fixed would have made the roster cosmetic.
         /// </remarks>
-        private static readonly AdventurerRole[] MarchOrder =
-        {
-            AdventurerRole.Tank, AdventurerRole.Ranged, AdventurerRole.Mage, AdventurerRole.Healer
-        };
+        public const float ManaPerHealer = 100f;
 
         private readonly List<Adventurer> _members = new();
         private readonly List<Vector2> _trail = new();
@@ -110,7 +106,8 @@ namespace Dungeon.PartyManager
         private readonly Vector2Int _entranceCell;
         private readonly HashSet<Vector2Int> _looted = new();
         private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
-        private float _mana = 100f;
+        private readonly float _maxMana;
+        private float _mana;
         private float _healCooldown;
         private float _lootProgress;
 
@@ -135,8 +132,11 @@ namespace Dungeon.PartyManager
         /// <summary>Whether the healer still has mana to spend.</summary>
         public bool HasMana => _mana > 0f;
 
-        /// <summary>Mana the healer has left, from 1 down to 0.</summary>
-        public float ManaFraction => Mathf.Clamp01(_mana / 100f);
+        /// <summary>Mana the healers have left, from 1 down to 0.</summary>
+        public float ManaFraction => _maxMana <= 0f ? 0f : Mathf.Clamp01(_mana / _maxMana);
+
+        /// <summary>Which party walked in, for the HUD and the pre-raid warning.</summary>
+        public PartyComposition Composition { get; }
 
         /// <summary>Trap the rogue is working on this tick, or null.</summary>
         public Vector2Int? DisarmingCell { get; private set; }
@@ -179,16 +179,25 @@ namespace Dungeon.PartyManager
         /// <param name="grid">Dungeon to walk.</param>
         /// <param name="entranceCell">Where the party enters.</param>
         /// <param name="bossCell">Cell that ends the raid when reached.</param>
-        public Party(DungeonGrid grid, Vector2Int entranceCell, Vector2Int bossCell)
+        /// <param name="composition">
+        /// Who walks in. Defaults to the balanced party, so every existing caller and test keeps the
+        /// roster it was written against.
+        /// </param>
+        public Party(DungeonGrid grid, Vector2Int entranceCell, Vector2Int bossCell,
+            PartyComposition composition = null)
         {
             _grid = grid;
             _entranceCell = entranceCell;
             _bossCell = bossCell;
+            Composition = composition ?? PartyComposition.Opening;
 
-            foreach (AdventurerRole role in MarchOrder)
+            foreach (AdventurerRole role in Composition.Roles)
             {
                 _members.Add(new Adventurer(role, entranceCell));
             }
+
+            _maxMana = Composition.Count(AdventurerRole.Healer) * ManaPerHealer;
+            _mana = _maxMana;
 
             // Seed the trail running back out of the entrance so the party starts strung out in
             // marching order rather than stacked on one square, and reads as walking in.
@@ -462,15 +471,27 @@ namespace Dungeon.PartyManager
                 return;
             }
 
-            Adventurer tank = living.FirstOrDefault(m => m.Role == AdventurerRole.Tank);
-            if (tank != null)
+            var tanks = living.Where(m => m.Role == AdventurerRole.Tank).ToList();
+            if (tanks.Count > 0)
             {
-                // The tank draws aggro, so it eats the bulk. This is what keeps a party alive long
-                // enough to be milked; spreading damage evenly would kill the fragile roles fast and
-                // end the raid early.
-                tank.TakeDamage(amount * 0.6f);
-                float rest = amount * 0.4f / Mathf.Max(1, living.Count - 1);
-                foreach (Adventurer member in living.Where(m => m != tank))
+                // Tanks draw aggro, so they eat the bulk between them. This is what keeps a party
+                // alive long enough to be milked; spreading damage evenly would kill the fragile
+                // roles fast and end the raid early -- which is exactly what happens to a party that
+                // brought no tank at all, and is why THE SKIRMISHERS are so easy to kill by mistake.
+                float perTank = amount * 0.6f / tanks.Count;
+                foreach (Adventurer tank in tanks)
+                {
+                    tank.TakeDamage(perTank);
+                }
+
+                var others = living.Where(m => m.Role != AdventurerRole.Tank).ToList();
+                if (others.Count == 0)
+                {
+                    return;
+                }
+
+                float rest = amount * 0.4f / others.Count;
+                foreach (Adventurer member in others)
                 {
                     member.TakeDamage(rest);
                 }
@@ -530,13 +551,17 @@ namespace Dungeon.PartyManager
         /// </remarks>
         private void HealWounded(float deltaTime)
         {
-            Adventurer healer = Living.FirstOrDefault(m => m.Role == AdventurerRole.Healer);
-            if (healer == null)
+            // Every living healer casts on its own schedule, so two healers really do heal twice as
+            // fast and a party that has lost its last healer stops healing entirely. Counting the
+            // living rather than the roster is the point: killing the healer is how a player ruins
+            // their own raid, and it has to be felt immediately.
+            int healers = Living.Count(m => m.Role == AdventurerRole.Healer);
+            if (healers == 0)
             {
                 return;
             }
 
-            _healCooldown = Mathf.Max(0f, _healCooldown - deltaTime);
+            _healCooldown = Mathf.Max(0f, _healCooldown - (deltaTime * healers));
             if (_healCooldown > 0f)
             {
                 return;

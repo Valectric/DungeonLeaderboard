@@ -112,11 +112,16 @@ namespace Dungeon.RaidManager
         /// not score -- <see cref="EnergyHarvested"/> still counts only what was taken from the
         /// adventurers, so a player cannot climb the league by skipping shops.
         /// </param>
-        public Raid(DungeonLayout layout, float bonusEnergy = 0f)
+        /// <param name="composition">
+        /// Which party walks in. Null means the balanced one, which is what a new player should meet
+        /// first and what every test that does not care about the roster gets.
+        /// </param>
+        public Raid(DungeonLayout layout, float bonusEnergy = 0f,
+            PartyComposition composition = null)
         {
             TotalEnergy = StartingEnergy + Mathf.Max(0f, bonusEnergy);
             Layout = layout;
-            Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell);
+            Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell, composition);
             Mobs = new MobPack(layout.Grid);
         }
 

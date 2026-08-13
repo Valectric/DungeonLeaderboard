@@ -34,7 +34,13 @@ namespace Dungeon.Game
         /// where they are, so a player sees themselves move rather than being told.
         /// </param>
         /// <param name="prompt">Line shown at the bottom.</param>
-        public static void Draw(LeagueTable league, float scale, float shift, string prompt)
+        /// <param name="nextParty">
+        /// Who walks in next, announced above the prompt. The player has to be able to read the door
+        /// before it opens -- composition is the game's main source of variety, and finding out who
+        /// was in the party only after killing them is not a decision.
+        /// </param>
+        public static void Draw(LeagueTable league, float scale, float shift, string prompt,
+            PartyManager.PartyComposition nextParty = null)
         {
             float width = Mathf.Min(Screen.width * 0.9f, 620f * scale);
             float left = (Screen.width - width) * 0.5f;
@@ -102,6 +108,32 @@ namespace Dungeon.Game
             GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 0.1f)),
                 Screen.width, rowHeight), "BOTTOM TWO ARE DESTROYED", warn);
 
+            float promptRow = LeagueTable.Size + 1.2f;
+
+            if (nextParty != null)
+            {
+                var partyStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = Mathf.RoundToInt(15 * scale),
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter
+                };
+                partyStyle.normal.textColor = new Color(0.85f, 0.7f, 1f);
+                GUI.Label(new Rect(0f, listTop + (rowHeight * promptRow), Screen.width, rowHeight),
+                    "NEXT THROUGH THE DOOR:  " + nextParty.Name, partyStyle);
+
+                var warnStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = Mathf.RoundToInt(12 * scale),
+                    alignment = TextAnchor.MiddleCenter
+                };
+                warnStyle.normal.textColor = Ink;
+                GUI.Label(new Rect(0f, listTop + (rowHeight * (promptRow + 0.85f)),
+                    Screen.width, rowHeight), nextParty.Warning, warnStyle);
+
+                promptRow += 1.9f;
+            }
+
             var promptStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(16 * scale),
@@ -109,7 +141,7 @@ namespace Dungeon.Game
                 alignment = TextAnchor.MiddleCenter
             };
             promptStyle.normal.textColor = PlayerGreen;
-            GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 1.2f)),
+            GUI.Label(new Rect(0f, listTop + (rowHeight * promptRow),
                 Screen.width, rowHeight * 1.4f), prompt, promptStyle);
         }
 

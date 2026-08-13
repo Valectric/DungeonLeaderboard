@@ -3,6 +3,7 @@ using System.Linq;
 using Dungeon.DungeonManager;
 using Dungeon.LeagueManager;
 using Dungeon.MobManager;
+using Dungeon.PartyManager;
 using Dungeon.RaidManager;
 using Dungeon.ShopManager;
 using UnityEngine;
@@ -55,6 +56,18 @@ namespace Dungeon.Game
         private Loadout _loadout = new();
         private float _bonusEnergy;
         private float _carriedEnergy;
+        private PartyComposition _nextParty = PartyComposition.Opening;
+        private int _partySeed;
+
+        /// <summary>
+        /// Who walks in next, so the player can read the door before it opens.
+        /// </summary>
+        /// <remarks>
+        /// Announcing it is the whole point. SPEC.md calls composition the primary source of variety,
+        /// and variety the player cannot see before they have to act on it is just noise -- they
+        /// would learn only afterwards that the party they killed had no healer.
+        /// </remarks>
+        public PartyComposition NextParty => _nextParty;
 
         /// <summary>The raid in progress. Read-only; tests observe, they do not drive.</summary>
         public Raid CurrentRaid => _raid;
@@ -103,6 +116,12 @@ namespace Dungeon.Game
             _bonusEnergy = 0f;
             _carriedEnergy = 0f;
 
+            // The first party of a run is always the balanced one. A new player who meets THE
+            // UNSHRIVEN before they know what a healer does will wipe them and conclude the game is
+            // unfair -- when a wipe is the one outcome the design most wants them to avoid.
+            _partySeed = System.Environment.TickCount;
+            _nextParty = PartyComposition.Opening;
+
             // A raid exists even on the title screen, so the dungeon is drawn behind the standings
             // rather than the player opening on an empty void.
             StartRaid();
@@ -125,12 +144,27 @@ namespace Dungeon.Game
             }
 
             _phase = Phase.Raiding;
-            _raid = new Raid(BuildFromLoadout(), _bonusEnergy);
+            _raid = new Raid(BuildFromLoadout(), _bonusEnergy, _nextParty);
             _bonusEnergy = 0f;
+            RollNextParty();
             _view = new DungeonView(transform);
             _view.BuildStatic(_raid.Layout);
             FrameCamera();
             _view.Refresh(_raid);
+        }
+
+        /// <summary>
+        /// Draws the party that will walk in after this one.
+        /// </summary>
+        /// <remarks>
+        /// Seeded and advanced one step at a time, so a whole run's sequence of parties follows from
+        /// the single number stamped at the start of it -- the project's reproduce-from-a-bug-report
+        /// constraint applies to who shows up as much as to the league table.
+        /// </remarks>
+        private void RollNextParty()
+        {
+            _partySeed = unchecked((_partySeed * 1103515245) + 12345);
+            _nextParty = PartyComposition.ForSeed(_partySeed);
         }
 
         /// <summary>Deepest the corridor is allowed to get, however many halls are bought.</summary>
@@ -676,7 +710,8 @@ namespace Dungeon.Game
                         ? "PRESS ANY KEY  -  THE FIRST PARTY ENTERS"
                         : "PRESS ANY KEY  -  SPEND WHAT YOU HAVE LEFT";
 
-                LeagueScreen.Draw(_league, scale, _shift, prompt);
+                LeagueScreen.Draw(_league, scale, _shift, prompt,
+                    _phase == Phase.Destroyed ? null : _nextParty);
                 return;
             }
 
@@ -729,6 +764,14 @@ namespace Dungeon.Game
             GUI.Label(new Rect(0f, 50f * scale, Screen.width - (24f * scale), 30f * scale),
                 "HARVESTED   spend " + _raid.TotalEnergy.ToString("0", CultureInfo.InvariantCulture),
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
+
+            // Who is inside, kept on screen for the whole raid. The player has to be able to check
+            // mid-minute whether this is the party with two healers or the one with none, without
+            // having to have memorised the standings screen.
+            var who = new GUIStyle(caption) { fontStyle = FontStyle.Bold };
+            who.normal.textColor = new Color(0.85f, 0.7f, 1f);
+            GUI.Label(new Rect(24f * scale, 62f * scale, Screen.width, 30f * scale),
+                _raid.Party.Composition.Name, who);
 
             GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
                 "TAP A DOOR TO STALL   /   A SPAWNER TO AMBUSH   /   A TRAP TO WOUND"
