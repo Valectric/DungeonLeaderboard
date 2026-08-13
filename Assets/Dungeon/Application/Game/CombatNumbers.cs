@@ -1,0 +1,99 @@
+using System.Globalization;
+using Dungeon.RaidManager;
+using UnityEngine;
+
+namespace Dungeon.Game
+{
+    /// <summary>
+    /// Floats damage and healing numbers off the fight.
+    /// </summary>
+    /// <remarks>
+    /// Red for damage, green for healing, so a glance at the room tells the player whether their
+    /// monster is landing hits or the healer is undoing them. Without this the only evidence of
+    /// combat was two bars slowly changing length, which reads as nothing happening.
+    /// <para>
+    /// Drawn in immediate mode and projected from world space, rather than as world-space text. That
+    /// is the same reason the rest of the UI is IMGUI: it needs no font asset, so it cannot fail in a
+    /// WebGL build the way a missing dynamic font silently can.
+    /// </para>
+    /// <para>
+    /// These are <b>deltas, never totals</b>. SPEC.md's rule is that adventurer HP is never shown as
+    /// a number, and it is kept: "12" tells the player what just happened, not how much is left, so
+    /// the ambiguity between "nearly dead" and "dead in one hit" survives intact.
+    /// </para>
+    /// </remarks>
+    public static class CombatNumbers
+    {
+        /// <summary>How far a number drifts upward over its life, in world units.</summary>
+        private const float Rise = 0.85f;
+
+        private static readonly Color Damage = new(1f, 0.32f, 0.30f);
+        private static readonly Color Healing = new(0.45f, 1f, 0.45f);
+
+        /// <summary>
+        /// Draws every floating number.
+        /// </summary>
+        /// <param name="feed">Numbers to draw.</param>
+        /// <param name="camera">Camera to project through.</param>
+        /// <param name="scale">UI scale.</param>
+        public static void Draw(CombatFeed feed, Camera camera, float scale)
+        {
+            if (feed == null || camera == null)
+            {
+                return;
+            }
+
+            foreach (CombatNumber number in feed.Numbers)
+            {
+                float life = Mathf.Clamp01(number.Age / CombatFeed.Lifetime);
+
+                var world = new Vector3(
+                    number.Origin.x * DungeonView.CellSize,
+                    (number.Origin.y * DungeonView.CellSize) + 0.4f + (Rise * life),
+                    0f);
+
+                Vector3 point = camera.WorldToScreenPoint(world);
+                if (point.z < 0f)
+                {
+                    continue;
+                }
+
+                // A number scales with the camera, so it stays the same size on the dungeon whatever
+                // the player has zoomed to. Fixed-size text would be a shout when zoomed in and
+                // unreadable when zoomed out.
+                float zoom = Screen.height / (camera.orthographicSize * 2f);
+                int size = Mathf.Clamp(Mathf.RoundToInt(zoom * 0.42f), 9, 46);
+
+                var style = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = size,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter
+                };
+
+                // Fades only at the end, so the number is fully legible for most of its life. Fading
+                // from the first frame makes fast, small hits almost invisible.
+                Color ink = number.IsHeal ? Healing : Damage;
+                ink.a = 1f - Mathf.Clamp01((life - 0.65f) / 0.35f);
+                style.normal.textColor = ink;
+
+                string text = (number.IsHeal ? "+" : "-")
+                              + number.Amount.ToString(CultureInfo.InvariantCulture);
+
+                // GUI space measures from the top, input and projection from the bottom.
+                var rect = new Rect(point.x - (60f * scale), Screen.height - point.y - (14f * scale),
+                    120f * scale, 28f * scale);
+
+                // A dark backing copy one pixel down, so a red number stays readable over a red
+                // torch and a green one over the floor.
+                Color shadow = new(0f, 0f, 0f, ink.a * 0.75f);
+                var shadowStyle = new GUIStyle(style);
+                shadowStyle.normal.textColor = shadow;
+                GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height),
+                    text, shadowStyle);
+
+                GUI.Label(rect, text, style);
+            }
+        }
+    }
+}

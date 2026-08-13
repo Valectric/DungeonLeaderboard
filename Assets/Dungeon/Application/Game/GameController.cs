@@ -721,6 +721,7 @@ namespace Dungeon.Game
                 return;
             }
 
+            CombatNumbers.Draw(_raid.Feed, _camera, scale);
             LeagueScreen.DrawStrip(_league, scale, _raid.EnergyHarvested);
             var clock = new GUIStyle(GUI.skin.label)
             {

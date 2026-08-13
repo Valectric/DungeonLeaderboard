@@ -40,6 +40,20 @@ namespace Dungeon.MobManager
         /// <summary>Whether this mob is still alive.</summary>
         public bool IsAlive => _health > 0f;
 
+        /// <summary>Starting health, so the view can draw a bar.</summary>
+        public float MaxHealth { get; }
+
+        /// <summary>
+        /// Health as a fraction from 1 down to 0.
+        /// </summary>
+        /// <remarks>
+        /// Shown to the player, unlike an adventurer's. SPEC.md hides adventurer HP so that "nearly
+        /// dead" and "dead in one hit" stay ambiguous -- that ambiguity is the tension. A mob is the
+        /// opposite case: it is the player's own asset, they paid energy for it, and how long it will
+        /// hold the party is the single fact they need to plan the next twenty seconds around.
+        /// </remarks>
+        public float HealthFraction => Mathf.Clamp01(_health / MaxHealth);
+
         /// <summary>Creates a mob bound to the room it spawned in.</summary>
         /// <param name="kind">Monster type.</param>
         /// <param name="cell">Spawn cell.</param>
@@ -52,7 +66,8 @@ namespace Dungeon.MobManager
             // Sized against the party's 20 dps so a slime holds them ~6s and a skeleton ~13s. Mobs
             // exist to keep the party standing still and bleeding, not to kill it, so health matters
             // far more than damage here.
-            _health = kind == MobKind.Slime ? 120f : 260f;
+            MaxHealth = kind == MobKind.Slime ? 120f : 260f;
+            _health = MaxHealth;
             DamagePerSecond = kind == MobKind.Slime ? 8f : 15f;
         }
 

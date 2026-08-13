@@ -65,6 +65,17 @@ namespace Dungeon.RaidManager
         public const float StartingEnergy = 100f;
 
         private float _trapReadyAt;
+        private readonly Dictionary<object, float> _lastHealth = new();
+
+        /// <summary>
+        /// Recent damage and healing, for the view to float off the fight.
+        /// </summary>
+        /// <remarks>
+        /// Filled by diffing health each tick rather than by having every damage path report itself.
+        /// One place to get right, and it cannot miss a source: a trap firing, a mob biting and a
+        /// healer casting all show up the same way, including any source added later.
+        /// </remarks>
+        public CombatFeed Feed { get; } = new();
 
         /// <summary>The dungeon being raided.</summary>
         public DungeonLayout Layout { get; }
@@ -166,9 +177,57 @@ namespace Dungeon.RaidManager
             }
 
             AccrueEnergy(deltaTime);
+            RecordCombatNumbers();
+            Feed.Tick(deltaTime);
 
             TimeRemaining = Mathf.Max(0f, TimeRemaining - deltaTime);
             UpdateOutcome();
+        }
+
+        /// <summary>
+        /// Turns this tick's health changes into floating numbers.
+        /// </summary>
+        /// <remarks>
+        /// Everything that can wound or mend goes through health, so watching health catches every
+        /// source without each one having to remember to report itself -- and a source added later is
+        /// caught for free.
+        /// </remarks>
+        private void RecordCombatNumbers()
+        {
+            foreach (PartyManager.Adventurer member in Party.Members)
+            {
+                Record(member, member.Position, member.HealthFraction * member.MaxHealth);
+            }
+
+            foreach (Mob mob in Mobs.Mobs)
+            {
+                Record(mob, mob.Position, mob.HealthFraction * mob.MaxHealth);
+            }
+        }
+
+        /// <summary>Compares one combatant's health against last tick and feeds the difference.</summary>
+        /// <param name="who">Combatant, used only as a key.</param>
+        /// <param name="position">Where to show the number.</param>
+        /// <param name="health">Health right now.</param>
+        private void Record(object who, Vector2 position, float health)
+        {
+            if (!_lastHealth.TryGetValue(who, out float previous))
+            {
+                _lastHealth[who] = health;
+                return;
+            }
+
+            _lastHealth[who] = health;
+            float change = health - previous;
+
+            if (change < 0f)
+            {
+                Feed.Damage(who, position, -change);
+            }
+            else if (change > 0f)
+            {
+                Feed.Heal(position, change);
+            }
         }
 
         /// <summary>
@@ -261,7 +320,21 @@ namespace Dungeon.RaidManager
             }
 
             Mobs.DistributeDamage(Party.DamageOutput() * deltaTime, Party.Cell);
-            Party.DistributeDamage(Mobs.DamageOutputAgainst(Party.Cell) * deltaTime);
+
+            // Hand the party where its attackers are standing, so only whoever is actually in reach
+            // gets hit. Without this a healer that had correctly fled to the back of the room still
+            // took damage from a skeleton three cells away.
+            var attackers = new List<Vector2>();
+            int room = Layout.Grid.RoomAt(Party.Cell);
+            foreach (Mob mob in Mobs.Living)
+            {
+                if (Layout.Grid.RoomAt(mob.Cell) == room)
+                {
+                    attackers.Add(mob.Position);
+                }
+            }
+
+            Party.DistributeDamage(Mobs.DamageOutputAgainst(Party.Cell) * deltaTime, attackers);
         }
 
         /// <summary>

@@ -475,16 +475,54 @@ namespace Dungeon.PartyManager
             }
         }
 
+        /// <summary>How close a melee attacker must be to land a hit.</summary>
+        /// <remarks>
+        /// Slightly beyond the range mobs stop at, so a mob that has closed properly is always in
+        /// reach and one that has been shouldered aside by another is not.
+        /// </remarks>
+        public const float MeleeReach = 1.15f;
+
         /// <summary>
-        /// Spreads incoming damage across the party, with the tank soaking most of it.
+        /// Spreads incoming damage across the party members a melee attacker can actually reach.
         /// </summary>
+        /// <remarks>
+        /// The reach test is the important part and it was missing. Damage used to be shared out
+        /// across the whole party wherever it stood, so <b>a healer that had correctly fled to the
+        /// back of the room still bled from a skeleton three cells away</b> -- and because that
+        /// damage arrived spread thin, nobody was ever wounded by a full heal's worth, so the healer
+        /// never found a target worth casting on and appeared to do nothing at all. Both complaints
+        /// were the same bug.
+        /// <para>
+        /// It also makes the roles mean what SPEC.md says they mean: the tank draws the mobs and
+        /// stands in reach, so the tank is what gets hit, and positioning the fragile roles out of
+        /// reach is now genuinely worth doing.
+        /// </para>
+        /// </remarks>
         /// <param name="amount">Total damage this tick.</param>
-        public void DistributeDamage(float amount)
+        /// <param name="threats">
+        /// Where the attackers are. Empty or null falls back to hitting everyone, which is what a
+        /// trap or any other position-less source should do.
+        /// </param>
+        public void DistributeDamage(float amount, IReadOnlyList<Vector2> threats = null)
         {
             var living = Living.ToList();
             if (living.Count == 0 || amount <= 0f)
             {
                 return;
+            }
+
+            if (threats is { Count: > 0 })
+            {
+                var reachable = living.Where(m => InReachOf(m, threats)).ToList();
+
+                // Nobody in reach means the mobs are still closing, so nothing lands yet. Without
+                // this the damage would simply fall back onto the whole party and undo the fix.
+                if (reachable.Count == 0)
+                {
+                    return;
+                }
+
+                living = reachable;
             }
 
             var tanks = living.Where(m => m.Role == AdventurerRole.Tank).ToList();
@@ -520,6 +558,23 @@ namespace Dungeon.PartyManager
             {
                 member.TakeDamage(share);
             }
+        }
+
+        /// <summary>Whether any attacker is close enough to hit this member.</summary>
+        /// <param name="member">Member to test.</param>
+        /// <param name="threats">Attacker positions.</param>
+        /// <returns>True when one of them is within <see cref="MeleeReach"/>.</returns>
+        private static bool InReachOf(Adventurer member, IReadOnlyList<Vector2> threats)
+        {
+            foreach (Vector2 threat in threats)
+            {
+                if (Vector2.Distance(member.Position, threat) <= MeleeReach)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Total damage per second the living party deals.</summary>

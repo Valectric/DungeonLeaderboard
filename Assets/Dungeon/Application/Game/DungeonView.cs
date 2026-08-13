@@ -211,6 +211,8 @@ namespace Dungeon.Game
         private readonly List<SpriteRenderer> _healthFills = new();
         private readonly List<SpriteRenderer> _disarmBacks = new();
         private readonly List<SpriteRenderer> _disarmFills = new();
+        private readonly List<SpriteRenderer> _mobHealthBacks = new();
+        private readonly List<SpriteRenderer> _mobHealthFills = new();
 
         /// <summary>A single opaque pixel, stretched to draw bars.</summary>
         private Sprite Solid()
@@ -545,6 +547,8 @@ namespace Dungeon.Game
             while (_mobViews.Count < mobs.Count)
             {
                 _mobViews.Add(Make($"mob_{_mobViews.Count}", "mobs/slime", Vector3.zero, 15));
+                _mobHealthBacks.Add(MakeBar($"mobhpback_{_mobHealthBacks.Count}", 56));
+                _mobHealthFills.Add(MakeBar($"mobhpfill_{_mobHealthFills.Count}", 57));
             }
 
             for (int i = 0; i < mobs.Count; i++)
@@ -554,6 +558,8 @@ namespace Dungeon.Game
                 view.enabled = mob.IsAlive;
                 if (!mob.IsAlive)
                 {
+                    _mobHealthBacks[i].enabled = false;
+                    _mobHealthFills[i].enabled = false;
                     continue;
                 }
 
@@ -565,6 +571,28 @@ namespace Dungeon.Game
                     -1f);
                 view.sprite = Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
                 view.sortingOrder = 15 - Mathf.RoundToInt(mob.Position.y * 4f);
+
+                // How long a mob will hold the party is the single fact the player needs to plan the
+                // next twenty seconds around -- and it is their own asset, bought with energy, so
+                // unlike an adventurer's health there is nothing to be gained by hiding it.
+                SpriteRenderer back = _mobHealthBacks[i];
+                SpriteRenderer fill = _mobHealthFills[i];
+                back.enabled = true;
+                fill.enabled = true;
+
+                var origin = new Vector3(
+                    view.transform.position.x - (BarWidth * 0.5f),
+                    view.transform.position.y + 0.52f, -3f);
+                back.transform.position = origin;
+                back.transform.localScale = new Vector3(BarWidth, 0.10f, 1f);
+                back.color = new Color(0.05f, 0.04f, 0.08f, 0.92f);
+
+                fill.transform.position = origin + new Vector3(0f, 0f, -0.01f);
+                fill.transform.localScale = new Vector3(BarWidth * mob.HealthFraction, 0.10f, 1f);
+
+                // Violet rather than the party's green-amber-red, so a glance never confuses whose
+                // bar is whose. The player wants their monster's bar to stay long.
+                fill.color = new Color(0.72f, 0.35f, 0.9f);
             }
         }
 
