@@ -55,9 +55,26 @@ MAPPING = {
     "eldritch-cracked-flagstone": "floor-cracked",
     "eldritch-rubble-flagstone": "floor-rubble",
     "eldritch-iron-drain-flagstone": "floor-drain",
-    "eldritch-overhead-masonry-wall": "wall",
-    "eldritch-mossy-masonry-wall": "wall-moss",
 }
+# Walls are NOT imported here. Three generation attempts got the scale, the contrast and above all
+# the brightness wrong -- generated walls sat at luminance 83 against the moodboard's 32 -- so the
+# wall is cut straight from the moodboard by Tools/extract-wall.py instead. Adding it back to this
+# mapping would silently overwrite that with the generated version.
+
+RELIEF = {"wall", "wall-moss"}
+"""
+Tiles that get relief carved into them on import.
+
+The generator produces clean, flat, correctly-sized blocks but will not reliably light them, so its
+walls read as a flat brick pattern rather than the moodboard's raised stone. Relief is derived here
+instead: a face pixel sitting directly under mortar catches the light, one sitting directly above
+mortar falls into shadow. That follows the real block shapes rather than assuming a grid, so it
+works whatever coursing the generator chose -- and being deterministic, it is ours to tune rather
+than another roll of the dice.
+"""
+
+MORTAR_LUMINANCE = 46
+"""Below this, a pixel counts as a mortar gap rather than a block face."""
 
 
 def check(image: Image.Image, name: str) -> list[str]:
@@ -75,6 +92,52 @@ def check(image: Image.Image, name: str) -> list[str]:
     if any(p[3] != 255 for p in image.getdata()):
         faults.append("has transparent pixels -- floor would show the camera background")
     return faults
+
+
+def luminance(pixel) -> float:
+    """Perceived brightness of an RGB(A) pixel."""
+    return (0.299 * pixel[0]) + (0.587 * pixel[1]) + (0.114 * pixel[2])
+
+
+def add_relief(image: Image.Image) -> Image.Image:
+    """Light the top edge of every block and shadow its underside.
+
+    Row lookups wrap around the tile, so a block straddling the tile boundary is lit the same as one
+    in the middle and the tile stays seamless -- which is the whole reason the generated tiles were
+    worth keeping.
+    """
+    source = image.convert("RGBA")
+    width, height = source.size
+    pixels = source.load()
+    result = Image.new("RGBA", source.size)
+    out = result.load()
+
+    for y in range(height):
+        for x in range(width):
+            current = pixels[x, y]
+            if luminance(current) < MORTAR_LUMINANCE:
+                out[x, y] = current
+                continue
+
+            above = pixels[x, (y - 1) % height]
+            below = pixels[x, (y + 1) % height]
+
+            if luminance(above) < MORTAR_LUMINANCE:
+                scale = 1.45          # top edge catches the light
+            elif luminance(below) < MORTAR_LUMINANCE:
+                scale = 0.62          # underside falls into shadow
+            else:
+                out[x, y] = current
+                continue
+
+            out[x, y] = (
+                min(255, int(current[0] * scale)),
+                min(255, int(current[1] * scale)),
+                min(255, int(current[2] * scale)),
+                current[3],
+            )
+
+    return result
 
 
 def preview(tiles: dict[str, Image.Image]) -> Image.Image:
@@ -117,6 +180,9 @@ def run() -> int:
         if faults:
             problems.extend(f"{game_name}: {fault}" for fault in faults)
             continue
+
+        if game_name in RELIEF:
+            image = add_relief(image)
 
         scaled = image.resize((TILE, TILE), Image.NEAREST)
         scaled.save(OUT_DIR / f"{game_name}.png")

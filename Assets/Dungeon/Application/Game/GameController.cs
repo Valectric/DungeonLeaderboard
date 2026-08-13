@@ -5,6 +5,7 @@ using Dungeon.MobManager;
 using Dungeon.RaidManager;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace Dungeon.Game
 {
@@ -61,6 +62,16 @@ namespace Dungeon.Game
             _view.Refresh(_raid);
         }
 
+        /// <summary>How far in the player may zoom, as a fraction of the fitted view.</summary>
+        private const float MaxZoomIn = 0.35f;
+
+        /// <summary>How far out the player may zoom, as a fraction of the fitted view.</summary>
+        private const float MaxZoomOut = 1.15f;
+
+        private float _fittedSize;
+        private float _zoom = 1f;
+        private float _pinchDistance;
+
         /// <summary>Points the camera at the whole dungeon so nothing sits off screen.</summary>
         private void FrameCamera()
         {
@@ -71,7 +82,62 @@ namespace Dungeon.Game
             // Fit the wider of the two axes, leaving room at the bottom for the HUD strip.
             float halfHeight = (grid.Height * 0.5f) + 1.6f;
             float halfWidth = (grid.Width * 0.5f) + 0.5f;
-            _camera.orthographicSize = Mathf.Max(halfHeight, halfWidth / _camera.aspect);
+            _fittedSize = Mathf.Max(halfHeight, halfWidth / _camera.aspect);
+            _camera.orthographicSize = _fittedSize * _zoom;
+        }
+
+        /// <summary>
+        /// Applies scroll-wheel and pinch zoom.
+        /// </summary>
+        /// <remarks>
+        /// Zoom is expressed as a fraction of the fitted view rather than an absolute orthographic
+        /// size, so it means the same thing on a phone and on a desktop monitor, and survives the
+        /// camera being re-fitted when a raid restarts.
+        /// <para>
+        /// Zooming out is capped just past the fitted view. Letting the player pull back further
+        /// would only reveal the black nothing outside the dungeon, which reads as a bug.
+        /// </para>
+        /// </remarks>
+        private void HandleZoom()
+        {
+            float previous = _zoom;
+
+            Mouse mouse = Mouse.current;
+            if (mouse != null)
+            {
+                float scroll = mouse.scroll.ReadValue().y;
+                if (Mathf.Abs(scroll) > 0.01f)
+                {
+                    _zoom -= scroll * 0.0012f;
+                }
+            }
+
+            Touchscreen touch = Touchscreen.current;
+            if (touch != null && ActiveTouchCount() >= 2)
+            {
+                Vector2 first = touch.touches[0].position.ReadValue();
+                Vector2 second = touch.touches[1].position.ReadValue();
+                float distance = Vector2.Distance(first, second);
+
+                if (_pinchDistance > 0f && distance > 0f)
+                {
+                    // Scale by ratio rather than raw pixel delta, so the gesture feels identical on
+                    // a dense phone screen and a low-density tablet.
+                    _zoom *= _pinchDistance / distance;
+                }
+
+                _pinchDistance = distance;
+            }
+            else
+            {
+                _pinchDistance = 0f;
+            }
+
+            _zoom = Mathf.Clamp(_zoom, MaxZoomIn, MaxZoomOut);
+            if (!Mathf.Approximately(previous, _zoom) && _fittedSize > 0f)
+            {
+                _camera.orthographicSize = _fittedSize * _zoom;
+            }
         }
 
         /// <summary>Advances the simulation on the physics clock, per the project's Unity practice.</summary>
@@ -100,12 +166,14 @@ namespace Dungeon.Game
             // UnityEngine.Input class throws on every call. It did, silently, on every frame -- all
             // three verbs were dead in the shipped scene while the suite stayed green, because the
             // tests drove the simulation directly instead of clicking.
-            bool clicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+            HandleZoom();
+
             bool spacePressed = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+            bool tapped = TryReadTap(out Vector2 tapPosition);
 
             if (!_raid.IsRunning)
             {
-                if (spacePressed || clicked)
+                if (spacePressed || tapped)
                 {
                     StartRaid();
                 }
@@ -113,10 +181,71 @@ namespace Dungeon.Game
                 return;
             }
 
-            if (clicked)
+            if (tapped)
             {
-                ClickAt(Mouse.current.position.ReadValue());
+                ClickAt(tapPosition);
             }
+        }
+
+        /// <summary>
+        /// Reads a click or a screen tap, whichever this device offers.
+        /// </summary>
+        /// <remarks>
+        /// A touchscreen reports nothing through <c>Mouse</c>, so a mouse-only poll leaves every verb
+        /// dead on a phone -- which is exactly what shipped. Both devices are checked because a
+        /// WebGL build runs on either, and a tablet with a mouse attached has both.
+        /// <para>
+        /// A tap is ignored while a second finger is down, so the pinch-zoom gesture cannot also fire
+        /// a verb and, say, spend energy on a trap the player never meant to trigger.
+        /// </para>
+        /// </remarks>
+        /// <param name="position">Screen position of the tap, when there was one.</param>
+        /// <returns>True when the player tapped or clicked this frame.</returns>
+        private static bool TryReadTap(out Vector2 position)
+        {
+            position = default;
+
+            Touchscreen touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
+            {
+                if (ActiveTouchCount() > 1)
+                {
+                    return false;
+                }
+
+                position = touch.primaryTouch.position.ReadValue();
+                return true;
+            }
+
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
+            {
+                return false;
+            }
+
+            position = mouse.position.ReadValue();
+            return true;
+        }
+
+        /// <summary>Counts fingers currently on the screen.</summary>
+        private static int ActiveTouchCount()
+        {
+            Touchscreen touch = Touchscreen.current;
+            if (touch == null)
+            {
+                return 0;
+            }
+
+            int count = 0;
+            foreach (TouchControl finger in touch.touches)
+            {
+                if (finger.press.isPressed)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         /// <summary>
@@ -225,7 +354,8 @@ namespace Dungeon.Game
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
 
             GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
-                "CLICK A DOOR TO STALL  ·  A SPAWNER TO AMBUSH  ·  A TRAP TO WOUND", caption);
+                "TAP A DOOR TO STALL  ·  A SPAWNER TO AMBUSH  ·  A TRAP TO WOUND  ·  PINCH OR SCROLL TO ZOOM",
+                caption);
 
             if (!_raid.IsRunning)
             {
