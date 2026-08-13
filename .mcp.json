@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "unity": {
+      "type": "stdio",
+      "command": "C:\\Users\\JohanHoltby\\.mcp-unity\\Scripts\\mcp-for-unity.exe",
+      "args": [
+        "--project-scoped-tools"
+      ],
+      "env": {}
+    }
+  }
+}

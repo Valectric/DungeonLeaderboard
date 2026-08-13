@@ -357,6 +357,105 @@ namespace Dungeon.Game
             RefreshTraps(raid.Layout);
             RefreshChests(raid.Party);
             RefreshShots(raid.Shots);
+            SpawnImpacts(raid);
+        }
+
+        private int _numbersSeen;
+        private int _shotsSeen;
+
+        /// <summary>
+        /// Fires a burst of particles wherever a blow just landed.
+        /// </summary>
+        /// <remarks>
+        /// Driven off the same feeds the floating numbers use, rather than off a second set of combat
+        /// events, so a spark and its number can never disagree about what happened.
+        /// <para>
+        /// Both feeds only ever append, so counting how many entries have been seen is enough to
+        /// find the new ones. Comparing contents would mean allocating and diffing a list every
+        /// frame to learn something the count already says.
+        /// </para>
+        /// </remarks>
+        /// <param name="raid">Raid to read.</param>
+        private void SpawnImpacts(RaidManager.Raid raid)
+        {
+            IReadOnlyList<CombatNumber> numbers = raid.Feed.Numbers;
+            for (int i = _numbersSeen; i < numbers.Count; i++)
+            {
+                CombatNumber number = numbers[i];
+                Burst(number.IsHeal ? "VfxHeal"
+                    : number.Target == CombatTarget.Monster ? "VfxHitMonster"
+                    : "VfxHitAdventurer", number.Origin);
+            }
+
+            _numbersSeen = numbers.Count;
+
+            // The three verbs and monster deaths. Drained rather than aged: each one is spawned the
+            // instant it is read and then lives as its own particle system.
+            foreach (Effect effect in raid.Effects.Pending)
+            {
+                Burst(effect.Kind switch
+                {
+                    EffectKind.TrapFired => "VfxTrapFire",
+                    EffectKind.MobSpawned => "VfxSpawn",
+                    EffectKind.MobDied => "VfxDeath",
+                    _ => "VfxDoor"
+                }, effect.Position);
+            }
+
+            raid.Effects.Drain();
+
+            IReadOnlyList<Shot> shots = raid.Shots.Shots;
+            for (int i = _shotsSeen; i < shots.Count; i++)
+            {
+                // A bolt covers both the mage's attack and its blink, and the blink is the one worth
+                // a bigger flash -- it is the only thing in the game that moves instantly.
+                Shot shot = shots[i];
+                float distance = Vector2.Distance(shot.From, shot.To);
+                Burst(shot.Kind == ShotKind.Arrow ? "VfxArrowImpact"
+                    : distance > 3f ? "VfxBlink" : "VfxHitMonster", shot.To);
+            }
+
+            _shotsSeen = shots.Count;
+        }
+
+        /// <summary>
+        /// Orthographic size the impact prefabs were tuned at.
+        /// </summary>
+        /// <remarks>
+        /// Particles are authored in world units, so a spark sized to read beside a 1-cell sprite is
+        /// invisible once the player zooms out to see the corridor -- measured, a burst tuned at 1.9
+        /// simply disappeared at the default play zoom of 5.63. Scaling by the camera keeps them the
+        /// same size <i>on screen</i> across the whole zoom range, which is the same thing the
+        /// floating damage numbers do with their font size.
+        /// </remarks>
+        private const float VfxReferenceOrtho = 1.9f;
+
+        private Camera _camera;
+
+        /// <summary>Instantiates one impact prefab, which destroys itself when it finishes.</summary>
+        /// <param name="prefab">Prefab name under <c>Resources/vfx/</c>.</param>
+        /// <param name="cell">Where it happened, in grid units.</param>
+        private void Burst(string prefab, Vector2 cell)
+        {
+            GameObject art = Resources.Load<GameObject>($"vfx/{prefab}");
+            if (art == null)
+            {
+                return;
+            }
+
+            if (_camera == null)
+            {
+                _camera = Camera.main;
+            }
+
+            var spawned = Object.Instantiate(art, _root);
+            spawned.transform.position = new Vector3(
+                cell.x * CellSize, (cell.y * CellSize) + 0.2f, -5f);
+
+            float zoom = _camera == null
+                ? 1f
+                : Mathf.Clamp(_camera.orthographicSize / VfxReferenceOrtho, 0.5f, 4f);
+            spawned.transform.localScale = Vector3.one * zoom;
         }
 
         private readonly List<SpriteRenderer> _shotViews = new();

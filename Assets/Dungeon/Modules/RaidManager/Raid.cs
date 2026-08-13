@@ -80,6 +80,9 @@ namespace Dungeon.RaidManager
         /// <summary>Arrows and bolts currently in the air.</summary>
         public ProjectileFeed Shots { get; } = new();
 
+        /// <summary>One-shot events -- the three verbs and monster deaths -- awaiting a burst.</summary>
+        public EffectFeed Effects { get; } = new();
+
         private readonly System.Random _random;
 
         /// <summary>The dungeon being raided.</summary>
@@ -220,8 +223,16 @@ namespace Dungeon.RaidManager
 
             foreach (Mob mob in Mobs.Mobs)
             {
-                Record(mob, mob.Position, mob.HealthFraction * mob.MaxHealth,
-                    CombatTarget.Monster);
+                // A monster dying is the moment the player's stall ends, so it is worth its own
+                // burst. Caught here because the health diff already runs -- the transition to zero
+                // is the same signal, read one step further.
+                bool wasAlive = _lastHealth.TryGetValue(mob, out float previous) && previous > 0f;
+                Record(mob, mob.Position, mob.HealthFraction * mob.MaxHealth, CombatTarget.Monster);
+
+                if (wasAlive && !mob.IsAlive)
+                {
+                    Effects.Raise(EffectKind.MobDied, mob.Position);
+                }
             }
         }
 
@@ -265,6 +276,7 @@ namespace Dungeon.RaidManager
             }
 
             door.IsOpen = !door.IsOpen;
+            Effects.Raise(EffectKind.DoorToggled, cell);
             return true;
         }
 
@@ -293,6 +305,7 @@ namespace Dungeon.RaidManager
             }
 
             TotalEnergy -= SpawnCost;
+            Effects.Raise(EffectKind.MobSpawned, cell);
             return true;
         }
 
@@ -319,6 +332,7 @@ namespace Dungeon.RaidManager
             TotalEnergy -= TrapCost;
             _trapReadyAt = TrapCooldown;
             trap.Fire();
+            Effects.Raise(EffectKind.TrapFired, cell);
 
             // Anyone standing on the plate takes it, not just whoever happens to be leading.
             foreach (PartyManager.Adventurer member in Party.Living)
