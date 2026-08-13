@@ -179,6 +179,13 @@ namespace Dungeon.RaidManager
 
             Party.Tick(deltaTime, visible, Layout.ArmedTrapCells(), Layout.ChestCells);
 
+            // A teleport with no visual reads as the sprite glitching across the room, so the blink
+            // draws its own streak -- the same presentation an arrow gets, in the mage's colour.
+            if (Party.BlinkedFrom.HasValue && Party.BlinkedTo.HasValue)
+            {
+                Shots.Fire(Party.BlinkedFrom.Value, Party.BlinkedTo.Value, ShotKind.Bolt);
+            }
+
             // The party reports the work it did; the dungeon owns the trap and applies it. Keeps
             // PartyManager from having to know what a trap is beyond a cell to stand on.
             if (Party.DisarmingCell.HasValue)
@@ -375,6 +382,14 @@ namespace Dungeon.RaidManager
                 Mob target = Nearest(engaged, member.Position);
                 float distance = Vector2.Distance(member.Position, target.Position);
                 if (!shoots && distance > PartyManager.Party.MeleeReach)
+                {
+                    continue;
+                }
+
+                // A mage's bolt is a spell and costs mana. A drained mage stops shooting, which is
+                // what makes spending the pool on blinking a real decision rather than free safety.
+                if (member.Role == PartyManager.AdventurerRole.Mage &&
+                    !member.SpendMana(PartyManager.Adventurer.BoltManaCost))
                 {
                     continue;
                 }

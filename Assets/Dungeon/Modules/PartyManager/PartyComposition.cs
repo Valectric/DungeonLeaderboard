@@ -124,14 +124,29 @@ namespace Dungeon.PartyManager
         /// one of the project's hard constraints.
         /// </remarks>
         /// <param name="seed">Seed for this raid.</param>
+        /// <param name="avoid">
+        /// The party that just raided, which will not be sent again immediately.
+        /// </param>
         /// <returns>The composition that walks in.</returns>
-        public static PartyComposition ForSeed(int seed)
+        public static PartyComposition ForSeed(int seed, PartyComposition avoid = null)
         {
-            // The first party is always the balanced one. A new player meeting THE UNSHRIVEN before
-            // they know what a healer does will wipe them and conclude the game is unfair, when in
-            // fact it is the one outcome the design most wants them to avoid.
             var random = new Random(seed);
-            return All[random.Next(All.Length)];
+            PartyComposition pick = All[random.Next(All.Length)];
+
+            if (avoid == null || !ReferenceEquals(pick, avoid))
+            {
+                return pick;
+            }
+
+            // Never the same party twice running. With six rosters a fair roll repeats one in six
+            // times, which is often enough that a player meets it in a normal run -- and composition
+            // is meant to be this game's <i>primary</i> source of variety, so a back-to-back repeat
+            // reads as the feature being broken rather than as a coincidence.
+            //
+            // Stepped past deterministically rather than rerolled with a fresh seed, so the sequence
+            // still follows entirely from the run's one number.
+            int index = System.Array.IndexOf(All, pick);
+            return All[(index + 1 + random.Next(All.Length - 1)) % All.Length];
         }
 
         /// <summary>The party a new player meets first.</summary>

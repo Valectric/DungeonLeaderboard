@@ -257,6 +257,11 @@ namespace Dungeon.PartyManager
                 return;
             }
 
+            foreach (Adventurer member in Living)
+            {
+                member.RegenerateMana(deltaTime);
+            }
+
             HealWounded(deltaTime);
             ChooseGoal(threats.Count, deltaTime);
 
@@ -284,15 +289,19 @@ namespace Dungeon.PartyManager
                 Allies = living,
                 Grid = _grid,
                 Objective = NextObjective(leader),
-                Traps = traps
+                Traps = traps,
+                IsLeader = true
             };
 
             // The tank decides first and publishes its target, so the mage focuses the same enemy.
-            Glide(leader, AdventurerAI.DesiredPosition(leader, view), deltaTime);
+            Glide(leader, AdventurerAI.DesiredPosition(leader, view), deltaTime,
+                AdventurerAI.SpeedMultiplier(leader, view));
             RecordTrail(leader.Position);
 
             DisarmingCell = null;
             DisarmSeconds = 0f;
+            BlinkedFrom = null;
+            BlinkedTo = null;
 
             for (int rank = 1; rank < living.Count; rank++)
             {
@@ -308,8 +317,13 @@ namespace Dungeon.PartyManager
                     TankTarget = view.TankTarget
                 };
 
+                if (TryBlink(member, slot))
+                {
+                    continue;
+                }
+
                 Vector2 desired = AdventurerAI.DesiredPosition(member, slot);
-                Glide(member, desired, deltaTime);
+                Glide(member, desired, deltaTime, AdventurerAI.SpeedMultiplier(member, slot));
 
                 if (member.Role != AdventurerRole.Ranged || threats.Count > 0)
                 {
@@ -434,10 +448,16 @@ namespace Dungeon.PartyManager
             return _bossCell;
         }
 
-        /// <summary>Moves one adventurer toward a point at walking pace.</summary>
-        private static void Glide(Adventurer member, Vector2 desired, float deltaTime)
+        /// <summary>Moves one adventurer toward a point.</summary>
+        /// <param name="member">Who is moving.</param>
+        /// <param name="desired">Where they want to be.</param>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        /// <param name="speed">Multiple of walking pace, so a panicking role can scramble.</param>
+        private static void Glide(
+            Adventurer member, Vector2 desired, float deltaTime, float speed = 1f)
         {
-            member.Position = Vector2.MoveTowards(member.Position, desired, WalkSpeed * deltaTime);
+            member.Position = Vector2.MoveTowards(
+                member.Position, desired, WalkSpeed * speed * deltaTime);
         }
 
         /// <summary>Moves an adventurer one step along a path toward a cell.</summary>
@@ -558,6 +578,50 @@ namespace Dungeon.PartyManager
             {
                 member.TakeDamage(share);
             }
+        }
+
+        /// <summary>Where the mage blinked from this tick, for the view to draw the flash.</summary>
+        public Vector2? BlinkedFrom { get; private set; }
+
+        /// <summary>Where the mage blinked to this tick.</summary>
+        public Vector2? BlinkedTo { get; private set; }
+
+        /// <summary>
+        /// Blinks the mage clear of a monster standing on it, if it can pay.
+        /// </summary>
+        /// <remarks>
+        /// The escape of last resort, and the reason the mage's mana is worth watching: a mage that
+        /// has spent its pool on bolts cannot buy its way out of a skeleton's reach, which is a
+        /// mistake the player can watch happening.
+        /// </remarks>
+        /// <param name="member">Adventurer to consider.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <returns>True when the mage blinked and should not also walk this tick.</returns>
+        private bool TryBlink(Adventurer member, Perception view)
+        {
+            if (member.Role != AdventurerRole.Mage ||
+                !member.CanCast(Adventurer.BlinkManaCost))
+            {
+                return false;
+            }
+
+            Vector2? threat = AdventurerAI.NearestThreat(member.Position, view);
+            if (!threat.HasValue ||
+                Vector2.Distance(member.Position, threat.Value) > AdventurerAI.BlinkRange)
+            {
+                return false;
+            }
+
+            if (!AdventurerAI.TryFindBlink(member, view, out Vector2 destination) ||
+                !member.SpendMana(Adventurer.BlinkManaCost))
+            {
+                return false;
+            }
+
+            BlinkedFrom = member.Position;
+            BlinkedTo = destination;
+            member.Position = destination;
+            return true;
         }
 
         /// <summary>Whether any attacker is close enough to hit this member.</summary>

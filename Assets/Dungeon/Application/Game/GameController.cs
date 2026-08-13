@@ -180,8 +180,11 @@ namespace Dungeon.Game
         /// </remarks>
         private void RollNextParty()
         {
+            // Called just after the current party has been sent in, so _nextParty still holds who
+            // just walked through the door -- exactly the one that must not come back immediately.
+            PartyComposition justRaided = _nextParty;
             _partySeed = unchecked((_partySeed * 1103515245) + 12345);
-            _nextParty = PartyComposition.ForSeed(_partySeed);
+            _nextParty = PartyComposition.ForSeed(_partySeed, justRaided);
         }
 
         /// <summary>Deepest the corridor is allowed to get, however many halls are bought.</summary>
@@ -392,10 +395,18 @@ namespace Dungeon.Game
             _dragAnchor = pointer;
         }
 
-        /// <summary>Advances the simulation on the physics clock, per the project's Unity practice.</summary>
+        /// <summary>
+        /// Advances the simulation on the physics clock, per the project's Unity practice.
+        /// </summary>
+        /// <remarks>
+        /// Only while actually raiding. A raid is built behind the title screen so the standings have
+        /// a dungeon to sit over rather than a void -- but it used to <b>tick</b> there too, so the
+        /// first party walked in, fought and burned clock while the screen was still telling the
+        /// player to press a key to begin. On a fresh load the game had started without them.
+        /// </remarks>
         private void FixedUpdate()
         {
-            if (_raid == null)
+            if (_raid == null || _phase != Phase.Raiding)
             {
                 return;
             }

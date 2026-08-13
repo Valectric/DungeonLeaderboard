@@ -34,6 +34,19 @@ namespace Dungeon.PartyManager
         /// <summary>Formation slot for this member, used whenever it has nothing better to do.</summary>
         public Vector2 FormationSlot { get; set; }
 
+        /// <summary>
+        /// Whether this adventurer is the one at the front, and therefore responsible for advancing.
+        /// </summary>
+        /// <remarks>
+        /// Load-bearing. A follower with nothing to do falls back to its formation slot, which is a
+        /// point on the leader's trail -- but the <i>leader</i> has no slot, so that fallback left it
+        /// walking at the origin. Only the tank ever pathed to the objective, so <b>any party not led
+        /// by a tank never advanced at all</b>: THE GLASS CANNONS and THE SKIRMISHERS, and any party
+        /// whose tank had died, simply drifted into a corner and stood there for the rest of the
+        /// raid.
+        /// </remarks>
+        public bool IsLeader { get; set; }
+
         /// <summary>What the tank has decided to attack, so the mage can focus the same enemy.</summary>
         public Vector2? TankTarget { get; set; }
     }
@@ -59,6 +72,50 @@ namespace Dungeon.PartyManager
 
         /// <summary>How close the tank closes before it stops and swings.</summary>
         public const float TankReach = 0.85f;
+
+        /// <summary>How close a melee attacker has to be before a fragile role panics.</summary>
+        /// <remarks>
+        /// Wider than the reach a mob can actually strike from, so the scramble starts <i>before</i>
+        /// the first blow lands rather than in response to it.
+        /// </remarks>
+        public const float PanicRange = 1.7f;
+
+        /// <summary>
+        /// How much faster a panicking adventurer moves.
+        /// </summary>
+        /// <remarks>
+        /// A mob closes at 1.9 cells a second and the party walks at 0.6, so a mage backing away at
+        /// walking pace was not retreating at all -- it was being escorted. The standoff behaviour
+        /// was correct and completely ineffective, which looked from the outside like the fragile
+        /// roles simply standing still and dying.
+        /// <para>
+        /// Deliberately still slower than a mob. Nobody outruns a monster in a straight line; a
+        /// scrambling mage buys seconds and reaches its firing distance, which is all it needs.
+        /// </para>
+        /// </remarks>
+        public const float PanicSpeed = 2.2f;
+
+        /// <summary>
+        /// How fast this adventurer should move right now, as a multiple of walking pace.
+        /// </summary>
+        /// <param name="self">The adventurer moving.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <returns>A speed multiplier.</returns>
+        public static float SpeedMultiplier(Adventurer self, Perception view)
+        {
+            // The tank is meant to be in melee, so it never panics -- a tank that backed off would
+            // stop soaking and the whole party would be exposed.
+            if (self.Role == AdventurerRole.Tank)
+            {
+                return 1f;
+            }
+
+            Vector2? nearest = Nearest(self.Position, view.Threats);
+            bool cornered = nearest.HasValue &&
+                            Vector2.Distance(self.Position, nearest.Value) <= PanicRange;
+
+            return cornered ? PanicSpeed : 1f;
+        }
 
         /// <summary>How far the rogue will detour to defuse a trap.</summary>
         public const float TrapDetourRange = 6f;
@@ -103,25 +160,155 @@ namespace Dungeon.PartyManager
                 return StandOff(self.Position, target.Value, TankReach);
             }
 
+            return Advance(self, view);
+        }
+
+        /// <summary>
+        /// Walks toward the party's objective, stepping around traps.
+        /// </summary>
+        /// <remarks>
+        /// Whoever is at the front uses this, not just the tank. It used to live inside the tank's
+        /// behaviour alone, which meant a party led by anyone else had no way to make progress and
+        /// simply stopped.
+        /// </remarks>
+        /// <param name="self">The adventurer deciding.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <returns>The next point to walk to.</returns>
+        private static Vector2 Advance(Adventurer self, Perception view)
+        {
             List<Vector2Int> path = view.Grid.FindPath(self.Cell, view.Objective, view.Traps);
             if (path.Count == 0)
             {
                 return self.Position;
             }
 
-            // Aim a couple of cells ahead so the tank keeps moving smoothly instead of stopping on
+            // Aim a couple of cells ahead so the leader keeps moving smoothly instead of stopping on
             // every cell centre.
-            Vector2Int waypoint = path[Mathf.Min(1, path.Count - 1)];
-            return waypoint;
+            return path[Mathf.Min(1, path.Count - 1)];
+        }
+
+        /// <summary>
+        /// Where an adventurer goes when it has nothing to fight.
+        /// </summary>
+        /// <remarks>
+        /// The leader advances; everyone else falls in behind it. A follower's formation slot is a
+        /// point on the leader's trail, so it is only meaningful for a follower -- the leader has no
+        /// slot, and returning one left it walking toward <c>Vector2.zero</c>, the bottom-left corner
+        /// of the grid. That is exactly where tankless parties were found standing.
+        /// </remarks>
+        /// <param name="self">The adventurer deciding.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <returns>The next point to walk to.</returns>
+        private static Vector2 Idle(Adventurer self, Perception view)
+        {
+            return view.IsLeader ? Advance(self, view) : view.FormationSlot;
         }
 
         /// <summary>The mage focuses whatever the tank is fighting, from a comfortable distance.</summary>
         private static Vector2 MageGoal(Adventurer self, Perception view)
         {
+            // Whatever the tank is fighting, a monster in the mage's face comes first. Focusing the
+            // tank's target while something else was closing meant the mage backed away from the
+            // wrong monster -- sometimes directly into the one chasing it.
+            Vector2? closing = Cornering(self, view);
+            if (closing.HasValue)
+            {
+                return StandOff(self.Position, closing.Value, MageRange);
+            }
+
             Vector2? target = view.TankTarget ?? NearestVisible(self.Position, view);
             return target.HasValue
                 ? StandOff(self.Position, target.Value, MageRange)
-                : view.FormationSlot;
+                : Idle(self, view);
+        }
+
+        /// <summary>How far a blink carries the mage, in cells.</summary>
+        public const float BlinkDistance = 5f;
+
+        /// <summary>How close a monster must be before the mage spends mana escaping it.</summary>
+        /// <remarks>
+        /// Tighter than <see cref="PanicRange"/>. Backing away on foot is free and happens early;
+        /// blinking costs a quarter of the pool and is the answer when walking has failed.
+        /// </remarks>
+        public const float BlinkRange = 1.1f;
+
+        /// <summary>
+        /// Finds somewhere to blink to: five cells from the monster, still inside the dungeon.
+        /// </summary>
+        /// <remarks>
+        /// Candidates are tried around a circle and scored on how far they end up from every visible
+        /// threat, so the mage does not blink out of one monster's reach and into another's. A
+        /// landing spot must be walkable and in a room -- a mage inside a wall would be unreachable,
+        /// unkillable and would stall the raid.
+        /// </remarks>
+        /// <param name="self">The mage.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <param name="destination">Receives the landing spot.</param>
+        /// <returns>True when somewhere safe was found.</returns>
+        public static bool TryFindBlink(Adventurer self, Perception view, out Vector2 destination)
+        {
+            destination = self.Position;
+            Vector2? threat = Nearest(self.Position, view.Threats);
+            if (!threat.HasValue)
+            {
+                return false;
+            }
+
+            // Straight away from the monster first, then progressively wider angles, so the mage
+            // prefers the obvious escape and only takes a sideways one when the wall is behind it.
+            Vector2 away = (self.Position - threat.Value).normalized;
+            if (away.sqrMagnitude < 0.0001f)
+            {
+                away = Vector2.left;
+            }
+
+            float bestScore = float.MinValue;
+            bool found = false;
+
+            for (int step = 0; step < 12; step++)
+            {
+                // 0, +30, -30, +60, -60 ... degrees off the escape line.
+                float degrees = ((step + 1) / 2) * 30f * (step % 2 == 0 ? 1f : -1f);
+                Vector2 direction = Quaternion.Euler(0f, 0f, degrees) * away;
+                Vector2 candidate = self.Position + (direction * BlinkDistance);
+
+                var cell = new Vector2Int(
+                    Mathf.RoundToInt(candidate.x), Mathf.RoundToInt(candidate.y));
+                if (!view.Grid.IsWalkable(cell) ||
+                    view.Grid.RoomAt(cell) == DungeonGrid.NoRoom)
+                {
+                    continue;
+                }
+
+                float score = float.MaxValue;
+                foreach (Vector2 other in view.Threats)
+                {
+                    score = Mathf.Min(score, Vector2.Distance(candidate, other));
+                }
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    destination = cell;
+                    found = true;
+                }
+            }
+
+            // Never blink somewhere no better than where it already stands.
+            return found && bestScore > Vector2.Distance(self.Position, threat.Value) + 1f;
+        }
+
+        /// <summary>The nearest threat close enough to be a personal problem, if any.</summary>
+        /// <param name="self">The adventurer deciding.</param>
+        /// <param name="view">What it can perceive.</param>
+        /// <returns>The threat's position, or null.</returns>
+        private static Vector2? Cornering(Adventurer self, Perception view)
+        {
+            Vector2? nearest = Nearest(self.Position, view.Threats);
+            return nearest.HasValue &&
+                   Vector2.Distance(self.Position, nearest.Value) <= PanicRange
+                ? nearest
+                : null;
         }
 
         /// <summary>
@@ -134,10 +321,27 @@ namespace Dungeon.PartyManager
         /// </remarks>
         private static Vector2 RangedGoal(Adventurer self, Perception view)
         {
+            // Something in its face outranks its firing solution. An archer that kept aiming at the
+            // nearest visible target while a second monster closed on it never moved.
+            Vector2? closing = Cornering(self, view);
+            if (closing.HasValue)
+            {
+                return StandOff(self.Position, closing.Value, RangedRange);
+            }
+
             Vector2? target = NearestVisible(self.Position, view);
             if (target.HasValue)
             {
                 return StandOff(self.Position, target.Value, RangedRange);
+            }
+
+            // Only a follower detours to defuse a trap. A leading rogue would walk onto the plate and
+            // stop there forever -- disarming is driven from the follower loop, so the leader would
+            // never actually work on it, and the whole party would wait behind a trap that was never
+            // going to be defused.
+            if (view.IsLeader)
+            {
+                return Advance(self, view);
             }
 
             Vector2Int? trap = NearestArmedTrap(self.Position, view);
@@ -184,15 +388,19 @@ namespace Dungeon.PartyManager
             if (!nearest.HasValue ||
                 Vector2.Distance(self.Position, nearest.Value) > HealerFleeRange)
             {
-                return view.FormationSlot;
+                return Idle(self, view);
             }
 
+            // Backing away is biased toward the rest of the party so the healer does not flee alone
+            // into an empty room. A leading healer -- the last one standing, say -- has nobody to
+            // fall back toward, so it retreats along its own line and keeps its objective in mind.
             Vector2 away = (self.Position - nearest.Value).normalized;
-            Vector2 toward = (view.FormationSlot - self.Position).normalized;
+            Vector2 anchor = view.IsLeader ? Advance(self, view) : view.FormationSlot;
+            Vector2 toward = (anchor - self.Position).normalized;
             Vector2 escape = self.Position + ((away * 1.6f) + (toward * 0.6f));
 
             var cell = new Vector2Int(Mathf.RoundToInt(escape.x), Mathf.RoundToInt(escape.y));
-            return view.Grid.IsWalkable(cell) ? escape : view.FormationSlot;
+            return view.Grid.IsWalkable(cell) ? escape : anchor;
         }
 
         /// <summary>
@@ -264,6 +472,15 @@ namespace Dungeon.PartyManager
             }
 
             return best;
+        }
+
+        /// <summary>The nearest visible threat to a point, or null.</summary>
+        /// <param name="from">Where to measure from.</param>
+        /// <param name="view">What can be perceived.</param>
+        /// <returns>The nearest threat's position, or null.</returns>
+        public static Vector2? NearestThreat(Vector2 from, Perception view)
+        {
+            return Nearest(from, view.Threats);
         }
 
         /// <summary>Nearest of a set of points, ignoring visibility.</summary>

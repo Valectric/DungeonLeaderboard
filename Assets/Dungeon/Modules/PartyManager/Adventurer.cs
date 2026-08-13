@@ -81,6 +81,65 @@ namespace Dungeon.PartyManager
         public float AttackCooldown { get; set; }
 
         /// <summary>
+        /// The mage's own spell pool, spent on bolts and on blinking, and slowly refilled.
+        /// </summary>
+        /// <remarks>
+        /// Separate from the healer's pool on purpose. They are different resources belonging to
+        /// different people, and the interesting moment -- a mage out of mana with a skeleton on it,
+        /// unable to blink away -- only exists if the mage can run dry on its own.
+        /// </remarks>
+        public float Mana { get; private set; }
+
+        /// <summary>The mage's full spell pool. Zero for everyone else.</summary>
+        public float MaxMana { get; }
+
+        /// <summary>Mana as a fraction from 1 down to 0, for the bar.</summary>
+        public float ManaFraction => MaxMana <= 0f ? 0f : Mathf.Clamp01(Mana / MaxMana);
+
+        /// <summary>Mana restored per second.</summary>
+        /// <remarks>
+        /// Sized so a bolt is affordable roughly as often as the mage can cast one anyway, and a
+        /// blink costs a noticeable stretch of shooting. Spending is meant to be a real trade, not a
+        /// formality.
+        /// </remarks>
+        public const float ManaRegenPerSecond = 6f;
+
+        /// <summary>Mana one offensive bolt costs.</summary>
+        public const float BoltManaCost = 8f;
+
+        /// <summary>Mana one blink costs.</summary>
+        public const float BlinkManaCost = 26f;
+
+        /// <summary>Whether this adventurer can pay for a spell.</summary>
+        /// <param name="cost">Mana required.</param>
+        /// <returns>True when the pool covers it.</returns>
+        public bool CanCast(float cost) => Mana >= cost;
+
+        /// <summary>Spends mana, floored at zero.</summary>
+        /// <param name="cost">Mana to spend.</param>
+        /// <returns>True when the cast was paid for.</returns>
+        public bool SpendMana(float cost)
+        {
+            if (!CanCast(cost))
+            {
+                return false;
+            }
+
+            Mana = Mathf.Max(0f, Mana - cost);
+            return true;
+        }
+
+        /// <summary>Refills the pool over time, capped at maximum.</summary>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        public void RegenerateMana(float deltaTime)
+        {
+            if (MaxMana > 0f)
+            {
+                Mana = Mathf.Min(MaxMana, Mana + (ManaRegenPerSecond * deltaTime));
+            }
+        }
+
+        /// <summary>
         /// Continuous position in grid units, so an adventurer can stand between cells.
         /// </summary>
         /// <remarks>
@@ -151,6 +210,9 @@ namespace Dungeon.PartyManager
             // Staggered so a fresh party does not swing in one synchronised volley, which reads as a
             // single big hit rather than four people fighting.
             AttackCooldown = (int)role * 0.27f;
+
+            MaxMana = role == AdventurerRole.Mage ? 100f : 0f;
+            Mana = MaxMana;
             _health = MaxHealth;
         }
 

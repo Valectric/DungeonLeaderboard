@@ -172,6 +172,176 @@ namespace Dungeon.RaidManager.Tests
                 $"best {highest:F1} and worst {lowest:F1} are too close -- the roster does not matter");
         }
 
+        /// <summary>
+        /// Every composition actually walks toward the boss room, whoever is leading it.
+        /// </summary>
+        /// <remarks>
+        /// This is the test that should have existed from the start. Only the tank's behaviour ever
+        /// pathed to the objective; every other role fell back to its formation slot, which is a
+        /// point on the <i>leader's</i> trail and therefore meaningless for the leader itself --
+        /// leaving it walking toward <c>Vector2.zero</c>, the bottom-left corner of the grid. So
+        /// <b>THE GLASS CANNONS and THE SKIRMISHERS never advanced at all</b>, and neither did any
+        /// party whose tank had died.
+        /// <para>
+        /// Reported from play, not caught here, because every existing assertion was satisfied by a
+        /// party standing in a corner: the raid still ended, nobody wiped, the clock still ran. It
+        /// even made the composition-variety test look good -- two rosters "worth" almost nothing
+        /// were not cheap, they were broken.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void EveryComposition_ActuallyAdvances()
+        {
+            foreach (PartyComposition composition in PartyComposition.All)
+            {
+                DungeonLayout layout = DungeonLayout.BuildCorridor();
+                var raid = new Raid(layout, 0f, composition);
+                float startX = raid.Party.Position.x;
+
+                // No mobs at all, so there is nothing to fight and nothing to explain standing still.
+                for (int step = 0; step < 1000 && raid.IsRunning; step++)
+                {
+                    raid.Tick(0.02f);
+                }
+
+                float travelled = raid.Party.Position.x - startX;
+                MooseRunnerFacade.Log(
+                    $"{composition.Name} travelled {travelled:F1} cells in twenty seconds");
+
+                Assert.Greater(travelled, 4f,
+                    $"{composition.Name} barely moved -- led by "
+                    + $"{composition.Roles[0]}, it is not advancing");
+            }
+        }
+
+        /// <summary>
+        /// A party keeps advancing after its tank dies.
+        /// </summary>
+        /// <remarks>
+        /// The same defect from the other direction, and the one a player meets most often: a party
+        /// that starts with a tank and loses it mid-raid used to stop dead wherever it stood.
+        /// </remarks>
+        [Test]
+        public void APartyThatLosesItsTank_KeepsGoing()
+        {
+            DungeonLayout layout = DungeonLayout.BuildCorridor();
+            var raid = new Raid(layout, 0f, Named("THE BALANCED PARTY"));
+
+            for (int step = 0; step < 200 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            // Kill the tank outright, leaving a ranged attacker at the front.
+            foreach (Adventurer member in raid.Party.Living)
+            {
+                if (member.Role == AdventurerRole.Tank)
+                {
+                    member.TakeDamage(member.MaxHealth * 2f);
+                    break;
+                }
+            }
+
+            float afterDeath = raid.Party.Position.x;
+            for (int step = 0; step < 600 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            float travelled = raid.Party.Position.x - afterDeath;
+            MooseRunnerFacade.Log($"leaderless party travelled {travelled:F1} cells after the tank died");
+            Assert.Greater(travelled, 3f, "the party stopped dead when its tank died");
+        }
+
+        /// <summary>
+        /// The same party never raids twice running.
+        /// </summary>
+        /// <remarks>
+        /// A fair roll over six rosters repeats one time in six, which a player meets inside a normal
+        /// run -- and composition is meant to be this game's <i>primary</i> source of variety, so a
+        /// back-to-back repeat reads as the feature being broken rather than as a coincidence.
+        /// Reported from play after exactly that happened.
+        /// </remarks>
+        [Test]
+        public void TheSameParty_NeverRaidsTwiceRunning()
+        {
+            int seed = 12345;
+            PartyComposition previous = PartyComposition.Opening;
+            var counts = new Dictionary<string, int>();
+
+            for (int raid = 0; raid < 300; raid++)
+            {
+                seed = unchecked((seed * 1103515245) + 12345);
+                PartyComposition next = PartyComposition.ForSeed(seed, previous);
+
+                Assert.AreNotSame(previous, next,
+                    $"raid {raid} sent {next.Name} straight after itself");
+
+                counts[next.Name] = counts.GetValueOrDefault(next.Name, 0) + 1;
+                previous = next;
+            }
+
+            // Avoiding repeats must not accidentally make one roster rare or unreachable.
+            Assert.AreEqual(PartyComposition.All.Length, counts.Count,
+                "some roster never appeared across three hundred raids");
+
+            foreach (KeyValuePair<string, int> pair in counts)
+            {
+                MooseRunnerFacade.Log($"{pair.Key} appeared {pair.Value} times in 300 raids");
+                Assert.Greater(pair.Value, 20,
+                    $"{pair.Key} is far rarer than the others, so the spread is skewed");
+            }
+        }
+
+        /// <summary>
+        /// A mage cornered by a melee monster gets itself back out of reach.
+        /// </summary>
+        /// <remarks>
+        /// It could not before. The standoff behaviour was correct and completely ineffective: a mob
+        /// closes at 1.9 cells a second and the party walks at 0.6, so a mage backing away at walking
+        /// pace was not retreating, it was being escorted. From the outside the fragile roles simply
+        /// stood still and died.
+        /// </remarks>
+        [Test]
+        public void ACorneredMage_GetsBackOutOfReach()
+        {
+            DungeonLayout layout = DungeonLayout.BuildCorridor();
+            var raid = new Raid(layout, 0f, Named("THE GLASS CANNONS"));
+
+            for (int step = 0; step < 400 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            Adventurer mage = null;
+            foreach (Adventurer member in raid.Party.Living)
+            {
+                if (member.Role == AdventurerRole.Mage)
+                {
+                    mage = member;
+                    break;
+                }
+            }
+
+            // Drop a skeleton right on top of the mage.
+            Mob bully = raid.Mobs.Spawn(MobKind.Skeleton, mage.Cell);
+            Assert.IsNotNull(bully, "the test needs a monster beside the mage");
+            bully.Position = mage.Position;
+
+            float startDistance = Vector2.Distance(mage.Position, bully.Position);
+            for (int step = 0; step < 150 && raid.IsRunning; step++)
+            {
+                raid.Tick(0.02f);
+            }
+
+            float endDistance = Vector2.Distance(mage.Position, bully.Position);
+            MooseRunnerFacade.Log(
+                $"cornered mage went from {startDistance:F2} to {endDistance:F2} cells away");
+
+            Assert.Greater(endDistance, Party.MeleeReach,
+                "the mage never got clear of the monster standing on it");
+        }
+
         /// <summary>A composition never changes the raid's length or its ending conditions.</summary>
         [Test]
         public void EveryComposition_CanStillFinishARaid()

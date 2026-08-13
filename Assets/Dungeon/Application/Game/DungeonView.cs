@@ -214,6 +214,8 @@ namespace Dungeon.Game
         private readonly List<SpriteRenderer> _disarmFills = new();
         private readonly List<SpriteRenderer> _mobHealthBacks = new();
         private readonly List<SpriteRenderer> _mobHealthFills = new();
+        private readonly List<SpriteRenderer> _manaBacks = new();
+        private readonly List<SpriteRenderer> _manaFills = new();
 
         /// <summary>A single opaque pixel, stretched to draw bars.</summary>
         private Sprite Solid()
@@ -580,6 +582,53 @@ namespace Dungeon.Game
             fill.color = health > 0.6f ? new Color(0.45f, 0.9f, 0.4f)
                 : health > 0.3f ? new Color(0.95f, 0.78f, 0.25f)
                 : new Color(0.95f, 0.28f, 0.28f);
+
+            DrawManaBar(index, member, origin);
+        }
+
+        /// <summary>
+        /// Draws the mage's mana bar, tucked under its health bar.
+        /// </summary>
+        /// <remarks>
+        /// Only the mage has one, so only the mage gets a bar -- three empty blue strips over the
+        /// rest of the party would imply a resource they do not have. Blue reads as mana instantly
+        /// and collides with nothing else on screen: green and amber and red are health, violet is a
+        /// monster, gold is energy.
+        /// <para>
+        /// It is worth watching. A mage that has spent its pool on bolts cannot afford to blink, and
+        /// the player can see that coming a few seconds before the skeleton does.
+        /// </para>
+        /// </remarks>
+        private void DrawManaBar(int index, Adventurer member, Vector3 healthOrigin)
+        {
+            while (_manaBacks.Count <= index)
+            {
+                _manaBacks.Add(MakeBar($"manaback_{_manaBacks.Count}", 58));
+                _manaFills.Add(MakeBar($"manafill_{_manaFills.Count}", 59));
+            }
+
+            bool show = member.MaxMana > 0f;
+            _manaBacks[index].enabled = show;
+            _manaFills[index].enabled = show;
+            if (!show)
+            {
+                return;
+            }
+
+            Vector3 origin = healthOrigin + new Vector3(0f, -0.13f, 0f);
+            _manaBacks[index].transform.position = origin;
+            _manaBacks[index].transform.localScale = new Vector3(BarWidth, 0.07f, 1f);
+            _manaBacks[index].color = new Color(0.05f, 0.04f, 0.08f, 0.92f);
+
+            _manaFills[index].transform.position = origin + new Vector3(0f, 0f, -0.01f);
+            _manaFills[index].transform.localScale =
+                new Vector3(BarWidth * member.ManaFraction, 0.07f, 1f);
+
+            // Dims when there is not enough left to blink, so "cannot escape" is visible rather than
+            // something the player only works out after the mage dies.
+            _manaFills[index].color = member.CanCast(Adventurer.BlinkManaCost)
+                ? new Color(0.35f, 0.65f, 1f)
+                : new Color(0.25f, 0.35f, 0.6f);
         }
 
         /// <summary>Creates one bar quad under the view root.</summary>
