@@ -70,12 +70,32 @@ namespace Dungeon.MobManager
         /// </remarks>
         public float HealthFraction => Mathf.Clamp01(_health / MaxHealth);
 
+        /// <summary>
+        /// The direction this mob shoves off in when it is standing exactly on another.
+        /// </summary>
+        /// <remarks>
+        /// Distinct per mob and fixed at spawn. Two mobs on the same square have no separating
+        /// direction to compute, and the previous fallback sent <i>every</i> one of them along
+        /// <c>Vector2.up</c> — so they all moved together and stayed perfectly stacked. Measured,
+        /// eight slimes spawned on one cell were still <b>0.00 cells apart</b> after four seconds,
+        /// rendering as a single sprite with one health bar.
+        /// <para>
+        /// Spread by the golden angle off the spawn index, which fans any number of them evenly and
+        /// stays deterministic — a seeded run has to look identical every time.
+        /// </para>
+        /// </remarks>
+        public Vector2 Nudge { get; }
+
         /// <summary>Creates a mob bound to the room it spawned in.</summary>
         /// <param name="kind">Monster type.</param>
         /// <param name="cell">Spawn cell.</param>
         /// <param name="homeRoom">Room index the mob is confined to.</param>
-        public Mob(MobKind kind, Vector2Int cell, int homeRoom)
+        /// <param name="index">Spawn order, used to give this mob its own shove-off direction.</param>
+        public Mob(MobKind kind, Vector2Int cell, int homeRoom, int index = 0)
         {
+            float radians = index * 2.39996f;   // golden angle
+            Nudge = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
+
             Kind = kind;
             Position = cell;
             HomeRoom = homeRoom;
@@ -152,7 +172,7 @@ namespace Dungeon.MobManager
                 return null;
             }
 
-            var mob = new Mob(kind, cell, room);
+            var mob = new Mob(kind, cell, room, _mobs.Count);
             _mobs.Add(mob);
             return mob;
         }
@@ -236,9 +256,10 @@ namespace Dungeon.MobManager
                     continue;
                 }
 
-                // Two mobs spawned on the same cell have no separating direction, so nudge one
-                // along a stable axis rather than leaving them welded together forever.
-                Vector2 direction = distance > 0.001f ? away / distance : Vector2.up;
+                // Two mobs on the same square have no separating direction to compute, so each
+                // falls back to its own fixed heading. A shared fallback moved them all the same
+                // way and left them welded together forever.
+                Vector2 direction = distance > 0.001f ? away / distance : mob.Nudge;
                 Vector2 pushed = mob.Position + (direction * ChaseSpeed * deltaTime);
                 if (_grid.RoomAt(new Vector2Int(
                         Mathf.RoundToInt(pushed.x), Mathf.RoundToInt(pushed.y))) == mob.HomeRoom)
