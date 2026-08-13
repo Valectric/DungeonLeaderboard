@@ -105,6 +105,55 @@ def quantise(image: Image.Image, colours: int = 14) -> Image.Image:
         colors=colours, method=Image.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
 
 
+LOGICAL = 16
+"""Logical grid the relief is carved on, so every band is exactly SCALE screen pixels."""
+
+
+def carve_relief(tile: Image.Image) -> Image.Image:
+    """Give the block real thickness: lit top rim, mid face, shadowed underside.
+
+    A wall that is merely a *pattern* of blocks does not read as a wall -- it reads as wallpaper.
+    What makes the moodboard's stone feel solid is that each block is clearly lit from above: a
+    bright rim along its top edge, a flat mid-tone body, and a deep shadow underneath where the next
+    course sits on it. That is a lighting cue, not a texture, and sampling alone will not reproduce
+    it because the sampled course is small and low-contrast.
+
+    Carved on the 16px logical grid, so each band is four screen pixels and the tile stays on the
+    same pixel grid as everything else.
+    """
+    logical = np.asarray(
+        tile.resize((LOGICAL, LOGICAL), Image.BOX)).astype(float)
+
+    # Body colour, taken from the middle of the block rather than an average of the whole tile,
+    # which would be dragged down by the mortar.
+    body = logical[LOGICAL // 2, LOGICAL // 2].copy()
+
+    face = body
+    rim = np.clip(body * 2.05, 0, 255)          # the lit top edge
+    upper = np.clip(body * 1.35, 0, 255)        # falloff below the rim
+    lower = body * 0.72                          # body curving away from the light
+    under = body * 0.34                          # shadow the next course casts
+    joint = body * 0.20                          # mortar
+
+    logical[:, :] = face
+    logical[0, :] = joint                        # mortar course above
+    logical[1, :] = rim                          # block catches the light
+    logical[2, :] = upper
+    logical[LOGICAL - 3, :] = lower
+    logical[LOGICAL - 2, :] = under
+    logical[LOGICAL - 1, :] = joint              # mortar course below
+    logical[:, 0] = joint                        # vertical joint
+    logical[1, 0] = joint
+
+    # A touch of variation across the face so a wall of these does not read as one flat sheet.
+    for y in range(3, LOGICAL - 3):
+        for x in range(1, LOGICAL):
+            if ((x * 7) + (y * 11)) % 19 == 0:
+                logical[y, x] = face * 0.86
+
+    return Image.fromarray(logical.clip(0, 255).astype(np.uint8))
+
+
 def run() -> int:
     """Extract the block, build the tile, and write it plus a reference and a preview."""
     moodboard = Image.open(MOODBOARD).convert("RGB")
@@ -127,7 +176,7 @@ def run() -> int:
                 (BLOCK, BLOCK), Image.NEAREST))
 
     print(f"  sampled {len(blocks)} distinct blocks")
-    tile = quantise(build_tile(blocks))
+    tile = carve_relief(build_tile(blocks)).resize((TILE, TILE), Image.NEAREST)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     tile.save(OUT_DIR / "wall.png")
 
