@@ -55,7 +55,30 @@ namespace Dungeon.PartyManager
         public float MaxHealth { get; }
 
         /// <summary>Damage dealt per second while fighting.</summary>
+        /// <remarks>
+        /// The balance anchor the stat block below is derived from, kept so the figure the game was
+        /// tuned around is still stated in one place and still assertable.
+        /// </remarks>
         public float DamagePerSecond { get; }
+
+        /// <summary>Base damage of this role's weapon.</summary>
+        public float WeaponDamage { get; }
+
+        /// <summary>This adventurer's own strength, added to the weapon on every blow.</summary>
+        public float Might { get; }
+
+        /// <summary>Fraction of incoming damage this adventurer's armour turns aside, 0 to 1.</summary>
+        public float Armour { get; }
+
+        /// <summary>Seconds between blows.</summary>
+        /// <remarks>
+        /// The mage swings slowest and hits hardest, which is what SPEC.md means by burst -- and it
+        /// is what makes a mage's damage number the big one on screen.
+        /// </remarks>
+        public float AttackInterval { get; }
+
+        /// <summary>Seconds until this adventurer can swing again.</summary>
+        public float AttackCooldown { get; set; }
 
         /// <summary>
         /// Continuous position in grid units, so an adventurer can stand between cells.
@@ -111,6 +134,23 @@ namespace Dungeon.PartyManager
                 AdventurerRole.Mage => 9f,
                 _ => 5f
             };
+
+            // The stat block is a decomposition of the figure above, not a replacement for it. Each
+            // (weapon + might) is chosen so the expected output against a skeleton's 0.15 armour
+            // comes back to the same damage per second the game was balanced around; drift here
+            // changes fight length, and fight length is the rate the whole design rests on.
+            (WeaponDamage, Might, Armour, AttackInterval) = role switch
+            {
+                AdventurerRole.Tank => (3f, 1.2f, 0.25f, 1.2f),
+                AdventurerRole.Healer => (2f, 1f, 0.10f, 2.5f),
+                AdventurerRole.Ranged => (6f, 2.2f, 0.05f, 1.0f),
+                AdventurerRole.Mage => (15f, 4f, 0.05f, 1.8f),
+                _ => (4f, 1f, 0.1f, 1.5f)
+            };
+
+            // Staggered so a fresh party does not swing in one synchronised volley, which reads as a
+            // single big hit rather than four people fighting.
+            AttackCooldown = (int)role * 0.27f;
             _health = MaxHealth;
         }
 

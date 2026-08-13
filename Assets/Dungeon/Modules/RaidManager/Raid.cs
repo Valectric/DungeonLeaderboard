@@ -77,6 +77,11 @@ namespace Dungeon.RaidManager
         /// </remarks>
         public CombatFeed Feed { get; } = new();
 
+        /// <summary>Arrows and bolts currently in the air.</summary>
+        public ProjectileFeed Shots { get; } = new();
+
+        private readonly System.Random _random;
+
         /// <summary>The dungeon being raided.</summary>
         public DungeonLayout Layout { get; }
 
@@ -127,9 +132,14 @@ namespace Dungeon.RaidManager
         /// Which party walks in. Null means the balanced one, which is what a new player should meet
         /// first and what every test that does not care about the roster gets.
         /// </param>
+        /// <param name="seed">
+        /// Seed for every combat roll in this raid. Fixed by default so a test, a screenshot and a
+        /// replayed bug report all see the identical fight; the game passes a real seed per raid.
+        /// </param>
         public Raid(DungeonLayout layout, float bonusEnergy = 0f,
-            PartyComposition composition = null)
+            PartyComposition composition = null, int seed = 20260813)
         {
+            _random = new System.Random(seed);
             // Start already at the idle rate rather than easing up from zero, so the HUD opens on
             // the true number instead of a fifth of a second of meaningless ramp.
             CurrentRate = EnergyCurve.Rate(0, 1f);
@@ -179,6 +189,7 @@ namespace Dungeon.RaidManager
             AccrueEnergy(deltaTime);
             RecordCombatNumbers();
             Feed.Tick(deltaTime);
+            Shots.Tick(deltaTime);
 
             TimeRemaining = Mathf.Max(0f, TimeRemaining - deltaTime);
             UpdateOutcome();
@@ -314,30 +325,133 @@ namespace Dungeon.RaidManager
             return true;
         }
 
-        /// <summary>Trades damage between the party and whatever shares its room.</summary>
+        /// <summary>
+        /// Trades blows between the party and whatever shares its room.
+        /// </summary>
+        /// <remarks>
+        /// Discrete rolled attacks on individual cooldowns, rather than a continuous trickle of
+        /// damage-per-second. The trickle was invisible: two health bars slowly shortened and the
+        /// player could not see who was hitting whom, or when. Separate blows give every hit a
+        /// number, an arrow and a moment.
+        /// <para>
+        /// Expected output is unchanged. Each stat block is derived from the damage-per-second the
+        /// game was balanced around, and <c>CombatStatsTests</c> fails if a fight gets longer or
+        /// shorter than it used to be.
+        /// </para>
+        /// </remarks>
         private void ResolveCombat(float deltaTime, int threats)
         {
-            if (threats <= 0)
-            {
-                return;
-            }
-
-            Mobs.DistributeDamage(Party.DamageOutput() * deltaTime, Party.Cell);
-
-            // Hand the party where its attackers are standing, so only whoever is actually in reach
-            // gets hit. Without this a healer that had correctly fled to the back of the room still
-            // took damage from a skeleton three cells away.
-            var attackers = new List<Vector2>();
             int room = Layout.Grid.RoomAt(Party.Cell);
+            var engaged = new List<Mob>();
             foreach (Mob mob in Mobs.Living)
             {
                 if (Layout.Grid.RoomAt(mob.Cell) == room)
                 {
-                    attackers.Add(mob.Position);
+                    engaged.Add(mob);
                 }
             }
 
-            Party.DistributeDamage(Mobs.DamageOutputAgainst(Party.Cell) * deltaTime, attackers);
+            SwingParty(deltaTime, engaged);
+            SwingMobs(deltaTime, engaged);
+        }
+
+        /// <summary>Lets every adventurer who can reach something take its swing.</summary>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        /// <param name="engaged">Living mobs sharing the party's room.</param>
+        private void SwingParty(float deltaTime, List<Mob> engaged)
+        {
+            foreach (PartyManager.Adventurer member in Party.Living)
+            {
+                member.AttackCooldown -= deltaTime;
+                if (member.AttackCooldown > 0f || engaged.Count == 0)
+                {
+                    continue;
+                }
+
+                // The ranged pair shoot across the room; everyone else has to be in reach.
+                bool shoots = member.Role is PartyManager.AdventurerRole.Ranged
+                    or PartyManager.AdventurerRole.Mage;
+
+                Mob target = Nearest(engaged, member.Position);
+                float distance = Vector2.Distance(member.Position, target.Position);
+                if (!shoots && distance > PartyManager.Party.MeleeReach)
+                {
+                    continue;
+                }
+
+                member.AttackCooldown = member.AttackInterval;
+                target.TakeDamage(CombatMath.Roll(
+                    member.WeaponDamage, member.Might, target.Armour, _random));
+
+                if (shoots)
+                {
+                    Shots.Fire(member.Position, target.Position,
+                        member.Role == PartyManager.AdventurerRole.Ranged
+                            ? ShotKind.Arrow
+                            : ShotKind.Bolt);
+                }
+            }
+        }
+
+        /// <summary>Lets every engaged monster take its swing at whoever it can reach.</summary>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        /// <param name="engaged">Living mobs sharing the party's room.</param>
+        private void SwingMobs(float deltaTime, List<Mob> engaged)
+        {
+            foreach (Mob mob in engaged)
+            {
+                mob.AttackCooldown -= deltaTime;
+                if (mob.AttackCooldown > 0f)
+                {
+                    continue;
+                }
+
+                // Mobs hit whoever is nearest, and the tank leads -- so the tank is almost always
+                // who they hit. That falls out of the marching order rather than being a rule, and
+                // it is why a party with no tank suffers so badly.
+                PartyManager.Adventurer target = null;
+                float best = PartyManager.Party.MeleeReach;
+                foreach (PartyManager.Adventurer member in Party.Living)
+                {
+                    float distance = Vector2.Distance(member.Position, mob.Position);
+                    if (distance <= best)
+                    {
+                        best = distance;
+                        target = member;
+                    }
+                }
+
+                if (target == null)
+                {
+                    continue;
+                }
+
+                mob.AttackCooldown = mob.AttackInterval;
+                target.TakeDamage(CombatMath.Roll(
+                    mob.WeaponDamage, mob.Might, target.Armour, _random));
+            }
+        }
+
+        /// <summary>The living mob nearest a point.</summary>
+        /// <param name="mobs">Mobs to search.</param>
+        /// <param name="from">Point to measure from.</param>
+        /// <returns>The nearest mob.</returns>
+        private static Mob Nearest(List<Mob> mobs, Vector2 from)
+        {
+            Mob best = mobs[0];
+            float bestDistance = Vector2.Distance(from, best.Position);
+
+            for (int i = 1; i < mobs.Count; i++)
+            {
+                float distance = Vector2.Distance(from, mobs[i].Position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = mobs[i];
+                }
+            }
+
+            return best;
         }
 
         /// <summary>

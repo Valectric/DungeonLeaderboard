@@ -131,19 +131,17 @@ namespace Dungeon.Game
                 ink.a = 1f - Mathf.Clamp01((life - 0.65f) / 0.35f);
                 style.normal.textColor = ink;
 
-                // Colour carries the meaning, but never colour alone: a monster's number is
-                // italic and bracketed so the two stay apart for a colour-blind player, and on a
-                // screenshot where the violet and the red sit over different torchlight.
+                // Colour carries the meaning, but never colour alone: a monster's number is italic
+                // so the two stay apart for a colour-blind player, and on a frame where a violet
+                // number happens to sit over a violet crystal. Both read as plain minus figures --
+                // brackets were tried and looked like an accounting statement rather than a wound.
                 if (number.Target == CombatTarget.Monster && !number.IsHeal)
                 {
                     style.fontStyle = FontStyle.BoldAndItalic;
                 }
 
-                string text = number.IsHeal
-                    ? "+" + number.Amount.ToString(CultureInfo.InvariantCulture)
-                    : number.Target == CombatTarget.Monster
-                        ? "(" + number.Amount.ToString(CultureInfo.InvariantCulture) + ")"
-                        : "-" + number.Amount.ToString(CultureInfo.InvariantCulture);
+                string text = (number.IsHeal ? "+" : "-")
+                              + number.Amount.ToString(CultureInfo.InvariantCulture);
 
                 // GUI space measures from the top, input and projection from the bottom.
                 var rect = new Rect(point.x - (60f * scale), Screen.height - point.y - (14f * scale),

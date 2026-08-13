@@ -89,11 +89,12 @@ namespace Dungeon.RaidManager
         /// Damage that must accumulate before a number is shown.
         /// </summary>
         /// <remarks>
-        /// Sized against the party's 20 dps, which at a threshold of 6 produced a number three times
-        /// a second and a solid unreadable column of them. At 14 a fight pops about twice a second,
-        /// which reads as blows landing.
+        /// Effectively off now that combat is discrete rolled blows rather than a continuous
+        /// trickle. Each swing already arrives as one meaningful chunk, so every blow gets its own
+        /// number -- which is the whole point of showing them. The accumulator remains only to
+        /// coalesce two sources landing on the same target within one tick.
         /// </remarks>
-        public const float DamageThreshold = 14f;
+        public const float DamageThreshold = 1f;
 
         /// <summary>Seconds a number stays on screen.</summary>
         public const float Lifetime = 1.1f;

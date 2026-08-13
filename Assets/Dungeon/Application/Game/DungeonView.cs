@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
 using Dungeon.PartyManager;
+using Dungeon.RaidManager;
 using UnityEngine;
 
 namespace Dungeon.Game
@@ -353,6 +354,61 @@ namespace Dungeon.Game
             RefreshMobs(raid.Mobs, raid.Layout.Grid, raid.Layout.Grid.RoomAt(raid.Party.Cell));
             RefreshTraps(raid.Layout);
             RefreshChests(raid.Party);
+            RefreshShots(raid.Shots);
+        }
+
+        private readonly List<SpriteRenderer> _shotViews = new();
+
+        /// <summary>
+        /// Draws arrows and mage bolts in flight.
+        /// </summary>
+        /// <remarks>
+        /// Drawn as stretched solid quads rotated along their flight rather than as sprites, because
+        /// no arrow art exists and a procedural streak is both cheaper and easier to read at this
+        /// scale than a four-pixel arrow would be. An arrow is a pale tan streak; a bolt is a fat
+        /// magenta one, matching the arcane glow the crystals cast.
+        /// </remarks>
+        /// <param name="feed">Shots to draw.</param>
+        private void RefreshShots(ProjectileFeed feed)
+        {
+            IReadOnlyList<Shot> shots = feed.Shots;
+            while (_shotViews.Count < shots.Count)
+            {
+                _shotViews.Add(MakeBar($"shot_{_shotViews.Count}", 40));
+            }
+
+            for (int i = 0; i < _shotViews.Count; i++)
+            {
+                if (i >= shots.Count)
+                {
+                    _shotViews[i].enabled = false;
+                    continue;
+                }
+
+                Shot shot = shots[i];
+                bool arrow = shot.Kind == ShotKind.Arrow;
+
+                // The head leads, the tail trails behind it, so the streak reads as travelling
+                // rather than as a line that appears and vanishes.
+                float head = shot.Progress;
+                float tail = Mathf.Max(0f, head - (arrow ? 0.22f : 0.16f));
+                Vector2 from = Vector2.Lerp(shot.From, shot.To, tail);
+                Vector2 to = Vector2.Lerp(shot.From, shot.To, head);
+
+                Vector2 span = to - from;
+                float length = Mathf.Max(0.08f, span.magnitude);
+
+                SpriteRenderer view = _shotViews[i];
+                view.enabled = true;
+                view.transform.position = new Vector3(
+                    from.x * CellSize, (from.y * CellSize) + 0.18f, -4f);
+                view.transform.rotation =
+                    Quaternion.Euler(0f, 0f, Mathf.Atan2(span.y, span.x) * Mathf.Rad2Deg);
+                view.transform.localScale = new Vector3(length, arrow ? 0.055f : 0.1f, 1f);
+                view.color = arrow
+                    ? new Color(0.95f, 0.86f, 0.62f)
+                    : new Color(0.84f, 0.32f, 0.86f);
+            }
         }
 
         /// <summary>

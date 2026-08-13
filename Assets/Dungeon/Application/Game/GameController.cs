@@ -38,7 +38,10 @@ namespace Dungeon.Game
             Destroyed = 2,
 
             /// <summary>The thirty seconds between raids, spending what the last one left over.</summary>
-            Shopping = 3
+            Shopping = 3,
+
+            /// <summary>The adventurers' verdict on the raid that just finished.</summary>
+            Reviewing = 4
         }
 
         /// <summary>Seconds the standings take to slide into their new order.</summary>
@@ -58,6 +61,11 @@ namespace Dungeon.Game
         private float _carriedEnergy;
         private PartyComposition _nextParty = PartyComposition.Opening;
         private int _partySeed;
+        private RaidReview _review;
+        private float _reviewAge;
+
+        /// <summary>The last raid's review, or null before any raid has finished.</summary>
+        public RaidReview LastReview => _review;
 
         /// <summary>
         /// Who walks in next, so the player can read the door before it opens.
@@ -150,7 +158,10 @@ namespace Dungeon.Game
             }
 
             _phase = Phase.Raiding;
-            _raid = new Raid(BuildFromLoadout(), _bonusEnergy, _nextParty);
+            // The combat seed comes from the same chain as the party roster, so one number at the
+            // start of a run determines both who walks in and every blow they trade -- which is what
+            // makes a run reproducible from a bug report.
+            _raid = new Raid(BuildFromLoadout(), _bonusEnergy, _nextParty, _partySeed);
             _bonusEnergy = 0f;
             RollNextParty();
             _view = new DungeonView(transform);
@@ -410,6 +421,20 @@ namespace Dungeon.Game
                 return;
             }
 
+            if (_phase == Phase.Reviewing)
+            {
+                _reviewAge += Time.deltaTime;
+
+                // A short lockout so the stars have time to land before a keen player can skip past
+                // them. The review is the one screen that explains why the score is what it is.
+                if (_reviewAge > 1.4f && (TryReadTap(out _) || AnyKeyPressed()))
+                {
+                    BankRaid();
+                }
+
+                return;
+            }
+
             if (_phase != Phase.Raiding)
             {
                 HandleZoom();
@@ -421,11 +446,14 @@ namespace Dungeon.Game
                 return;
             }
 
-            // A raid that has just finished banks itself and returns to the standings, where the
-            // player watches their position move. That shift is the payoff for the whole minute.
+            // A raid that has just finished is judged by the party that survived it, and only then
+            // banked. The review comes first because it is what makes the number mean something.
             if (!_raid.IsRunning)
             {
-                BankRaid();
+                _review = RaidReview.For(
+                    _raid.Outcome, _raid.EnergyHarvested, _raid.Party.LivingCount);
+                _reviewAge = 0f;
+                _phase = Phase.Reviewing;
                 return;
             }
 
@@ -705,6 +733,12 @@ namespace Dungeon.Game
             if (_phase == Phase.Shopping)
             {
                 ShopScreen.Draw(_shop, scale);
+                return;
+            }
+
+            if (_phase == Phase.Reviewing)
+            {
+                ReviewScreen.Draw(_review, _raid.EnergyHarvested, scale, _reviewAge);
                 return;
             }
 

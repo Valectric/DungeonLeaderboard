@@ -35,7 +35,23 @@ namespace Dungeon.MobManager
         public Vector2Int Cell => new(Mathf.RoundToInt(Position.x), Mathf.RoundToInt(Position.y));
 
         /// <summary>Damage dealt per second while in contact with the party.</summary>
+        /// <remarks>The balance anchor the stat block below is derived from.</remarks>
         public float DamagePerSecond { get; }
+
+        /// <summary>Base damage of this monster's attack.</summary>
+        public float WeaponDamage { get; }
+
+        /// <summary>This monster's own strength, added to its attack on every blow.</summary>
+        public float Might { get; }
+
+        /// <summary>Fraction of incoming damage this monster turns aside, 0 to 1.</summary>
+        public float Armour { get; }
+
+        /// <summary>Seconds between blows.</summary>
+        public float AttackInterval { get; }
+
+        /// <summary>Seconds until this monster can swing again.</summary>
+        public float AttackCooldown { get; set; }
 
         /// <summary>Whether this mob is still alive.</summary>
         public bool IsAlive => _health > 0f;
@@ -69,6 +85,12 @@ namespace Dungeon.MobManager
             MaxHealth = kind == MobKind.Slime ? 120f : 260f;
             _health = MaxHealth;
             DamagePerSecond = kind == MobKind.Slime ? 8f : 15f;
+
+            // Decomposed to match the damage per second above against a tank's 0.25 armour, which is
+            // who a mob almost always ends up hitting: the tank leads, so it is nearest.
+            (WeaponDamage, Might, Armour, AttackInterval) = kind == MobKind.Slime
+                ? (12f, 4f, 0.05f, 1.5f)
+                : (20f, 6f, 0.15f, 1.3f);
         }
 
         /// <summary>Applies damage, floored at zero.</summary>
