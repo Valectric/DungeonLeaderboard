@@ -94,7 +94,7 @@ namespace Dungeon.Game
             }
 
             _ratePulse += Time.deltaTime;
-            _view.Refresh(_raid);
+            _view.Refresh(_raid, Time.deltaTime);
 
             // The project runs the Input System package (activeInputHandler: 1), so the legacy
             // UnityEngine.Input class throws on every call. It did, silently, on every frame -- all

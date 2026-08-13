@@ -137,13 +137,18 @@ namespace Dungeon.Game
             }
         }
 
+        /// <summary>Seconds since the raid began, driving all procedural motion.</summary>
+        private float _time;
+
         /// <summary>Redraws everything that moves. Call once per frame.</summary>
         /// <param name="raid">Raid to read.</param>
-        public void Refresh(RaidManager.Raid raid)
+        /// <param name="deltaTime">Seconds since the last redraw.</param>
+        public void Refresh(RaidManager.Raid raid, float deltaTime = 0f)
         {
+            _time += deltaTime;
             RefreshDoors(raid.Layout.Grid);
             RefreshParty(raid.Party);
-            RefreshMobs(raid.Mobs);
+            RefreshMobs(raid.Mobs, raid.Layout.Grid, raid.Layout.Grid.RoomAt(raid.Party.Cell));
         }
 
         /// <summary>Swaps each door sprite for its open or closed art.</summary>
@@ -185,14 +190,24 @@ namespace Dungeon.Game
                 // Fan the four members out inside the cell so they read as a party rather than one
                 // sprite. Purely presentational -- the simulation keeps them on a single cell.
                 var offset = new Vector3(((i % 2) - 0.5f) * 0.42f, ((i / 2) - 0.5f) * 0.34f, 0f);
-                view.transform.position = CellToWorld(member.Cell, -1f) + offset;
+
+                // The bob and lean are how a player reads how hurt someone is, since the spec
+                // forbids ever showing a number. Phase is per-member so the four do not march in
+                // lockstep like one object.
+                (float lift, float tilt) = SpriteMotion.ForAdventurer(
+                    party.Goal, member.Wounds, _time, i * 1.7f);
+                view.transform.position = CellToWorld(member.Cell, -1f) + offset + (Vector3.up * lift);
+                view.transform.rotation = Quaternion.Euler(0f, 0f, tilt);
                 view.sprite = Load($"party/{RoleName(member.Role)}-{StateName(member.Wounds)}");
                 view.sortingOrder = 20 + i;
             }
         }
 
         /// <summary>Positions mob sprites, creating views as mobs are spawned.</summary>
-        private void RefreshMobs(MobPack pack)
+        /// <param name="pack">Mobs to draw.</param>
+        /// <param name="grid">Dungeon, for resolving which room a mob stands in.</param>
+        /// <param name="partyRoom">Room the party occupies, so engaged mobs animate harder.</param>
+        private void RefreshMobs(MobPack pack, DungeonGrid grid, int partyRoom)
         {
             IReadOnlyList<Mob> mobs = pack.Mobs;
             while (_mobViews.Count < mobs.Count)
@@ -210,7 +225,10 @@ namespace Dungeon.Game
                     continue;
                 }
 
-                view.transform.position = CellToWorld(mob.Cell, -1f) + new Vector3(0f, 0.1f, 0f);
+                bool engaged = grid.RoomAt(mob.Cell) == partyRoom;
+                float lift = SpriteMotion.ForMob(engaged, _time, i * 0.9f);
+                view.transform.position =
+                    CellToWorld(mob.Cell, -1f) + new Vector3(0f, 0.1f + lift, 0f);
                 view.sprite = Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
             }
         }

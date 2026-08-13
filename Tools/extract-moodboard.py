@@ -35,6 +35,17 @@ from PIL import Image, ImageFilter
 CANVAS = 64
 """Output canvas edge in pixels. Must match PixelArtImportPostprocessor.PixelsPerUnit."""
 
+PALETTE = 32
+"""
+Colours kept per sprite.
+
+The moodboard is an AI render, not hand-placed pixels, so a 64x64 cut off it carries 600-1200
+distinct colours -- roughly a quarter of its own pixels are unique. That reads as mush at game size:
+no flat colour blocks, no clean outline, exactly what point filtering is supposed to preserve.
+Reducing to 32 sharpens the blocks and keeps every readable detail; 12 starts eating the healer's
+face. Compared side by side before choosing.
+"""
+
 REPO = Path(__file__).resolve().parent.parent
 MOODBOARD = REPO / "Assets" / "Art" / "referance" / "MoodBoard.png"
 # Under a folder literally named "Resources" so Resources.Load can reach it from a code-built
@@ -232,7 +243,24 @@ def fit_canvas(rgb: np.ndarray, alpha: np.ndarray, anchor: str) -> Image.Image:
     x = (CANVAS - sprite.width) // 2
     y = CANVAS - sprite.height - 1 if anchor == "bottom" else (CANVAS - sprite.height) // 2
     canvas.paste(sprite, (x, max(0, y)))
-    return canvas
+    return reduce_palette(canvas)
+
+
+def reduce_palette(sprite: Image.Image) -> Image.Image:
+    """Cut a sprite down to PALETTE colours without touching its alpha.
+
+    Median cut with dithering explicitly off -- dithering scatters pixels between palette entries to
+    fake extra shades, which is the exact opposite of what pixel art wants.
+    """
+    alpha = sprite.getchannel("A")
+    flattened = [(0, 0, 0) if a <= 128 else (r, g, b) for r, g, b, a in sprite.getdata()]
+    rgb = Image.new("RGB", sprite.size)
+    rgb.putdata(flattened)
+
+    reduced = rgb.quantize(colors=PALETTE, method=Image.MEDIANCUT,
+                           dither=Image.Dither.NONE).convert("RGBA")
+    reduced.putalpha(alpha)
+    return reduced
 
 
 def cut(image: np.ndarray, box, tol: int, anchor: str,
