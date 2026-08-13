@@ -1,23 +1,25 @@
-# Generates six seamless 64px dungeon tiles with Sprite Studio.
+# Generates the dungeon tile art with Sprite Studio, via the TERRAIN harness.
 #
-# Why a pack and not the terrain harness: the terrain harness deliberately composes ONE atlas of
-# large assembled macro-regions for a human to read, at whatever internal pitch ImageGen felt like
-# (measured: ~27px, irregular). Slicing arbitrary squares out of that produced tiles that cut
-# through stones mid-block and whose mortar lines did not meet -- the first attempt at this, and it
-# looked exactly as bad as that description sounds.
+# WHY TERRAIN AND NOT PACK -- this is the whole point of the file.
 #
-# A pack gives one item per tile, each drawn on its own 64px canvas, in a single run that shares
-# context. The harness guarantees "the same projection, pixel density, outline treatment, lighting
-# direction, palette logic, and logical canvas" across items, which is precisely the property a tile
-# set needs and six separate runs would not have.
+# `--command pack` never forwards `--reference` images to ImageGen. Grep the harness docs:
 #
-# Load-bearing prompt rules, each learned from a dry run (see CLAUDE.md):
-#   * no "NxN" token anywhere -- it is parsed as a canvas dimension and overrides --width/--height
-#   * no the word "platform" -- it flips preset inference to a side-view pixel platformer
-#   * say "full-bleed, reaches every canvas edge, no transparent margin" or tiles arrive with a
-#     margin and leave visible grid lines across the dungeon floor
+#   grep -rn "referenced_image_paths" .../skills/sprite-director/references/
 #
-# -WhatIf appends --print-prompt: composes and prints, launches nothing.
+# Only terrain-tileset-harness.md and effect-harness.md contain the instruction "Supply every
+# attached visual reference through `referenced_image_paths`". The pack harness never mentions it.
+# So a pack run shows the reference to the AGENT, which describes it back to you in convincing
+# prose, while the model actually drawing the pixels sees text only. Six pack runs were refined
+# against a reference the generator had never seen; stating the instruction in the prompt did not
+# fix it either.
+#
+# The terrain harness forwards references by contract. Its cost is that it returns ONE atlas of
+# assembled macro-regions rather than discrete tiles, so the output has to be cut afterwards --
+# Tools/extract-wall.py already finds a masonry period by autocorrelation and can do that.
+#
+# Other traps that still apply: no "NxN" token in the prompt (parsed as a canvas dimension and
+# silently overrides --width/--height), and never the word "platform" (flips the preset to a
+# side-view platformer). Confirm with -WhatIf that the routed harness really is `terrain tileset`.
 
 param([switch]$WhatIf)
 
@@ -34,23 +36,33 @@ $env:Path = "$env:LOCALAPPDATA\Programs\OpenAI\Codex\bin;" + $env:Path
 if (-not (Test-Path $SPRITE)) { throw "BLOCKED: sprite-maker binary missing at $SPRITE" }
 if (-not (Get-Command codex -ErrorAction SilentlyContinue)) { throw "BLOCKED: codex not on PATH" }
 
-$prompt = 'A coordinated pack of six seamless top-down dungeon floor and wall tiles for a tilemap. Every item is one square tile that must tile seamlessly against copies of itself on all four edges: the art is full-bleed and reaches every canvas edge, with no transparent margin, no border framing and no outline drawn around the tile edge. Opposite edges must match exactly so a grid of copies shows no seam. The six items are: dark flagstone floor; cracked flagstone floor; flagstone floor with scattered rubble; a masonry wall of stone blocks viewed from directly overhead; the same wall with pale green moss creeping over the blocks; and a dark flagstone floor with an iron drain grate. IMPORTANT, match the attached style-tiles reference closely: it shows the exact dungeon rooms these tiles must build. Copy its relief and its value structure. The WALLS are LIGHT blue-grey stone blocks that stand out brightly against the floor, each block carved with a pale highlight along its top edge and a hard near-black shadow beneath it, so the wall reads as chunky raised stone. The FLOOR is much DARKER than the wall, a deep violet-black flagstone, so walls and floor never read as the same value. Use big chunky blocks, roughly three stone blocks across the width of the tile, not a fine brick mesh. Give every tile a full tonal ramp of about ten to fourteen colours: near-black shadow in the mortar gaps, a mid stone body, and a bright highlight edge. Do NOT make the tiles flat or low contrast, and do not use only two or three colours. Strictly orthographic top-down with no perspective and no drop shadow leaving the tile. No labels, no grid lines, no text. Palette: violet-black #251B31 for floor and shadow, blue-grey #504D63 for stone bodies with lighter highlights above it, royal purple #50275E, magenta arcane glow #D75268 and burnt orange #85432A only as rare accents. Dark, eldritch, cute-but-grim. Chunky readable pixels. NOT warm brown or tan stone.'
+$prompt = 'A complete top-down dungeon terrain tileset atlas for a 2D game, covering both wall and floor.
+
+THE ATTACHED style-wall IMAGE IS THE STANDARD. It is a cutout of real wall from this exact game, with no props and no torchlight on it. Pass it to the image generator through referenced_image_paths and instruct the generator to copy it. The new masonry must match that reference block for block: rounded rectangular stone blocks that carry mottled surface texture, a pale worn rim catching light along the top edge of each block, deep near-black gaps between blocks, and rounded corners. The blocks are NOT flat rectangles of a single colour, and the wall is NOT a fine mesh of small bricks.
+
+Cover: a broad wall surface built from those blocks; a mossy variant; a cracked variant; a dark flagstone floor; a cracked flagstone floor; and a floor with an iron drain grate.
+
+These are hard requirements, given as numbers because earlier attempts missed them badly:
+
+BRIGHTNESS. The reference wall averages luminance 30 out of 255, darkest tenth near 5, brightest tenth near 51. The walls must land there. Earlier attempts came back at 83, nearly three times too bright, and were rejected. Floors must be darker still, around 26, so walls read against them.
+
+FEATURE SIZE. Every mark is a chunky block four pixels across. Nothing finer. No single-pixel speckle, no dithering, no smooth gradients.
+
+BLOCK SCALE. A masonry block is about sixty-four pixels across, so roughly one block per floor tile, with only a thin mortar joint between blocks.
+
+RELIEF. Each block is lit from directly above: pale rim along the top edge, mottled mid-tone body, dark shadow along the bottom edge. That light-to-dark ramp is what makes stone look thick rather than flat.
+
+Strictly orthographic top-down, no perspective, no labels, no grid lines, no text, no UI. Palette: violet-black #251B31, blue-grey #504D63 stone, royal purple #50275E shadow, with magenta #D75268 and burnt orange #85432A as very rare accents. Dark, eldritch, cute-but-grim. NOT warm brown or tan stone, and NOT light grey.'
 
 $argv = @(
     'generate',
     '--workspace', $STAGE,
     '--prompt', $prompt,
-    '--command', 'pack',
-    '--width', '64', '--height', '64',
+    '--width', '512', '--height', '512',
     '--reference-category', 'palette',
     '--reference', "$REF/style-palette.png",
     '--reference-category', 'art_style',
-    # style-tiles is the moodboard's own TILE / ROOM EXAMPLES strip -- the actual rooms these tiles
-    # have to build. Omitting it the first time is why the first pack came back flat: the only style
-    # references given were a palette grid and a strip of *objects*, so nothing in the input showed
-    # what the walls and floors were supposed to look like. It is the most important reference here.
-    '--reference', "$REF/style-tiles.png",
-    '--reference', "$REPO/style-stone.png"
+    '--reference', "$REPO/style-wall.png"
 )
 if ($WhatIf) { $argv += '--print-prompt' }
 

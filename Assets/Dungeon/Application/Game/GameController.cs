@@ -68,6 +68,16 @@ namespace Dungeon.Game
         /// <summary>How far out the player may zoom, as a fraction of the fitted view.</summary>
         private const float MaxZoomOut = 1.15f;
 
+        /// <summary>
+        /// Zoom change per scroll notch.
+        /// </summary>
+        /// <remarks>
+        /// Sized so about four notches -- a normal flick of a wheel -- crosses the whole range from
+        /// fully out to fully in. Zooming is a glance, not a journey; anything finer feels broken
+        /// long before the player works out that it is merely slow.
+        /// </remarks>
+        private const float ZoomStep = 0.2f;
+
         private float _fittedSize;
         private float _zoom = 1f;
         private float _pinchDistance;
@@ -108,7 +118,11 @@ namespace Dungeon.Game
                 float scroll = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
                 {
-                    _zoom -= scroll * 0.0012f;
+                    // Sign, not magnitude. Platforms disagree wildly about what a scroll delta
+                    // means -- Windows reports 120 per notch, browsers often report 1 or a
+                    // fractional pixel delta -- so scaling by the raw value made one notch move the
+                    // zoom by about a thousandth in a WebGL build. It read as completely broken.
+                    _zoom -= Mathf.Sign(scroll) * ZoomStep;
                 }
             }
 

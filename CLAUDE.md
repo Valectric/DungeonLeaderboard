@@ -254,6 +254,46 @@ It also flags two defects that are invisible in a thumbnail and fatal in-engine:
 
 Report the warnings to the user before copying anything into `Assets/Art/`.
 
+### The one that cost five runs: `--reference` does NOT reach the image model on every harness
+
+**`--command pack` shows your reference images to the *agent*, and never passes them to ImageGen.**
+The agent inspects them and describes them back to you in prose — which reads exactly like it used
+them — but the model actually drawing the pixels sees text only. Five tile runs were refined against
+a reference the generator had never seen.
+
+Grep the harness files to see which ones forward references:
+
+```bash
+grep -rn "referenced_image_paths" \
+  C:/Users/JohanHoltby/Documents/GitHub/sprite-maker/src-tauri/resources/skills/sprite-director/references/
+```
+
+| harness | forwards `referenced_image_paths`? |
+|---|---|
+| `terrain tileset` | **yes** — "Supply every attached visual reference through `referenced_image_paths`" |
+| `effect` | **yes** |
+| `pack`, `character`, `creature`, `prop` | **no — the file never mentions it** |
+
+Two ways to fix it, and it is worth doing both:
+
+1. **Say so in the prompt.** The agent follows instructions, so state plainly: *"When you call
+   `image_gen__imagegen`, pass the attached reference images through `referenced_image_paths` so the
+   image model sees them, not only you."*
+2. **Verify from the log, never from the prose.** After a run:
+   `grep -c referenced_image_paths Tools/<run>.log` — zero means the generator was working blind,
+   whatever its summary claims.
+
+### State targets as numbers, not adjectives
+
+"Dark, eldritch, chunky readable pixels" produced walls at luminance 83 against a reference at 30,
+three runs running. Measure the reference first and put the figures in the prompt — "averages
+luminance 30 out of 255, darkest tenth near 5, brightest near 51, and do NOT come back at 83" — then
+verify the output the same way. Adjectives are unfalsifiable; numbers are checkable both ways.
+
+**But numbers alone are not sufficient.** A run that hit every stated figure exactly (walls 30.0-31.0,
+floors 26.7-28.3, 100% flat on the 4px grid, 6-8 colours) produced flat, featureless slabs with no
+masonry at all. Metrics constrain; they do not compose. Always look at the output.
+
 ### Always `--print-prompt` first — the routing traps are invisible otherwise
 
 `--print-prompt` is free, deterministic and launches nothing. It prints the **routed harness**, the

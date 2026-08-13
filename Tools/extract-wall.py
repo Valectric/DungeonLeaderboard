@@ -124,32 +124,24 @@ def carve_relief(tile: Image.Image) -> Image.Image:
     logical = np.asarray(
         tile.resize((LOGICAL, LOGICAL), Image.BOX)).astype(float)
 
-    # Body colour, taken from the middle of the block rather than an average of the whole tile,
-    # which would be dragged down by the mortar.
-    body = logical[LOGICAL // 2, LOGICAL // 2].copy()
+    # A lighting ramp MULTIPLIED over the sampled stone, not painted in place of it. An earlier
+    # version replaced each row with a flat computed colour, which produced exactly the right
+    # luminance profile and destroyed every trace of the moodboard's texture -- the tiles measured
+    # perfectly and looked like blank slabs. Generating them from scratch had the same failure for
+    # the same reason: the numbers were never what made the stone look like stone.
+    ramp = np.ones(LOGICAL)
+    ramp[0] = 0.28      # mortar course above
+    ramp[1] = 2.10      # block catches the light
+    ramp[2] = 1.45
+    ramp[3] = 1.12
+    ramp[LOGICAL - 3] = 0.80
+    ramp[LOGICAL - 2] = 0.46   # shadow the next course casts
+    ramp[LOGICAL - 1] = 0.28   # mortar course below
 
-    face = body
-    rim = np.clip(body * 2.05, 0, 255)          # the lit top edge
-    upper = np.clip(body * 1.35, 0, 255)        # falloff below the rim
-    lower = body * 0.72                          # body curving away from the light
-    under = body * 0.34                          # shadow the next course casts
-    joint = body * 0.20                          # mortar
+    for y in range(LOGICAL):
+        logical[y, :] *= ramp[y]
 
-    logical[:, :] = face
-    logical[0, :] = joint                        # mortar course above
-    logical[1, :] = rim                          # block catches the light
-    logical[2, :] = upper
-    logical[LOGICAL - 3, :] = lower
-    logical[LOGICAL - 2, :] = under
-    logical[LOGICAL - 1, :] = joint              # mortar course below
-    logical[:, 0] = joint                        # vertical joint
-    logical[1, 0] = joint
-
-    # A touch of variation across the face so a wall of these does not read as one flat sheet.
-    for y in range(3, LOGICAL - 3):
-        for x in range(1, LOGICAL):
-            if ((x * 7) + (y * 11)) % 19 == 0:
-                logical[y, x] = face * 0.86
+    logical[:, 0] *= 0.42      # vertical joint
 
     return Image.fromarray(logical.clip(0, 255).astype(np.uint8))
 
