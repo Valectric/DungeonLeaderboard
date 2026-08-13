@@ -63,6 +63,9 @@ namespace Dungeon.Game
         public void BuildStatic(DungeonLayout layout)
         {
             DungeonGrid grid = layout.Grid;
+            WorldBounds = new Bounds(
+                new Vector3((grid.Width - 1) * 0.5f * CellSize, (grid.Height - 1) * 0.5f * CellSize, 0f),
+                new Vector3(grid.Width * CellSize, grid.Height * CellSize, 1f));
             for (int y = 0; y < grid.Height; y++)
             {
                 for (int x = 0; x < grid.Width; x++)
@@ -93,8 +96,64 @@ namespace Dungeon.Game
                 Make($"trap_{trap.x}", "effects/trap-spikes", CellToWorld(trap, 6f), 1);
             }
 
+            DrawApproach(layout);
             Decorate(layout);
         }
+
+        /// <summary>
+        /// Places the forest approach to the left of the entrance.
+        /// </summary>
+        /// <remarks>
+        /// The party used to simply appear at the left-hand wall, which read as them walking out of
+        /// nothing. This puts the world they came from on screen: forest, a path winding out of it,
+        /// a forecourt, and the archway they are about to enter. Purely scenery -- it sits outside
+        /// the grid entirely and nothing pathfinds through it.
+        /// <para>
+        /// Anchored by its right edge to the dungeon's left wall so the archway lines up with the
+        /// entrance whatever size the corridor is.
+        /// </para>
+        /// </remarks>
+        private void DrawApproach(DungeonLayout layout)
+        {
+            Sprite scene = Load("scenes/entrance");
+            if (scene == null)
+            {
+                return;
+            }
+
+            var go = new GameObject("approach");
+            go.transform.SetParent(_root, false);
+
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = scene;
+            renderer.sortingOrder = -5;
+
+            // The sprite imports at 64 pixels per unit like everything else, so its world size
+            // follows from its pixel size; place it by its own extents rather than a magic number.
+            float halfWidth = scene.bounds.extents.x;
+            float entranceY = layout.EntranceCell.y * CellSize;
+            // Tucked slightly under the dungeon's left wall rather than butted against it. A gap
+            // here shows the empty camera background as a black seam between the two, which reads
+            // as a rendering fault rather than as scenery meeting architecture.
+            go.transform.position = new Vector3(-halfWidth + 0.6f, entranceY, 12f);
+
+            // Read into a local, grow it, assign back. Bounds is a struct, so calling Encapsulate
+            // straight on the property mutates a temporary copy and silently does nothing -- which
+            // is exactly what happened: the camera never widened to include the approach.
+            Bounds bounds = WorldBounds;
+            bounds.Encapsulate(new Bounds(
+                go.transform.position, new Vector3(halfWidth * 2f, scene.bounds.size.y, 1f)));
+            WorldBounds = bounds;
+        }
+
+        /// <summary>
+        /// Everything drawn, in world units -- the dungeon plus its approach.
+        /// </summary>
+        /// <remarks>
+        /// The camera frames and clamps panning to this rather than to the grid alone, so scenery
+        /// outside the playable cells is reachable but the player cannot wander off into blackness.
+        /// </remarks>
+        public Bounds WorldBounds { get; private set; }
 
         /// <summary>Props that dress a room without ever affecting play.</summary>
         private static readonly string[] Decorations =

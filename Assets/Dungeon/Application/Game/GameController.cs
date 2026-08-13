@@ -81,19 +81,44 @@ namespace Dungeon.Game
         private float _fittedSize;
         private float _zoom = 1f;
         private float _pinchDistance;
+        private Vector3 _worldCentre;
+        private Vector2 _pan;
+        private Vector2 _dragAnchor;
+        private bool _dragging;
 
         /// <summary>Points the camera at the whole dungeon so nothing sits off screen.</summary>
         private void FrameCamera()
         {
-            DungeonGrid grid = _raid.Layout.Grid;
-            var centre = new Vector3((grid.Width - 1) * 0.5f, (grid.Height - 1) * 0.5f, -10f);
-            _camera.transform.position = centre;
+            // Frame everything drawn -- dungeon and forest approach together. The result is small,
+            // which is fine: the player zooms and pans. Cropping the scenery to keep the dungeon
+            // large would hide the world the party walks out of, which is the point of drawing it.
+            Bounds world = _view.WorldBounds;
+            _worldCentre = new Vector3(world.center.x, world.center.y, -10f);
+            _pan = Vector2.zero;
 
-            // Fit the wider of the two axes, leaving room at the bottom for the HUD strip.
-            float halfHeight = (grid.Height * 0.5f) + 1.6f;
-            float halfWidth = (grid.Width * 0.5f) + 0.5f;
+            float halfHeight = (world.extents.y) + 1.6f;   // room at the bottom for the HUD strip
+            float halfWidth = world.extents.x + 0.5f;
             _fittedSize = Mathf.Max(halfHeight, halfWidth / _camera.aspect);
+
+            ApplyCamera();
+        }
+
+        /// <summary>Moves the camera to the current pan and zoom, clamped to the world.</summary>
+        private void ApplyCamera()
+        {
             _camera.orthographicSize = _fittedSize * _zoom;
+
+            // Keep the view over the world. Once zoomed out far enough to see everything there is
+            // nothing left to pan to, so the allowance collapses to zero rather than going negative.
+            Bounds world = _view.WorldBounds;
+            float halfViewY = _camera.orthographicSize;
+            float halfViewX = halfViewY * _camera.aspect;
+            float slackX = Mathf.Max(0f, world.extents.x - halfViewX);
+            float slackY = Mathf.Max(0f, world.extents.y - halfViewY);
+
+            _pan.x = Mathf.Clamp(_pan.x, -slackX, slackX);
+            _pan.y = Mathf.Clamp(_pan.y, -slackY, slackY);
+            _camera.transform.position = _worldCentre + new Vector3(_pan.x, _pan.y, 0f);
         }
 
         /// <summary>
@@ -148,10 +173,61 @@ namespace Dungeon.Game
             }
 
             _zoom = Mathf.Clamp(_zoom, MaxZoomIn, MaxZoomOut);
-            if (!Mathf.Approximately(previous, _zoom) && _fittedSize > 0f)
+            HandlePan();
+
+            if (_fittedSize > 0f)
             {
-                _camera.orthographicSize = _fittedSize * _zoom;
+                ApplyCamera();
             }
+        }
+
+        /// <summary>
+        /// Drags the view: right mouse button on desktop, two fingers on a touchscreen.
+        /// </summary>
+        /// <remarks>
+        /// Right button rather than left, because left is the whole game -- clicking doors, spawners
+        /// and traps. Two fingers on mobile for the same reason: one finger is a verb.
+        /// <para>
+        /// The drag is computed in world units from the screen delta, so the point under the cursor
+        /// stays under the cursor at any zoom. Panning in fixed world units per pixel would feel
+        /// slow zoomed out and frantic zoomed in.
+        /// </para>
+        /// </remarks>
+        private void HandlePan()
+        {
+            Vector2 pointer;
+            bool held;
+
+            Touchscreen touch = Touchscreen.current;
+            if (touch != null && ActiveTouchCount() >= 2)
+            {
+                pointer = (touch.touches[0].position.ReadValue()
+                           + touch.touches[1].position.ReadValue()) * 0.5f;
+                held = true;
+            }
+            else
+            {
+                Mouse mouse = Mouse.current;
+                held = mouse != null && mouse.rightButton.isPressed;
+                pointer = mouse != null ? mouse.position.ReadValue() : Vector2.zero;
+            }
+
+            if (!held)
+            {
+                _dragging = false;
+                return;
+            }
+
+            if (!_dragging)
+            {
+                _dragging = true;
+                _dragAnchor = pointer;
+                return;
+            }
+
+            float unitsPerPixel = (_camera.orthographicSize * 2f) / Mathf.Max(1, Screen.height);
+            _pan -= (pointer - _dragAnchor) * unitsPerPixel;
+            _dragAnchor = pointer;
         }
 
         /// <summary>Advances the simulation on the physics clock, per the project's Unity practice.</summary>
@@ -368,7 +444,8 @@ namespace Dungeon.Game
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
 
             GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
-                "TAP A DOOR TO STALL  ·  A SPAWNER TO AMBUSH  ·  A TRAP TO WOUND  ·  PINCH OR SCROLL TO ZOOM",
+                "TAP A DOOR TO STALL  ·  A SPAWNER TO AMBUSH  ·  A TRAP TO WOUND"
+                + "  ·  SCROLL OR PINCH TO ZOOM  ·  RIGHT-DRAG OR TWO FINGERS TO MOVE",
                 caption);
 
             if (!_raid.IsRunning)

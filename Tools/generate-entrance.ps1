@@ -28,7 +28,11 @@ if (-not (Get-Command codex -ErrorAction SilentlyContinue)) { throw "BLOCKED: co
 
 $prompt = 'A top-down terrain scene showing the approach to a dungeon entrance, read left to right, as one wide image.
 
-LAYOUT, left to right: a small stretch of dark green forest with a handful of small conifer trees and undergrowth; a worn dirt path winding out of the trees; the path opening onto a flagstone forecourt; and on the right, the mouth of the dungeon -- a heavy stone archway set into a masonry wall, with darkness inside it. The path must visibly connect the forest to the archway so a party can be seen walking in.
+LAYOUT, left to right, and THE ORIENTATION IS THE MOST IMPORTANT PART: a small stretch of dark green forest with a handful of small conifer trees and undergrowth on the LEFT; a worn dirt path winding out of the trees and running from LEFT to RIGHT; the path opening onto a flagstone forecourt; and at the RIGHT-HAND EDGE, the mouth of the dungeon.
+
+The dungeon wall must be a VERTICAL wall running from the top of the image to the bottom, standing at the right-hand edge like the left-hand face of a building. The archway is set into that vertical wall and ITS OPENING FACES LEFT, WEST, back toward the forest and the path. A party walking left-to-right along the path must be able to walk straight in through it.
+
+Do NOT draw the wall as a horizontal band across the top with the arch opening downward -- that is the wrong orientation for this game and a previous attempt was rejected for it. The wall is vertical, on the right, and the arch faces left.
 
 PASS EVERY ATTACHED REFERENCE IMAGE TO THE IMAGE GENERATOR through referenced_image_paths, and instruct it to copy their look. The style-wall reference is real masonry from this exact game and the archway and wall must match it: rounded rectangular stone blocks with mottled surface texture, a pale worn rim catching the light along the top of each block, and deep near-black gaps between blocks.
 
