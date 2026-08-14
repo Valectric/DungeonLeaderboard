@@ -47,8 +47,13 @@ namespace Dungeon.Game
 
         /// <summary>Loads a sprite from Resources, caching it.</summary>
         /// <param name="path">Resources path, without extension.</param>
+        /// <param name="quiet">
+        /// Whether a miss is expected. Animation frames are looked up optimistically -- a role
+        /// without a drawn cycle yet falls back to its static sprite -- so those misses must not
+        /// shout, or the console fills with errors for art that is simply not drawn yet.
+        /// </param>
         /// <returns>The sprite, or null when it is missing.</returns>
-        public Sprite Load(string path)
+        public Sprite Load(string path, bool quiet = false)
         {
             if (_cache.TryGetValue(path, out Sprite cached))
             {
@@ -56,7 +61,7 @@ namespace Dungeon.Game
             }
 
             Sprite loaded = Resources.Load<Sprite>(path);
-            if (loaded == null)
+            if (loaded == null && !quiet)
             {
                 Debug.LogError($"[Dungeon] missing sprite at Resources/{path}");
             }

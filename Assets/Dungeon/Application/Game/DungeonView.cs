@@ -593,6 +593,52 @@ namespace Dungeon.Game
             }
         }
 
+        /// <summary>Frames a drawn walk cycle holds.</summary>
+        private const int WalkFrames = 6;
+
+        /// <summary>
+        /// Seconds one frame of a walk cycle is held, at twelve frames a second.
+        /// </summary>
+        /// <remarks>
+        /// The rate the frames were generated at. Playing them faster or slower than they were drawn
+        /// is what makes a hand-made gait look like a glitch.
+        /// </remarks>
+        private const float WalkFrameSeconds = 1f / 12f;
+
+        /// <summary>
+        /// The sprite an adventurer should be showing this instant.
+        /// </summary>
+        /// <remarks>
+        /// Drawn frames where they exist, and the single static sprite everywhere else. Only the
+        /// tank has a walk cycle so far, and the rest of the party has to keep working while the
+        /// others are drawn — a view that demanded a full set would mean nothing renders until every
+        /// animation is finished.
+        /// <para>
+        /// Phase is offset per party slot so four members do not march in lockstep, which reads as
+        /// one animation playing on four puppets rather than four people walking.
+        /// </para>
+        /// </remarks>
+        /// <param name="member">Who is being drawn.</param>
+        /// <param name="slot">Their place in the party, for the phase offset.</param>
+        /// <returns>The sprite to show.</returns>
+        private Sprite FrameFor(Adventurer member, int slot)
+        {
+            string role = RoleName(member.Role);
+
+            if (member.Action == AdventurerAction.Walking && member.Wounds == WoundState.Healthy)
+            {
+                int frame = Mathf.FloorToInt((_time / WalkFrameSeconds) + (slot * 2f));
+                Sprite drawn = _sprites.Load(
+                    $"party/walk/{role}-walk-{(frame % WalkFrames) + 1}", quiet: true);
+                if (drawn != null)
+                {
+                    return drawn;
+                }
+            }
+
+            return _sprites.Load($"party/{role}-{StateName(member.Wounds)}");
+        }
+
         /// <summary>Lowercase role name used in sprite paths.</summary>
         private static string RoleName(AdventurerRole role) => role switch
         {
