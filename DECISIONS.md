@@ -345,3 +345,45 @@ Two things the rework surfaced that were not visible from the model:
   canvas size.
 - **The itch.io embed is 523x293**, a UI scale of 0.4, which gave 12-pixel menu rows: on screen,
   drawn correctly, and untappable. Popup and marker metrics are floored in absolute pixels now.
+
+## 2026-08-14 — D17. Why the tankless rosters earn a ninth of the others (diagnosed, not decided)
+
+**Found:** peak energy rate by roster, played with the spawn verb pressed every tick —
+THE UNSHRIVEN 37.8/s, THE IRONCLADS 30.0, THE PILGRIMAGE 29.4, THE BALANCED PARTY 25.8,
+**THE GLASS CANNONS 4.1, THE SKIRMISHERS 4.1**. A **9.3x spread**, decided by a roll the player does
+not make, on a third of all raids.
+
+**It is not a constant, it is a feedback loop.** Measured for the two tankless rosters:
+
+| | tankless | the rest |
+|---|---|---|
+| deepest wound (worst survivor) | 0.76–0.79 | 0.02–0.07 |
+| ticks in combat | 10% | 44–74% |
+| monsters the player could afford | **5** | 9–11 |
+| deaths | none | 1–4 |
+
+A fragile party kills a monster before it lands enough blows to wound anyone, so its worst survivor
+sits near three-quarters health and the wound multiplier stays near 1. The rate stays near idle.
+Spawning is gated **only** by energy (`Raid.SpawnMob` refuses below `SpawnCost` and has no other
+guard), so a poor raid can afford five monsters in sixty seconds — and with no monster in the room
+the party is scored as walking a corridor. Less income buys fewer monsters, which earns less income.
+The player's own verb becomes unaffordable exactly when they most need it.
+
+**Not fixed here, because every way out is a balance decision the author owns:**
+
+1. **Cheaper spawns**, or a spawn cost that scales with the rate. Directly breaks the loop; risks
+   making the strong rosters trivial.
+2. **A floor on income while any monster is alive**, so one purchase always buys engagement.
+3. **Sturdier monsters against fragile parties** — a skeleton that survives long enough to land
+   blows. Closest to the fiction, most work.
+4. **Accept it.** A party that cannot be hurt *is* a poor customer, and the wound curve is the game.
+   `TheLeastWoundedRoster_IsTheWorstPaying` asserts exactly that correlation, so this outcome is the
+   design working, not misbehaving. The objection is not that it is wrong but that it is *invisible*:
+   the player is not told why this raid is worth a ninth of the last one.
+
+**Recommendation:** 4 plus a readability pass, or 2 if playtesting says a dead raid is dead time.
+Option 2 is the smallest change that keeps the player's verbs live.
+
+**Pinned by:** `RateReachabilityTests` — the steep end stays reachable, no roster falls below an
+empty corridor, and the spread may not exceed 14x. It pins the measured 9.3x rather than a target,
+so it catches the gap widening without pretending 9.3x was chosen.
