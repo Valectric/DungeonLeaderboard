@@ -297,41 +297,62 @@ namespace Dungeon.DungeonManager
             int chests = 0, Furnishings placed = null)
         {
             roomCount = Mathf.Max(2, roomCount);
+            return Build(RoomPlan.Corridor(roomCount), roomWidth, roomHeight, doorsStartOpen,
+                extraSlimeSpawners, extraSkeletonSpawners, extraTraps, chests, placed);
+        }
+
+        /// <summary>
+        /// Builds any shape of dungeon from a room plan.
+        /// </summary>
+        /// <remarks>
+        /// The general form. <see cref="BuildCorridor"/> is now a plan of rooms in a line, so the
+        /// dungeon the game shipped with is one case of this rather than the only one it can make.
+        /// </remarks>
+        /// <param name="plan">Which lattice cells hold rooms.</param>
+        /// <param name="roomWidth">Interior width of each room in cells.</param>
+        /// <param name="roomHeight">Interior height of each room in cells.</param>
+        /// <param name="doorsStartOpen">Whether doors begin open.</param>
+        /// <param name="extraSlimeSpawners">Slime spawners bought in the shop.</param>
+        /// <param name="extraSkeletonSpawners">Skeleton spawners bought in the shop.</param>
+        /// <param name="extraTraps">Extra traps bought in the shop.</param>
+        /// <param name="chests">Chests bought in the shop.</param>
+        /// <param name="placed">Exactly where the player put each purchase.</param>
+        /// <returns>The built layout.</returns>
+        public static DungeonLayout Build(
+            RoomPlan plan, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true,
+            int extraSlimeSpawners = 0, int extraSkeletonSpawners = 0, int extraTraps = 0,
+            int chests = 0, Furnishings placed = null)
+        {
             roomWidth = Mathf.Max(2, roomWidth);
             roomHeight = Mathf.Max(2, roomHeight);
+            int roomCount = plan.Count;
 
-            // One cell of wall margin all round, so every room has a drawable border.
-            const int margin = 1;
-            int interiorWidth = (roomCount * roomWidth) + (roomCount - 1);
-            var grid = new DungeonGrid(interiorWidth + (margin * 2), roomHeight + (margin * 2));
+            DungeonGrid grid = PlanBuilder.Build(
+                plan, roomWidth, roomHeight, doorsStartOpen, out List<Vector2Int> centres);
 
-            var centres = new List<Vector2Int>();
+            plan.Extent(out Vector2Int latticeMin, out _);
+            const int margin = PlanBuilder.Margin;
+
             var spawners = new List<Vector2Int>();
             var spawnerTiers = new List<int>();
             var traps = new List<Vector2Int>();
-            int midY = margin + (roomHeight / 2);
 
-            for (int room = 0; room < roomCount; room++)
+            // Every room past the first earns its keep: somewhere to spawn from and something to
+            // stand on. The first room is left clear so the party is never ambushed before the
+            // player has had a moment to read the board.
+            for (int room = 1; room < roomCount; room++)
             {
-                int x0 = margin + (room * (roomWidth + 1));
-                grid.CarveRoom(new RectInt(x0, margin, roomWidth, roomHeight), room);
-                centres.Add(new Vector2Int(x0 + (roomWidth / 2), midY));
-
-                if (room < roomCount - 1)
-                {
-                    grid.AddDoor(new Vector2Int(x0 + roomWidth, midY), room, room + 1, doorsStartOpen);
-                }
-
-                // Every room past the first earns its keep: somewhere to spawn from and something to
-                // stand on. The first room is left clear so the party is never ambushed before the
-                // player has had a moment to read the board.
-                if (room > 0)
-                {
-                    spawners.Add(new Vector2Int(x0 + roomWidth - 1, margin));
-                    spawnerTiers.Add(1);
-                    traps.Add(new Vector2Int(x0 + 1, midY));
-                }
+                Vector2Int origin = PlanBuilder.OriginOf(
+                    plan.Rooms[room], latticeMin, roomWidth, roomHeight);
+                spawners.Add(new Vector2Int(origin.x + roomWidth - 1, origin.y));
+                spawnerTiers.Add(1);
+                traps.Add(new Vector2Int(origin.x + 1, origin.y + (roomHeight / 2)));
             }
+
+            Vector2Int firstOrigin = PlanBuilder.OriginOf(
+                plan.Rooms[0], latticeMin, roomWidth, roomHeight);
+            int midY = firstOrigin.y + (roomHeight / 2);
+            int interiorWidth = grid.Width - (margin * 2);
 
             var chestCells = new List<Vector2Int>();
 
