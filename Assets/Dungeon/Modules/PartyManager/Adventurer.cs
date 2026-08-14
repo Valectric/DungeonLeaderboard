@@ -97,6 +97,17 @@ namespace Dungeon.PartyManager
         /// <summary>Seconds until this adventurer can cast a heal again.</summary>
         public float HealCooldown { get; set; }
 
+        /// <summary>
+        /// Whether this adventurer is currently scrambling away from something.
+        /// </summary>
+        /// <remarks>
+        /// Per member, not per party, which is the whole point: SPEC.md section 9 asks for "party
+        /// members visibly panicking", and the interesting moment is one of them breaking while the
+        /// others hold. A party-wide flag could never show a healer bolting from a skeleton the tank
+        /// is calmly trading blows with.
+        /// </remarks>
+        public bool IsPanicking { get; set; }
+
         /// <summary>Mana as a fraction from 1 down to 0, for the bar.</summary>
         public float ManaFraction => MaxMana <= 0f ? 0f : Mathf.Clamp01(Mana / MaxMana);
 

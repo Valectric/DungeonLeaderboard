@@ -41,10 +41,20 @@ namespace Dungeon.Game
         /// <param name="wounds">How hurt this member is.</param>
         /// <param name="time">Seconds since the raid began.</param>
         /// <param name="phase">Per-member offset so the four do not bob in lockstep.</param>
+        /// <param name="panicking">
+        /// Whether this member is scrambling away from something close. Per member rather than per
+        /// party, so a healer bolting from a skeleton reads differently from the tank trading blows
+        /// with it two feet away.
+        /// </param>
         /// <returns>A vertical offset in world units and a roll angle in degrees.</returns>
         public static (float lift, float tilt) ForAdventurer(
-            PartyGoal goal, WoundState wounds, float time, float phase)
+            PartyGoal goal, WoundState wounds, float time, float phase, bool panicking = false)
         {
+            if (panicking)
+            {
+                return Panic(wounds, time, phase);
+            }
+
             // A wounded party moves less and slower. This is the readable signal that replaces a
             // health bar, so the falloff is steep enough to notice at a glance.
             float vigour = wounds switch
@@ -76,6 +86,37 @@ namespace Dungeon.Game
                 default:
                     return (0f, Tilt(wounds, time, phase));
             }
+        }
+
+        /// <summary>
+        /// Motion for an adventurer scrambling away from something.
+        /// </summary>
+        /// <remarks>
+        /// SPEC.md section 9 puts "party members visibly panicking" first on its list of what polish
+        /// time should buy, and until now the only sign was that they moved faster -- which nobody
+        /// notices in a busy room and which is invisible in a still frame.
+        /// <para>
+        /// Fast, tall, off-balance, and deliberately <i>not</i> a clean sine. Two waves at
+        /// incommensurable rates never repeat, so the sprite jitters rather than bouncing in a tidy
+        /// rhythm; a regular bob reads as marching however fast you make it.
+        /// </para>
+        /// </remarks>
+        /// <param name="wounds">How hurt this member is.</param>
+        /// <param name="time">Seconds since the raid began.</param>
+        /// <param name="phase">Per-member offset.</param>
+        /// <returns>Lift and tilt.</returns>
+        private static (float lift, float tilt) Panic(WoundState wounds, float time, float phase)
+        {
+            const float rate = 14f;
+            float scramble = Mathf.Abs(Mathf.Sin((time * rate) + phase))
+                             + (Mathf.Abs(Mathf.Sin((time * rate * 0.61f) + phase)) * 0.5f);
+
+            // Rocking hard enough to read at a glance, and leaning further the worse off they are --
+            // a critical member flailing is the picture the spec is asking for.
+            float lean = wounds == WoundState.Critical ? 1.4f : 1f;
+            float tilt = Mathf.Sin((time * rate * 0.47f) + phase) * 16f * lean;
+
+            return (scramble * WalkBob * 1.35f, tilt);
         }
 
         /// <summary>Roll angle for an adventurer, growing as they near death.</summary>

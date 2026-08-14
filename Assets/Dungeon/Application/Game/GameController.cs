@@ -807,16 +807,31 @@ namespace Dungeon.Game
 
             // The rate is the game, so it is the biggest thing on screen and it breathes. A player
             // has to *see* dead time costing them without reading a tutorial.
-            float pulse = 1f + (Mathf.Sin(_ratePulse * 9f) * 0.06f * Mathf.Clamp01(_raid.CurrentRate / 12f));
+            //
+            // Scaled against the curve's real ceiling. This used to saturate at 12/s, chosen when the
+            // rate could not in practice exceed 4 -- so once the curve was fixed and rates reached
+            // 37/s, a spectacular spike pulsed exactly like a routine scuffle. SPEC.md section 9 asks
+            // specifically for the number to pulse "when it spikes", which means the spike has to
+            // look different from the floor.
+            float intensity = Mathf.Clamp01(_raid.CurrentRate / 30f);
+            float beat = 9f + (intensity * 7f);
+            float pulse = 1f + (Mathf.Sin(_ratePulse * beat) * (0.05f + (intensity * 0.13f)));
             var rate = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(52 * scale * pulse),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperCenter
             };
-            rate.normal.textColor = Color.Lerp(
-                new Color(0.45f, 0.45f, 0.5f), new Color(0.55f, 1f, 0.45f),
-                Mathf.Clamp01(_raid.CurrentRate / 20f));
+            // Grey when idle, green when earning, and gold at the top of the curve -- so the colour
+            // says which of the three states the player is in without reading the figure. Two stops
+            // rather than three left everything above 20/s looking identical, and the whole point of
+            // the wound curve is what happens beyond that.
+            Color heat = _raid.CurrentRate < 20f
+                ? Color.Lerp(new Color(0.45f, 0.45f, 0.5f), new Color(0.55f, 1f, 0.45f),
+                    Mathf.Clamp01(_raid.CurrentRate / 14f))
+                : Color.Lerp(new Color(0.55f, 1f, 0.45f), new Color(1f, 0.85f, 0.3f),
+                    Mathf.Clamp01((_raid.CurrentRate - 20f) / 15f));
+            rate.normal.textColor = heat;
             // Invariant culture throughout the HUD. The build picks up the machine's locale, and on
             // this one the rate rendered as "0,1/s" -- a comma reads as a thousands separator to
             // most players and makes the game's most important number ambiguous.

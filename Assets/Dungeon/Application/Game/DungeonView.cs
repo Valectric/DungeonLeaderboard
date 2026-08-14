@@ -691,7 +691,7 @@ namespace Dungeon.Game
                 // occupies a column of the corridor in marching order, so no cosmetic fan-out is
                 // needed to make four sprites look like four people.
                 (float lift, float tilt) = SpriteMotion.ForAdventurer(
-                    party.Goal, member.Wounds, _time, i * 1.7f);
+                    party.Goal, member.Wounds, _time, i * 1.7f, member.IsPanicking);
                 view.transform.position =
                     new Vector3(member.Position.x * CellSize, (member.Position.y * CellSize) + lift, -1f);
                 view.transform.rotation = Quaternion.Euler(0f, 0f, tilt);

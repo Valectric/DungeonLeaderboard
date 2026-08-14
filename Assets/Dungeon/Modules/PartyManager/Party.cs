@@ -370,8 +370,9 @@ namespace Dungeon.PartyManager
             };
 
             // The tank decides first and publishes its target, so the mage focuses the same enemy.
-            Glide(leader, AdventurerAI.DesiredPosition(leader, view), deltaTime,
-                AdventurerAI.SpeedMultiplier(leader, view));
+            float leaderSpeed = AdventurerAI.SpeedMultiplier(leader, view);
+            leader.IsPanicking = leaderSpeed > 1f;
+            Glide(leader, AdventurerAI.DesiredPosition(leader, view), deltaTime, leaderSpeed);
             RecordTrail(leader.Position);
 
             DisarmingCell = null;
@@ -399,7 +400,9 @@ namespace Dungeon.PartyManager
                 }
 
                 Vector2 desired = AdventurerAI.DesiredPosition(member, slot);
-                Glide(member, desired, deltaTime, AdventurerAI.SpeedMultiplier(member, slot));
+                float speed = AdventurerAI.SpeedMultiplier(member, slot);
+                member.IsPanicking = speed > 1f;
+                Glide(member, desired, deltaTime, speed);
 
                 if (member.Role != AdventurerRole.Ranged || threats.Count > 0)
                 {
