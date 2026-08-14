@@ -120,7 +120,45 @@ This is **the same defect class as D26** — a room test taken from the leader r
 
 ---
 
-### Phase 3 — Bodies stay out of walls
+### Phase 3 — MEASURED AFTER PHASE 2, AND MOSTLY ALREADY FIXED
+
+**Do not start this phase without re-reading this note.** Phase 2 was expected to fix shots. It also
+fixed most of the bodies, because clamping `StandOff` to the target's room removed the reason members
+were walking into walls at all — they were pathing to standoff points *outside the room they were
+fighting in*.
+
+Measured on `main`, all six rosters, one raid each:
+
+| | before Phase 2 | after |
+|---|---|---|
+| inside a wall | 11.70% | **1.56%** |
+| moved through a wall | 12.80% | **1.64%** |
+| shot through a wall | 13.7% | **0.2%** (1 of 535) |
+
+**The shape of what remains matters more than the size.** Before, the counts were roster-dependent
+by a factor of twenty — THE IRONCLADS 155, THE SKIRMISHERS 3213 — because the fragile rosters flee
+and fleeing bypassed pathfinding. Now every roster sits between **142 and 287**. A flat residual
+across rosters that behave completely differently is not a behavioural bug; it is something
+systemic that happens to all of them equally.
+
+The likeliest candidate, and the first thing to check: **`PlaceFollowers` puts three of four members
+outside the walkable dungeon at tick zero** (`Party.cs:1209` — `PositionBehind(rank * FollowSpacing)`
+walks backwards from the entrance with no walkability test at all). At 0.02s a tick, a party that
+starts out of bounds and takes a second to walk in accounts for roughly fifty samples per member
+per raid — which is the order of the residual.
+
+**If that is the cause, Phase 3 as planned is unnecessary.** The fix is the initial placement, not a
+movement clamp — and the plan already names the movement clamp as *the one change most likely to
+break the shipped game*, because a clamped party that presses against a wall and stops scores a
+perfect zero on every violation counter while being visibly broken. Taking that risk to remove a
+residual caused by spawn placement would be a bad trade.
+
+**Measure before building.** Record when in the raid the violations occur. If they cluster in the
+first second, fix `PlaceFollowers` and close the phase.
+
+---
+
+### Phase 3 (original plan) — Bodies stay out of walls
 
 **Goal:** the other half of (C), fixed deterministically in plain C#.
 
