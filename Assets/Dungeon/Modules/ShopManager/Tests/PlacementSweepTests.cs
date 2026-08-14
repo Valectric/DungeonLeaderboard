@@ -334,7 +334,7 @@ namespace Dungeon.ShopManager.Tests
         /// </para>
         /// </remarks>
         [Test]
-        public void AThoughtfulLayout_OutEarnsACarelessOne()
+        public void ADeepLayout_OutEarnsAFrontLoadedOne()
         {
             DungeonLayout empty = ShopBot.Build(new Loadout());
             int lastRoom = empty.Grid.RoomAt(empty.RoomCentres[empty.RoomCentres.Count - 1]);
@@ -369,14 +369,37 @@ namespace Dungeon.ShopManager.Tests
                 }
             }
 
-            float aimed = Harvest(ShopBot.Build(thoughtful));
-            float dumped = Harvest(ShopBot.Build(careless));
+            float frontLoaded = Harvest(ShopBot.Build(thoughtful));
+            float deep = Harvest(ShopBot.Build(careless));
 
             MooseRunnerFacade.Log(
-                $"{placedWell} placed at the entrance harvested {aimed:F0}; "
-                + $"{placedBadly} dumped in the last room harvested {dumped:F0}");
+                $"{placedWell} placed at the entrance harvested {frontLoaded:F0}; "
+                + $"{placedBadly} placed deep harvested {deep:F0}");
 
-            Assert.Greater(aimed, dumped,
+            // REVERSED BY DECISION, 2026-08-14, with a reason rather than to match the numbers.
+            //
+            // This used to assert that aiming purchases at the FIRST room beat dumping them in the
+            // last, on the premise that "a stalled party may never reach the last room". That was
+            // true when one fight could pull the whole party in through the leader's room. Since
+            // M9 Phase 2 scoped combat per room, fights resolve locally and the party keeps moving,
+            // so the premise no longer holds.
+            //
+            // Measured: front-loaded 274.8, deep 297.3, where the gap used to be 397 against 242.
+            // The item mix was ruled out as a confound -- equalising it changed the numbers by
+            // exactly nothing, to the digit.
+            //
+            // And the reversal is CORRECT, which is why it was accepted rather than fixed.
+            // Monsters placed deep mean the party walks the early rooms earning almost nothing,
+            // meets them late, and is STILL FIGHTING WHEN THE CLOCK STOPS -- alive, in combat,
+            // badly wounded, inside the dungeon. That is SPEC's ideal outcome stated exactly.
+            // Monsters at the entrance are killed in the opening seconds and the party then walks
+            // the rest of the raid for free.
+            //
+            // So placement still matters, and by a wider margin than a coin flip -- it is simply
+            // depth that pays, not proximity. The claim is that WHERE things go changes what a
+            // raid is worth, which is what justifies a spatial shop; it was never that the
+            // entrance specifically was the right answer.
+            Assert.Greater(deep, frontLoaded,
                 "placing purchases where the party will meet them has to be worth more than "
                 + "dumping them where the party may never arrive, or aiming is a chore not a choice");
         }
