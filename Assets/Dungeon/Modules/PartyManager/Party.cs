@@ -120,6 +120,7 @@ namespace Dungeon.PartyManager
         private readonly List<Vector2> _trail = new();
         private readonly DungeonGrid _grid;
         private readonly Vector2Int _bossCell;
+        private readonly IReadOnlyList<Vector2Int> _roomCentres;
         private readonly Vector2Int _entranceCell;
         private readonly HashSet<Vector2Int> _looted = new();
         private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
@@ -282,12 +283,18 @@ namespace Dungeon.PartyManager
         /// Who walks in. Defaults to the balanced party, so every existing caller and test keeps the
         /// roster it was written against.
         /// </param>
+        /// <param name="roomCentres">
+        /// Centre of every room, so the party explores rather than walking a line to a fixed cell.
+        /// Optional: without it the party heads for the boss cell, which is what every test written
+        /// before exploration existed expects.
+        /// </param>
         public Party(DungeonGrid grid, Vector2Int entranceCell, Vector2Int bossCell,
-            PartyComposition composition = null)
+            PartyComposition composition = null, IReadOnlyList<Vector2Int> roomCentres = null)
         {
             _grid = grid;
             _entranceCell = entranceCell;
             _bossCell = bossCell;
+            _roomCentres = roomCentres ?? new List<Vector2Int> { bossCell };
             Composition = composition ?? PartyComposition.Opening;
 
             foreach (AdventurerRole role in Composition.Roles)
@@ -426,13 +433,22 @@ namespace Dungeon.PartyManager
                 }
             }
 
+            RecordVisit(leader);
             ForceDoors(leader, deltaTime, threats.Count);
             OpenChests(leader, deltaTime);
 
             // Last, because it reads the door and loot state the two calls above have just settled.
             AssignActions(threats);
 
-            if (Goal != PartyGoal.Fighting && Cell == _bossCell)
+            // The raid ends when they leave, not when they touch one particular room. A party that
+            // has seen everything turns round and walks out the way it came in. Dungeons built
+            // without room centres keep the old boss-cell ending, which is every test written before
+            // exploration existed.
+            bool left = _roomCentres.Count > 1
+                ? HasExploredEverything && Cell == _entranceCell
+                : Cell == _bossCell;
+
+            if (Goal != PartyGoal.Fighting && left)
             {
                 Goal = PartyGoal.Escaped;
             }
@@ -538,7 +554,13 @@ namespace Dungeon.PartyManager
                 return ApproachCell(blocking, leader);
             }
 
-            List<Vector2Int> path = _grid.FindPath(leader.Cell, _bossCell);
+            // Explore rather than walk a line to a fixed boss room: head for the nearest room not
+            // yet seen, and once they have all been seen, leave by the way in. That is what makes
+            // the player's placements steer anything -- a party choosing where to go can be tempted
+            // by a chest or held up by a monster; a party walking to one fixed cell cannot.
+            Vector2Int destination = NearestUnvisitedRoomCentre(leader) ?? _entranceCell;
+
+            List<Vector2Int> path = _grid.FindPath(leader.Cell, destination);
             foreach (Vector2Int cell in path)
             {
                 if (_grid.KindAt(cell) == CellKind.Doorway)
@@ -547,7 +569,7 @@ namespace Dungeon.PartyManager
                 }
             }
 
-            return _bossCell;
+            return destination;
         }
 
         /// <summary>
@@ -1026,6 +1048,62 @@ namespace Dungeon.PartyManager
                     ? AdventurerAction.Walking
                     : AdventurerAction.Shooting;
             }
+        }
+
+
+        /// <summary>Rooms the party has set foot in.</summary>
+        private readonly HashSet<int> _visited = new();
+
+        /// <summary>How many distinct rooms the party has entered.</summary>
+        public int VisitedRooms => _visited.Count;
+
+        /// <summary>Whether every room in the dungeon has been walked into.</summary>
+        public bool HasExploredEverything { get; private set; }
+
+        /// <summary>
+        /// The centre of the nearest room the party has not been in, if any remain.
+        /// </summary>
+        /// <remarks>
+        /// Nearest by walking distance rather than by lattice, because a room one wall away can be a
+        /// long way round if the door between is shut. Rooms with no route at all are skipped, so a
+        /// sealed-off wing never becomes an objective the party cannot reach.
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>A room centre, or null once everything reachable has been seen.</returns>
+        private Vector2Int? NearestUnvisitedRoomCentre(Adventurer leader)
+        {
+            Vector2Int? best = null;
+            int shortest = int.MaxValue;
+
+            for (int room = 0; room < _roomCentres.Count; room++)
+            {
+                if (_visited.Contains(room))
+                {
+                    continue;
+                }
+
+                List<Vector2Int> route = _grid.FindPath(leader.Cell, _roomCentres[room]);
+                if (route.Count > 0 && route.Count < shortest)
+                {
+                    shortest = route.Count;
+                    best = _roomCentres[room];
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Notes which room the party is standing in, for the exploration objective.</summary>
+        /// <param name="leader">Whoever is at the front.</param>
+        private void RecordVisit(Adventurer leader)
+        {
+            int room = _grid.RoomAt(leader.Cell);
+            if (room != DungeonGrid.NoRoom)
+            {
+                _visited.Add(room);
+            }
+
+            HasExploredEverything = _visited.Count >= _roomCentres.Count;
         }
 
         /// <summary>Picks a goal from the party's health and what is in the room with it.</summary>

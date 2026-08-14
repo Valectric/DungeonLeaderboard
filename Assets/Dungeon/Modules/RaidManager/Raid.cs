@@ -148,7 +148,8 @@ namespace Dungeon.RaidManager
             CurrentRate = EnergyCurve.Rate(0, 1f);
             TotalEnergy = StartingEnergy + Mathf.Max(0f, bonusEnergy);
             Layout = layout;
-            Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell, composition);
+            Party = new Party(layout.Grid, layout.EntranceCell, layout.BossCell, composition,
+                layout.RoomCentres);
             Mobs = new MobPack(layout.Grid);
         }
 

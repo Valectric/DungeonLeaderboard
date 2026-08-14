@@ -84,7 +84,16 @@ namespace Dungeon.RaidManager.Tests
                 {
                     if (first)
                     {
-                        leaderStoodOn.Add(member.Cell);
+                        // Only while the plate is live. The name says "armed" and this used to
+                        // record every cell the leader ever occupied -- so once the party started
+                        // exploring and walking back out over ground the rogue had already cleared,
+                        // it failed on a leader stepping on a DISARMED trap, which is not a hazard.
+                        Trap here = layout.TrapAt(member.Cell);
+                        if (here != null && here.IsArmed)
+                        {
+                            leaderStoodOn.Add(member.Cell);
+                        }
+
                         first = false;
                     }
 
@@ -325,21 +334,33 @@ namespace Dungeon.RaidManager.Tests
 
             int leadingSamples = 0;
             int samples = 0;
+            Vector2 previous = raid.Party.Position;
 
             while (raid.IsRunning)
             {
                 raid.Tick(0.02f);
 
                 Adventurer tank = RoleIn(raid.Party, AdventurerRole.Tank);
-                if (tank == null || raid.Party.Goal != PartyGoal.Advancing)
+                Vector2 travelled = raid.Party.Position - previous;
+                previous = raid.Party.Position;
+
+                if (tank == null || raid.Party.Goal != PartyGoal.Advancing ||
+                    travelled.sqrMagnitude < 0.000001f)
                 {
                     continue;
                 }
 
+                // Measured along the direction the party is actually travelling. The party explores
+                // now and walks back out the way it came, so for the whole return leg "foremost"
+                // means the LOWEST x -- and a test assuming one-way travel called the tank a
+                // straggler for correctly leading the way home.
+                Vector2 heading = travelled.normalized;
+                float tankProgress = Vector2.Dot(tank.Position, heading);
+
                 bool foremost = true;
                 foreach (Adventurer member in raid.Party.Living)
                 {
-                    if (member.Position.x > tank.Position.x + 0.05f)
+                    if (Vector2.Dot(member.Position, heading) > tankProgress + 0.05f)
                     {
                         foremost = false;
                     }

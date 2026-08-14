@@ -111,13 +111,17 @@ namespace Dungeon.RaidManager.Tests
             Advance(open, 20f);
 
             MooseRunnerFacade.Log(
-                $"after 20s: shut doors left the party at {raid.Party.Cell}, open doors at "
-                + $"{open.Party.Cell}");
+                $"after 20s: shut doors left the party at {raid.Party.Cell} having seen "
+                + $"{raid.Party.VisitedRooms} rooms; open doors at {open.Party.Cell} having seen "
+                + $"{open.Party.VisitedRooms}");
 
             Assert.AreNotEqual(RaidOutcome.PartyEscaped, raid.Outcome,
-                "a party behind a closed door must never reach the boss room this quickly");
-            Assert.Less(raid.Party.Position.x, open.Party.Position.x - 1f,
-                "shutting every door did not measurably delay the party, so the verb buys nothing");
+                "a party behind a closed door must never get all the way round this quickly");
+
+            // Rooms seen, not distance travelled: the party explores and doubles back now, so x tells
+            // you which leg of the journey it is on rather than how far it has got.
+            Assert.Less(raid.Party.VisitedRooms, open.Party.VisitedRooms,
+                "shutting every door did not slow the party's exploration, so the verb buys nothing");
         }
 
         /// <summary>
