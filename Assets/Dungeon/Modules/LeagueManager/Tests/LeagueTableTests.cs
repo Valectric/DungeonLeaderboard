@@ -320,5 +320,39 @@ namespace Dungeon.LeagueManager.Tests
             Assert.AreEqual(10, league.Round, "twenty dungeons should reach a winner in ten rounds");
             Assert.IsTrue(league.PlayerWon, "a good raid every round should win");
         }
+
+        /// <summary>
+        /// One weak opening raid ends the run, and that is the design.
+        /// </summary>
+        /// <remarks>
+        /// Everyone starts on zero, so the first round has no banked score to absorb a bad raid: the
+        /// player is simply last and out. The author was asked about this directly and confirmed it
+        /// is intended — the first raid is the sharpest lesson the game teaches, and a competition
+        /// meant to bite from round one should not be softened. See D20.
+        /// <para>
+        /// Pinned because the obvious ways to soften it look like kindnesses: seeding a small opening
+        /// score so nobody is bottom on nothing, or exempting the first elimination. Either would
+        /// pass review as a fix and would be a regression. If this test goes red, the change is the
+        /// bug.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void AWeakOpeningRaid_EndsTheRunImmediately()
+        {
+            var league = new LeagueTable(17);
+
+            Assert.AreEqual(0f, league.Player.Score, 0.001f, "the player should open on nothing");
+
+            league.SubmitRaid(0f);
+
+            MooseRunnerFacade.Log(
+                $"after harvesting nothing in round one the player is "
+                + $"{league.PlayerPosition} of {league.Remaining}, out={league.PlayerRelegated}");
+
+            Assert.IsTrue(league.PlayerRelegated,
+                "harvesting nothing in the first round did not end the run. If an opening score was "
+                + "seeded or the first elimination exempted, that is the regression -- D20 records "
+                + "that round one is sudden death on purpose.");
+        }
     }
 }
