@@ -1,7 +1,8 @@
 # Handover
 
-**State: M1–M6 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
-standings, a thirty-second spatial shop, the next raid — and the league now ends in a winner.**
+**State: M1–M7 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
+standings, a thirty-second spatial shop, the next raid — the league ends in a winner, and every
+entity that moves is drawn animation.**
 
 Last updated: 2026-08-14.
 
@@ -85,6 +86,33 @@ the grid, so purchases are translated to stay in their rooms.
 
 **The party explores.** It heads for the nearest room it has not seen and leaves by the way it came
 in once it has seen them all. That is what makes chests and monsters steer anything.
+
+### Drawn animation (M7) — how the sprite pipeline actually behaves
+
+**66 frames, ten cycles**: walk and attack for each party role, walk and attack for the skeleton, a
+hop for the slime. Six frames each at twelve a second.
+
+The `character` harness does **not** ask ImageGen to draw frames. It takes the sprite you attach as a
+**source master and rigs it**, so the output is your own art articulated and cannot drift off-model.
+That single fact is why verification works: compare the generated frame's **average colour and
+opaque pixel count** against the source sprite. They should match within a few pixels. Nothing else
+in the pipeline checks anything, and the agent's prose reports success either way.
+
+Three traps, all caught by that comparison and all now in `CLAUDE.md`:
+
+1. **A second character into the same workspace reuses the first one's rig.** A healer request
+   returned six files named `tank_adventurer_march_down_*` measuring (96,81,68)/1115 — the tank
+   exactly, against the healer's (102,95,69)/1254. **One `--workspace` per character.**
+2. **Pasting the palette string recolours a rigged sprite.** The green-hooded archer came back purple
+   with a pink face. When rigging, the source master *is* the palette — omit it.
+3. **`--command` accepts only `sprite | animate | character | effect | pack`.** `creature` is a
+   harness the router infers, not a command, and passing it fails the whole batch.
+
+**The bug that mattered most had nothing to do with art.** `FrameFor` was never called: the edit
+meant to redirect `view.sprite` matched nothing after an earlier refactor and silently did nothing.
+Four cycles were imported, correctly named and loadable, and every adventurer showed one static pose.
+`WalkingAdventurers_CycleThroughDrawnFrames` samples the **renderer** during a real raid and demands
+more than one distinct sprite reach it — 1 before, 7 after.
 
 ### Three tests were found cementing bugs by asserting their symptoms
 
