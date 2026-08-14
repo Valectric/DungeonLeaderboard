@@ -76,12 +76,7 @@ namespace Dungeon.ShopManager.Tests
 
             for (int round = 0; round < raids; round++)
             {
-                DungeonLayout layout = DungeonLayout.BuildCorridor(
-                    roomCount: Mathf.Min(5, 3 + loadout.Count(ShopItem.Door)),
-                    extraSlimeSpawners: loadout.Count(ShopItem.Slime),
-                    extraSkeletonSpawners: loadout.Count(ShopItem.Skeleton),
-                    extraTraps: loadout.Count(ShopItem.SpikeTrap) + loadout.Count(ShopItem.PoisonDart),
-                    chests: loadout.Count(ShopItem.Chest));
+                DungeonLayout layout = ShopBot.Build(loadout);
 
                 var raid = new Raid(layout, bonus, null, seed + round);
                 bonus = 0f;
@@ -142,12 +137,10 @@ namespace Dungeon.ShopManager.Tests
                 {
                     while (shop.CanAfford(item) && loadout.Total < 60)
                     {
-                        if (!shop.Buy(item))
+                        if (!ShopBot.TryBuy(shop, loadout, (ShopItem)item))
                         {
                             break;
                         }
-
-                        loadout.Add(item);
                     }
                 }
 

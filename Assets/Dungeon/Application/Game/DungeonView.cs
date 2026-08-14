@@ -226,6 +226,46 @@ namespace Dungeon.Game
         private readonly List<SpriteRenderer> _manaFills = new();
 
         /// <summary>A single opaque pixel, stretched to draw bars.</summary>
+        /// <summary>
+        /// Marks every tile the player may build on, for the shop.
+        /// </summary>
+        /// <remarks>
+        /// Without this the shop tells the player to "tap any empty tile" and then leaves them to
+        /// work out which ones those are by tapping walls and getting nothing. The rule is not
+        /// guessable from the picture — a doorway looks like floor, and the cell under a candle looks
+        /// empty — so it has to be drawn.
+        /// <para>
+        /// Read straight from <see cref="DungeonLayout.CanBuildOn"/>, the same predicate the tap is
+        /// tested against, so the marks cannot promise a tile the purchase would refuse.
+        /// </para>
+        /// </remarks>
+        /// <param name="layout">Dungeon to mark up.</param>
+        public void MarkBuildableTiles(DungeonLayout layout)
+        {
+            for (int y = 0; y < layout.Grid.Height; y++)
+            {
+                for (int x = 0; x < layout.Grid.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (!layout.CanBuildOn(cell))
+                    {
+                        continue;
+                    }
+
+                    var go = new GameObject($"buildable_{x}_{y}");
+                    go.transform.SetParent(_root, false);
+                    var renderer = go.AddComponent<SpriteRenderer>();
+                    renderer.sprite = Solid();
+                    renderer.color = new Color(0.66f, 0.40f, 0.92f, 0.085f);
+                    renderer.sortingOrder = 9;
+                    go.transform.position = new Vector3(
+                        (x * CellSize) - (CellSize * 0.42f), y * CellSize, -0.5f);
+                    go.transform.localScale =
+                        new Vector3(CellSize * 0.78f, CellSize * 0.78f, 1f);
+                }
+            }
+        }
+
         private Sprite Solid()
         {
             if (_solid != null)

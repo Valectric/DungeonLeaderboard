@@ -154,19 +154,9 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
-            foreach (ShopManager.ShopItem item in ShopScreen.Items)
-            {
-                float scale = Screen.height / 720f;
-                Rect[] cards = ShopScreen.Cards(scale, out _);
-                for (int i = 0; i < ShopScreen.Items.Length; i++)
-                {
-                    if (ShopScreen.Items[i] == item)
-                    {
-                        _game.TapShop(new Vector2(
-                            cards[i].center.x, Screen.height - cards[i].center.y));
-                    }
-                }
-            }
+            BuyOntoAnEmptyTile(ShopManager.ShopItem.Chest);
+            BuyOntoAnEmptyTile(ShopManager.ShopItem.Slime);
+            BuyOntoAnEmptyTile(ShopManager.ShopItem.SpikeTrap);
 
             Assert.Greater(_game.Loadout.Total, 0, "the test needs to have bought something");
             int bought = _game.Loadout.Total;
@@ -245,6 +235,43 @@ namespace Dungeon.Game.Tests
 
             Assert.Less(afterSix, afterFirst * 2,
                 "the view is accumulating objects across raids");
+        }
+
+        /// <summary>Buys one item onto the first free tile, through real screen coordinates.</summary>
+        /// <param name="item">Item to buy.</param>
+        private void BuyOntoAnEmptyTile(ShopManager.ShopItem item)
+        {
+            float scale = Screen.height / 720f;
+            DungeonManager.DungeonLayout layout = _game.CurrentRaid.Layout;
+
+            for (int y = 0; y < layout.Grid.Height; y++)
+            {
+                for (int x = 0; x < layout.Grid.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (!layout.CanBuildOn(cell))
+                    {
+                        continue;
+                    }
+
+                    Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+                    var anchor = new Vector2(screen.x, Screen.height - screen.y);
+                    _game.TapShop(new Vector2(screen.x, screen.y));
+
+                    Rect[] rows = ShopScreen.PopupRows(anchor, scale, Screen.width, Screen.height);
+                    for (int i = 0; i < ShopScreen.Items.Length; i++)
+                    {
+                        if (ShopScreen.Items[i] == item)
+                        {
+                            _game.TapShop(new Vector2(
+                                rows[i].center.x, Screen.height - rows[i].center.y));
+                            return;
+                        }
+                    }
+
+                    return;
+                }
+            }
         }
     }
 }

@@ -59,13 +59,10 @@ namespace Dungeon.ShopManager.Tests
 
             for (int round = 0; round < raids; round++)
             {
-                int rooms = Mathf.Min(5, 3 + loadout.Count(ShopItem.Door));
-                DungeonLayout layout = DungeonLayout.BuildCorridor(
-                    roomCount: rooms,
-                    extraSlimeSpawners: loadout.Count(ShopItem.Slime),
-                    extraSkeletonSpawners: loadout.Count(ShopItem.Skeleton),
-                    extraTraps: loadout.Count(ShopItem.SpikeTrap) + loadout.Count(ShopItem.PoisonDart),
-                    chests: loadout.Count(ShopItem.Chest));
+                // Built exactly as the shipped game builds it, purchases standing where they were
+                // bought. A sweep that scattered them by the old formula would be measuring a
+                // dungeon no player is ever handed.
+                DungeonLayout layout = ShopBot.Build(loadout);
 
                 var raid = new Raid(layout, bonus, null, seed + round);
                 bonus = 0f;
@@ -104,7 +101,7 @@ namespace Dungeon.ShopManager.Tests
 
                 Assert.Less(guard, 5000, $"raid {round} never ended");
                 result.Harvests.Add(raid.EnergyHarvested);
-                result.FinalRooms = rooms;
+                result.FinalRooms = layout.RoomCentres.Count;
 
                 league.SubmitRaid(raid.EnergyHarvested);
                 if (league.PlayerRelegated)
@@ -122,12 +119,11 @@ namespace Dungeon.ShopManager.Tests
                 {
                     while (shop.CanAfford(item) && loadout.Total < 40)
                     {
-                        if (!shop.Buy(item))
+                        if (!ShopBot.TryBuy(shop, loadout, item))
                         {
                             break;
                         }
 
-                        loadout.Add(item);
                         result.Bought++;
                     }
                 }

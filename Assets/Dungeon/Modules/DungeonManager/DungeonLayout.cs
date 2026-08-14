@@ -167,6 +167,76 @@ namespace Dungeon.DungeonManager
             return null;
         }
 
+        /// <summary>
+        /// Where another hall would be centred if one were bought.
+        /// </summary>
+        /// <remarks>
+        /// The shop draws its "buy this section" marker here, in the dungeon, rather than putting it
+        /// in a menu — so extending the corridor reads as extending <i>this</i> dungeon rather than
+        /// incrementing a number. The spacing is measured off the rooms that exist instead of being
+        /// restated as a constant, so it cannot drift from the geometry it is describing.
+        /// </remarks>
+        public Vector2Int NextHallCentre
+        {
+            get
+            {
+                Vector2Int last = RoomCentres[RoomCentres.Count - 1];
+                int spacing = RoomCentres.Count > 1
+                    ? RoomCentres[1].x - RoomCentres[0].x
+                    : 6;
+                return new Vector2Int(last.x + spacing, last.y);
+            }
+        }
+
+        /// <summary>
+        /// Whether the player may put something new on a cell.
+        /// </summary>
+        /// <remarks>
+        /// The rule the spatial shop is hit-tested against, and the reason it lives here rather than
+        /// in the UI: the shop, the preview it draws and the dungeon the raid finally builds must all
+        /// agree about which tiles are available, or the player buys a spawner onto a tile that
+        /// silently discards it.
+        /// <para>
+        /// Doorways are excluded because a doorway belongs to no room, and the entrance and boss cell
+        /// because furnishing either one changes what the party does before it has taken a step.
+        /// </para>
+        /// </remarks>
+        /// <param name="cell">Cell to test.</param>
+        /// <returns>True when the cell is empty floor inside a room.</returns>
+        public bool CanBuildOn(Vector2Int cell)
+        {
+            if (Grid.RoomAt(cell) == DungeonGrid.NoRoom)
+            {
+                return false;
+            }
+
+            if (cell == EntranceCell || cell == BossCell)
+            {
+                return false;
+            }
+
+            return !Holds(SpawnerCells, cell)
+                   && !Holds(TrapCells, cell)
+                   && !Holds(ChestCells, cell);
+        }
+
+        /// <summary>Whether a list of cells contains one.</summary>
+        /// <param name="cells">Cells to search.</param>
+        /// <param name="cell">Cell to look for.</param>
+        /// <returns>True when present.</returns>
+        private static bool Holds(IReadOnlyList<Vector2Int> cells, Vector2Int cell)
+        {
+            for (int i = 0; i < cells.Count; i++)
+            {
+                if (cells[i] == cell)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>Creates a layout. Use <see cref="BuildCorridor"/> rather than calling this.</summary>
         /// <param name="grid">The built grid.</param>
         /// <param name="entrance">Party entry cell.</param>
@@ -215,11 +285,16 @@ namespace Dungeon.DungeonManager
         /// <param name="extraSkeletonSpawners">Skeleton spawners bought in the shop.</param>
         /// <param name="extraTraps">Extra traps bought in the shop.</param>
         /// <param name="chests">Chests bought in the shop.</param>
+        /// <param name="placed">
+        /// Exactly where the player put each purchase. When supplied it replaces the four count
+        /// parameters above entirely — the counts scatter things by a formula, which is the wrong
+        /// answer once the player has pointed at a tile.
+        /// </param>
         /// <returns>The built layout.</returns>
         public static DungeonLayout BuildCorridor(
             int roomCount = 3, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true,
             int extraSlimeSpawners = 0, int extraSkeletonSpawners = 0, int extraTraps = 0,
-            int chests = 0)
+            int chests = 0, Furnishings placed = null)
         {
             roomCount = Mathf.Max(2, roomCount);
             roomWidth = Mathf.Max(2, roomWidth);
@@ -258,6 +333,20 @@ namespace Dungeon.DungeonManager
                 }
             }
 
+            var chestCells = new List<Vector2Int>();
+
+            // The player pointed at these tiles, so they go exactly there and the scattering formula
+            // below is skipped entirely. The room-bound check still applies: a hall the player later
+            // stopped paying for would otherwise leave its furniture floating in the rock.
+            if (placed != null)
+            {
+                placed.ApplyTo(grid, spawners, spawnerTiers, traps, chestCells);
+                return new DungeonLayout(
+                    grid, new Vector2Int(margin, midY),
+                    new Vector2Int(margin + interiorWidth - 1, midY),
+                    centres, spawners, traps, chestCells, spawnerTiers);
+            }
+
             // Bought equipment goes into the rooms the party walks through. Placed on the rows above
             // and below the party's route rather than on it, so a purchase never blocks the corridor
             // the whole game depends on being walkable.
@@ -288,7 +377,6 @@ namespace Dungeon.DungeonManager
                 }
             }
 
-            var chestCells = new List<Vector2Int>();
             for (int i = 0; i < chests; i++)
             {
                 int room = 1 + (i % Mathf.Max(1, roomCount - 1));

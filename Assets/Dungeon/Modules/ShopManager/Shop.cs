@@ -31,19 +31,79 @@ namespace Dungeon.ShopManager
         Chest = 5
     }
 
+    /// <summary>One bought item and the cell the player put it on.</summary>
+    /// <remarks>
+    /// The shop used to sell counts and let the dungeon decide where things went, which meant the
+    /// player bought a spawner and then found out afterwards where it had landed. Buying is a
+    /// placement decision now, so the purchase and the position are one fact rather than two.
+    /// </remarks>
+    public readonly struct Placement
+    {
+        /// <summary>What was bought.</summary>
+        public ShopItem Item { get; }
+
+        /// <summary>Where it goes.</summary>
+        public Vector2Int Cell { get; }
+
+        /// <summary>Records a placed purchase.</summary>
+        /// <param name="item">Item bought.</param>
+        /// <param name="cell">Cell it was placed on.</param>
+        public Placement(ShopItem item, Vector2Int cell)
+        {
+            Item = item;
+            Cell = cell;
+        }
+    }
+
     /// <summary>What the player owns going into the next raid.</summary>
     public sealed class Loadout
     {
         private readonly Dictionary<ShopItem, int> _owned = new();
+        private readonly List<Placement> _placements = new();
 
         /// <summary>How many of an item the player has.</summary>
         /// <param name="item">Item to count.</param>
         /// <returns>The count, zero if none.</returns>
         public int Count(ShopItem item) => _owned.GetValueOrDefault(item, 0);
 
-        /// <summary>Adds one of an item.</summary>
+        /// <summary>
+        /// Every purchase the player put on a specific cell, in the order they were bought.
+        /// </summary>
+        /// <remarks>
+        /// A <see cref="ShopItem.Door"/> is never in here: a hall is a section of the dungeon rather
+        /// than something standing on a tile, so it is bought from the marker at the end of the
+        /// corridor and shows up as a room count instead of a placement.
+        /// </remarks>
+        public IReadOnlyList<Placement> Placements => _placements;
+
+        /// <summary>Adds one of an item without saying where it goes.</summary>
         /// <param name="item">Item bought.</param>
         public void Add(ShopItem item) => _owned[item] = Count(item) + 1;
+
+        /// <summary>Adds one of an item, on a cell the player chose.</summary>
+        /// <param name="item">Item bought.</param>
+        /// <param name="cell">Cell the player put it on.</param>
+        public void Add(ShopItem item, Vector2Int cell)
+        {
+            Add(item);
+            _placements.Add(new Placement(item, cell));
+        }
+
+        /// <summary>Whether anything has already been placed on a cell.</summary>
+        /// <param name="cell">Cell to test.</param>
+        /// <returns>True when the cell is taken.</returns>
+        public bool Occupies(Vector2Int cell)
+        {
+            foreach (Placement placement in _placements)
+            {
+                if (placement.Cell == cell)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>Total items owned, for display.</summary>
         public int Total
@@ -143,6 +203,40 @@ namespace Dungeon.ShopManager
             Loadout.Add(item);
             return true;
         }
+
+        /// <summary>
+        /// Buys one of an item and puts it on a cell.
+        /// </summary>
+        /// <remarks>
+        /// Refuses a cell that already holds something the player bought. Two spawners on one tile
+        /// would draw over each other and be firable twice from a single tap, and the player would
+        /// have paid twice for one usable thing.
+        /// </remarks>
+        /// <param name="item">Item to buy.</param>
+        /// <param name="cell">Cell to place it on.</param>
+        /// <returns>True when the purchase went through.</returns>
+        public bool BuyAt(ShopItem item, Vector2Int cell)
+        {
+            if (!CanAfford(item) || Loadout.Occupies(cell))
+            {
+                return false;
+            }
+
+            Purse -= Price(item);
+            Loadout.Add(item, cell);
+            return true;
+        }
+
+        /// <summary>The five items that stand on a tile, as opposed to buying a whole hall.</summary>
+        /// <remarks>
+        /// Ordered cheapest first so the popup reads as a price list and the affordable end is
+        /// nearest the tap.
+        /// </remarks>
+        public static readonly ShopItem[] Placeable =
+        {
+            ShopItem.Chest, ShopItem.Slime, ShopItem.SpikeTrap,
+            ShopItem.PoisonDart, ShopItem.Skeleton
+        };
 
         /// <summary>Counts the shop down, closing it when the next party arrives.</summary>
         /// <param name="deltaTime">Seconds since the last tick.</param>

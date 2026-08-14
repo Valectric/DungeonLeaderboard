@@ -314,3 +314,34 @@ works in any scene that touches the facade, including the stripped scenes tests 
 would discard it.
 **Wrong if:** a scene ever wants a listener somewhere specific (positional audio on the camera). The
 facade yields to an existing one, and `TheFacade_DoesNotAddASecondEar` pins that.
+
+## 2026-08-14 — D16. The shop is spatial: buy onto the dungeon, not off a list
+
+**Decided:** the six-card grid is gone. During the shop the player looks at the dungeon the next
+party will walk into and buys onto it — a marker past the last hall extends the corridor, and
+tapping any empty tile opens a small menu of the five things that can stand there. Purchases carry
+a cell, and the dungeon is furnished exactly where they were placed.
+**Why:** the author asked for it, and the reason it is right is that the old shop sold *what* and
+never *where*. The dungeon scattered purchases across the rooms past the first by a formula, so a
+player bought a bone pile and found out afterwards where it had landed. Placement is the more
+interesting half of the decision and the half that makes a layout theirs — and it is the half that
+interacts with the one idea the game is built on, since where a spawner sits decides how long the
+party is held and therefore how much the raid earns.
+Mechanically: `Loadout` carries `Placement`s; `DungeonLayout.BuildCorridor` takes a `Furnishings`
+that replaces the four count parameters; `GameController` translates between them, because it is the
+only layer that may know both modules. The shop tints the dungeon at 34% instead of 86% — the thing
+being shopped for has to be visible — and rebuilds a live preview raid after every purchase, so a
+new hall or spawner appears where it was put rather than on the next loading screen.
+**Rules out:** selling counts. `BuildCorridor`'s `extraSlimeSpawners` family still exists for tests
+that want a formula-built dungeon, but the game never uses it, and a purchase without a cell now
+builds nothing.
+**Wrong if:** thirty seconds is not enough to place things thoughtfully. The lever is `ShopSeconds`,
+not a return to the list.
+
+Two things the rework surfaced that were not visible from the model:
+- **A menu opened on a low tile put its last row over the Ready button**, which is hit-tested first,
+  so buying the bottom item started the raid instead — losing the purchase, the rest of the clock,
+  and any chance of understanding why. `NothingIsDrawnOverReady` now sweeps every anchor at every
+  canvas size.
+- **The itch.io embed is 523x293**, a UI scale of 0.4, which gave 12-pixel menu rows: on screen,
+  drawn correctly, and untappable. Popup and marker metrics are floored in absolute pixels now.

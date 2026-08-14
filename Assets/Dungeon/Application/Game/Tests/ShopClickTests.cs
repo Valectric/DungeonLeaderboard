@@ -1,6 +1,9 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Dungeon.DungeonManager;
 using Dungeon.ShopManager;
 using MooseRunner;
 using MooseRunner.helper;
@@ -10,14 +13,15 @@ using UnityEngine;
 namespace Dungeon.Game.Tests
 {
     /// <summary>
-    /// Drives the shop through real screen coordinates rather than through its model.
+    /// Drives the spatial shop through real screen coordinates rather than through its model.
     /// </summary>
     /// <remarks>
     /// The whole reason this file exists: a shipped build once had all three raid verbs dead while
     /// every test was green, because the tests called <c>raid.SpawnMob(...)</c> instead of clicking.
-    /// The shop introduces six more clickable things and a button; each is pressed here at the
-    /// coordinate the drawing code puts it at, so a card drawn in one place and hit-tested in
-    /// another fails here instead of on itch.io.
+    /// The shop is now clicked <i>on the dungeon itself</i>, which multiplies the ways a control can
+    /// be drawn in one place and hit-tested in another — a tile, a popup row anchored to that tile,
+    /// and a marker floating past the end of the corridor. Each is pressed here at the coordinate the
+    /// drawing code puts it at, so the disagreement fails here instead of on itch.io.
     /// </remarks>
     public sealed class ShopClickTests
     {
@@ -38,80 +42,266 @@ namespace Dungeon.Game.Tests
             _game = new GameObject("game").AddComponent<GameController>();
         }
 
-        /// <summary>Centre of a card, in input space, whose origin is the bottom left.</summary>
-        /// <param name="item">Item whose card is wanted.</param>
-        /// <returns>A screen point inside that card.</returns>
-        private static Vector2 CardPoint(ShopItem item)
+        /// <summary>UI scale the controller uses.</summary>
+        private static float Scale => Screen.height / 720f;
+
+        /// <summary>Screen point of a dungeon cell, in input space.</summary>
+        /// <param name="cell">Cell to locate.</param>
+        /// <returns>A screen point on that cell.</returns>
+        private static Vector2 TilePoint(Vector2Int cell)
         {
-            float scale = Screen.height / 720f;
-            Rect[] cards = ShopScreen.Cards(scale, out _);
+            Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+            return new Vector2(screen.x, screen.y);
+        }
+
+        /// <summary>The same point in GUI space, which the drawing code measures from the top.</summary>
+        /// <param name="cell">Cell to locate.</param>
+        /// <returns>The anchor the popup and marker are laid out from.</returns>
+        private static Vector2 GuiPoint(Vector2Int cell)
+        {
+            Vector2 point = TilePoint(cell);
+            return new Vector2(point.x, Screen.height - point.y);
+        }
+
+        /// <summary>Screen point of one row of the menu opened on a cell.</summary>
+        /// <param name="cell">Cell the menu is open on.</param>
+        /// <param name="item">Item whose row is wanted.</param>
+        /// <returns>A screen point inside that row.</returns>
+        private static Vector2 PopupRowPoint(Vector2Int cell, ShopItem item)
+        {
+            Rect[] rows = ShopScreen.PopupRows(
+                GuiPoint(cell), Scale, Screen.width, Screen.height);
 
             for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
                 if (ShopScreen.Items[i] == item)
                 {
-                    return new Vector2(cards[i].center.x, Screen.height - cards[i].center.y);
+                    return new Vector2(rows[i].center.x, Screen.height - rows[i].center.y);
                 }
             }
 
             return Vector2.zero;
         }
 
+        /// <summary>Screen point of the marker that buys another hall.</summary>
+        /// <returns>A screen point inside the marker.</returns>
+        private Vector2 HallMarkerPoint()
+        {
+            Rect rect = ShopScreen.HallMarkerRect(
+                GuiPoint(_game.CurrentRaid.Layout.NextHallCentre),
+                Scale, Screen.width, Screen.height);
+            return new Vector2(rect.center.x, Screen.height - rect.center.y);
+        }
+
         /// <summary>Centre of the Ready button, in input space.</summary>
         /// <returns>A screen point inside the Ready button.</returns>
         private static Vector2 ReadyPoint()
         {
-            ShopScreen.Cards(Screen.height / 720f, out Rect ready);
+            Rect ready = ShopScreen.ReadyRect(Scale, Screen.width, Screen.height);
             return new Vector2(ready.center.x, Screen.height - ready.center.y);
         }
 
-        /// <summary>Tapping a card the player can afford buys that exact item.</summary>
+        /// <summary>Finds an empty tile the player is allowed to build on.</summary>
+        /// <param name="skip">How many candidates to pass over, for tests wanting several.</param>
+        /// <returns>A buildable cell.</returns>
+        private Vector2Int BuildableCell(int skip = 0)
+        {
+            DungeonLayout layout = _game.CurrentRaid.Layout;
+            for (int y = 0; y < layout.Grid.Height; y++)
+            {
+                for (int x = 0; x < layout.Grid.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (!layout.CanBuildOn(cell))
+                    {
+                        continue;
+                    }
+
+                    if (skip-- > 0)
+                    {
+                        continue;
+                    }
+
+                    return cell;
+                }
+            }
+
+            Assert.Fail("the dungeon offered nowhere to build");
+            return default;
+        }
+
+        /// <summary>Tapping a tile with an empty purse opens the menu but buys nothing.</summary>
         [Test]
-        public async UniTask TappingACard_BuysThatItem(CancellationToken ct)
+        public async UniTask TappingATile_WithNoMoney_BuysNothing(CancellationToken ct)
         {
             _game.OpenShop();
             await UniTask.Yield(ct);
 
             Assert.IsTrue(_game.IsShopping, "the controller should be in the shop");
 
-            // Enough for anything on the board, so affordability is not what is under test here.
-            _game.TapShop(CardPoint(ShopItem.Chest));
+            Vector2Int cell = BuildableCell();
+            _game.TapShop(TilePoint(cell));
+            _game.TapShop(PopupRowPoint(cell, ShopItem.Chest));
 
             Assert.AreEqual(0, _game.Loadout.Count(ShopItem.Chest),
                 "the shop opened with an empty purse, so the tap should have bought nothing");
         }
 
-        /// <summary>Every one of the six cards is reachable, and each buys its own item.</summary>
+        /// <summary>
+        /// Every placeable item can be bought onto a tile, and lands on the tile it was bought for.
+        /// </summary>
         /// <remarks>
-        /// Tapped in a rich shop so affordability never masks a mis-placed rectangle. A card whose
-        /// draw rectangle and hit rectangle disagree buys the wrong thing, or nothing, and looks
-        /// exactly like a dead button to the player.
+        /// The assertion that matters is <i>where</i>. Selling a count and scattering it by formula
+        /// is what this rework replaced, so a purchase that appears somewhere other than the tapped
+        /// cell is the whole feature failing quietly.
         /// </remarks>
         [Test]
-        public async UniTask EveryCard_IsClickableAndBuysItself(CancellationToken ct)
+        public async UniTask EveryItem_BuysOntoTheTappedTile(CancellationToken ct)
         {
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
-            foreach (ShopItem item in ShopScreen.Items)
+            var placed = new List<(ShopItem item, Vector2Int cell)>();
+            for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
-                _game.TapShop(CardPoint(item));
-                MooseRunnerFacade.Log($"tapped {item} at {CardPoint(item)}");
+                ShopItem item = ShopScreen.Items[i];
+                Vector2Int cell = BuildableCell();
+
+                _game.TapShop(TilePoint(cell));
+                _game.TapShop(PopupRowPoint(cell, item));
+
+                MooseRunnerFacade.Log($"bought {item} onto {cell}");
                 Assert.AreEqual(1, _game.Loadout.Count(item),
-                    $"tapping the {item} card should have bought exactly one {item}");
+                    $"tapping the {item} row should have bought exactly one {item}");
+                placed.Add((item, cell));
             }
 
-            Assert.AreEqual(6, _game.Loadout.Total, "six cards, six purchases");
+            Assert.AreEqual(ShopScreen.Items.Length, _game.Loadout.Total,
+                "one purchase per placeable item");
+
+            DungeonLayout layout = _game.CurrentRaid.Layout;
+            foreach ((ShopItem item, Vector2Int cell) in placed)
+            {
+                bool present = item switch
+                {
+                    ShopItem.Chest => layout.ChestCells.Contains(cell),
+                    ShopItem.SpikeTrap or ShopItem.PoisonDart => layout.TrapCells.Contains(cell),
+                    _ => layout.SpawnerCells.Contains(cell)
+                };
+
+                Assert.IsTrue(present, $"the {item} bought on {cell} is not standing there");
+            }
         }
 
-        /// <summary>Tapping empty space between the cards buys nothing.</summary>
+        /// <summary>A slime pit bought on a tile spawns slimes, not skeletons.</summary>
+        /// <remarks>
+        /// The two spawners cost different money and hold a party for very different lengths of time.
+        /// Placement now carries the tier, so getting it wrong would sell the expensive one and build
+        /// the cheap one — invisible in the loadout, and only noticeable mid-raid.
+        /// </remarks>
         [Test]
-        public async UniTask TappingEmptySpace_BuysNothing(CancellationToken ct)
+        public async UniTask ASlimePitBoughtOnATile_IsASlimePit(CancellationToken ct)
         {
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
+            Vector2Int cell = BuildableCell();
+            _game.TapShop(TilePoint(cell));
+            _game.TapShop(PopupRowPoint(cell, ShopItem.Slime));
+
+            Assert.AreEqual(0, _game.CurrentRaid.Layout.SpawnerTierAt(cell),
+                "a slime pit must spawn slimes");
+        }
+
+        /// <summary>Tapping the hall marker extends the corridor by a room.</summary>
+        [Test]
+        public async UniTask TappingTheHallMarker_AddsARoom(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            int before = _game.CurrentRaid.Layout.RoomCentres.Count;
+            _game.TapShop(HallMarkerPoint());
+
+            Assert.AreEqual(before + 1, _game.CurrentRaid.Layout.RoomCentres.Count,
+                "buying the section should have extended the dungeon");
+            Assert.AreEqual(1, _game.Loadout.Count(ShopItem.Door), "and charged for one hall");
+        }
+
+        /// <summary>
+        /// The corridor stops offering halls once it has reached its cap.
+        /// </summary>
+        /// <remarks>
+        /// A corridor that keeps growing eventually cannot be crossed in sixty seconds, at which
+        /// point buying another hall stops being a purchase and becomes a guarantee. Offering a
+        /// marker that takes money and changes nothing would be worse than not offering one.
+        /// </remarks>
+        [Test]
+        public async UniTask TheHallMarker_StopsAtTheCap(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            for (int i = 0; i < 6; i++)
+            {
+                _game.TapShop(HallMarkerPoint());
+            }
+
+            Assert.AreEqual(5, _game.CurrentRaid.Layout.RoomCentres.Count,
+                "the corridor must stop at its cap");
+            Assert.AreEqual(2, _game.Loadout.Count(ShopItem.Door),
+                "and must not keep charging for halls it will not build");
+        }
+
+        /// <summary>Two purchases cannot be stacked on one tile.</summary>
+        [Test]
+        public async UniTask ATileTakesOneThing(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            Vector2Int cell = BuildableCell();
+            _game.TapShop(TilePoint(cell));
+            _game.TapShop(PopupRowPoint(cell, ShopItem.Chest));
+
+            Assert.IsFalse(_game.CurrentRaid.Layout.CanBuildOn(cell),
+                "an occupied tile must stop offering to be built on");
+
+            float purse = _game.CurrentShop.Purse;
+            _game.TapShop(TilePoint(cell));
+            _game.TapShop(PopupRowPoint(cell, ShopItem.Slime));
+
+            Assert.AreEqual(purse, _game.CurrentShop.Purse, 0.01f,
+                "tapping a full tile must not spend anything");
+        }
+
+        /// <summary>Tapping away from an open menu dismisses it rather than buying.</summary>
+        /// <remarks>
+        /// Backing out has to be as cheap as opening, or every mis-tap costs energy the player was
+        /// saving for something else — and with a thirty-second clock there is no time to regret it.
+        /// </remarks>
+        [Test]
+        public async UniTask TappingAwayFromTheMenu_BuysNothing(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            Vector2Int cell = BuildableCell();
+            _game.TapShop(TilePoint(cell));
             _game.TapShop(new Vector2(2f, Screen.height - 4f));
+
+            Assert.AreEqual(0, _game.Loadout.Total, "dismissing must not spend the player's energy");
+        }
+
+        /// <summary>Tapping solid rock buys nothing and opens nothing.</summary>
+        [Test]
+        public async UniTask TappingOutsideTheDungeon_BuysNothing(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            _game.TapShop(TilePoint(new Vector2Int(-8, -8)));
+            _game.TapShop(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
 
             Assert.AreEqual(0, _game.Loadout.Total,
                 "a stray tap must not spend the player's energy");
@@ -176,23 +366,24 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
-            // Buy enough of everything to push fittings into the decoration spots.
-            foreach (ShopItem item in ShopScreen.Items)
+            // Furnish a spread of tiles so fittings land in the decoration spots.
+            for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
-                _game.TapShop(CardPoint(item));
-                _game.TapShop(CardPoint(item));
+                Vector2Int cell = BuildableCell(i * 3);
+                _game.TapShop(TilePoint(cell));
+                _game.TapShop(PopupRowPoint(cell, ShopScreen.Items[i]));
             }
 
             _game.TapShop(ReadyPoint());
             await UniTask.Yield(ct);
             await UniTask.Yield(ct);
 
-            var tappable = new System.Collections.Generic.HashSet<Vector2Int>();
-            DungeonManager.DungeonLayout layout = _game.CurrentRaid.Layout;
+            var tappable = new HashSet<Vector2Int>();
+            DungeonLayout layout = _game.CurrentRaid.Layout;
             foreach (Vector2Int cell in layout.SpawnerCells) { tappable.Add(cell); }
             foreach (Vector2Int cell in layout.TrapCells) { tappable.Add(cell); }
             foreach (Vector2Int cell in layout.ChestCells) { tappable.Add(cell); }
-            foreach (DungeonManager.Door door in layout.Grid.Doors) { tappable.Add(door.Cell); }
+            foreach (Door door in layout.Grid.Doors) { tappable.Add(door.Cell); }
 
             int checkedProps = 0;
             foreach (Transform child in _game.transform)
@@ -221,16 +412,64 @@ namespace Dungeon.Game.Tests
 
             int spawnersBefore = _game.CurrentRaid.Layout.SpawnerCells.Count;
 
-            _game.TapShop(CardPoint(ShopItem.Skeleton));
-            _game.TapShop(CardPoint(ShopItem.Chest));
+            Vector2Int spawnerCell = BuildableCell();
+            _game.TapShop(TilePoint(spawnerCell));
+            _game.TapShop(PopupRowPoint(spawnerCell, ShopItem.Skeleton));
+
+            Vector2Int chestCell = BuildableCell();
+            _game.TapShop(TilePoint(chestCell));
+            _game.TapShop(PopupRowPoint(chestCell, ShopItem.Chest));
+
             _game.TapShop(ReadyPoint());
             await UniTask.Yield(ct);
             await UniTask.Yield(ct);
 
             Assert.AreEqual(spawnersBefore + 1, _game.CurrentRaid.Layout.SpawnerCells.Count,
                 "the bone pile should be in the dungeon");
-            Assert.AreEqual(1, _game.CurrentRaid.Layout.ChestCells.Count,
+            Assert.IsTrue(_game.CurrentRaid.Layout.SpawnerCells.Contains(spawnerCell),
+                "and on the tile it was bought for");
+            Assert.IsTrue(_game.CurrentRaid.Layout.ChestCells.Contains(chestCell),
                 "so should the chest");
+        }
+
+        /// <summary>
+        /// The dungeon on screen changes the instant something is bought.
+        /// </summary>
+        /// <remarks>
+        /// The point of a spatial shop is watching the dungeon grow under the purchases. If the new
+        /// hall only appeared once the raid started, the player would be buying blind — which is the
+        /// thing the rework set out to stop.
+        /// </remarks>
+        [Test]
+        public async UniTask TheDungeonRedrawsAsItIsBought(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            int before = CountViews("tile_");
+            _game.TapShop(HallMarkerPoint());
+            await UniTask.Yield(ct);
+
+            int after = CountViews("tile_");
+            MooseRunnerFacade.Log($"drawn tiles {before} -> {after}");
+            Assert.Greater(after, before, "the bought hall should already be on screen");
+        }
+
+        /// <summary>Counts drawn objects whose name starts with a prefix.</summary>
+        /// <param name="prefix">Name prefix to match.</param>
+        /// <returns>How many are currently drawn.</returns>
+        private int CountViews(string prefix)
+        {
+            int count = 0;
+            foreach (Transform child in _game.transform)
+            {
+                if (child.name.StartsWith(prefix))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
     }
 }

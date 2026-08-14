@@ -167,11 +167,6 @@ namespace Dungeon.Game
         /// </remarks>
         public void StartRaid()
         {
-            foreach (Transform child in transform.Cast<Transform>().ToList())
-            {
-                Destroy(child.gameObject);
-            }
-
             _phase = Phase.Raiding;
             // The combat seed comes from the same chain as the party roster, so one number at the
             // start of a run determines both who walks in and every blow they trade -- which is what
@@ -179,6 +174,22 @@ namespace Dungeon.Game
             _raid = new Raid(BuildFromLoadout(), _bonusEnergy, _nextParty, _partySeed);
             _bonusEnergy = 0f;
             RollNextParty();
+            RebuildView();
+        }
+
+        /// <summary>Throws away the drawn dungeon and draws the current raid from scratch.</summary>
+        /// <remarks>
+        /// Shared by the raid and by the shop's live preview, so the dungeon the player buys onto and
+        /// the dungeon the party walks into are built by the same code. Two paths would eventually
+        /// disagree, and the disagreement would only show up as a purchase that vanished.
+        /// </remarks>
+        private void RebuildView()
+        {
+            foreach (Transform child in transform.Cast<Transform>().ToList())
+            {
+                Destroy(child.gameObject);
+            }
+
             _view = new DungeonView(transform);
             _view.BuildStatic(_raid.Layout);
             FrameCamera();
@@ -217,10 +228,42 @@ namespace Dungeon.Game
         {
             return DungeonLayout.BuildCorridor(
                 roomCount: Mathf.Min(MaxRooms, 3 + _loadout.Count(ShopItem.Door)),
-                extraSlimeSpawners: _loadout.Count(ShopItem.Slime),
-                extraSkeletonSpawners: _loadout.Count(ShopItem.Skeleton),
-                extraTraps: _loadout.Count(ShopItem.SpikeTrap) + _loadout.Count(ShopItem.PoisonDart),
-                chests: _loadout.Count(ShopItem.Chest));
+                placed: PlacedFurniture());
+        }
+
+        /// <summary>
+        /// Turns the player's purchases into the cells the dungeon should be furnished with.
+        /// </summary>
+        /// <remarks>
+        /// The translation lives here because this is the one layer that knows both modules. The
+        /// dungeon must not learn what a shop item is, and the shop must not learn what a grid is —
+        /// each would make the module graph cyclic.
+        /// </remarks>
+        /// <returns>Furniture positioned exactly where the player put it.</returns>
+        private Furnishings PlacedFurniture()
+        {
+            var furniture = new Furnishings();
+            foreach (Placement placement in _loadout.Placements)
+            {
+                switch (placement.Item)
+                {
+                    case ShopItem.Slime:
+                        furniture.SlimeSpawners.Add(placement.Cell);
+                        break;
+                    case ShopItem.Skeleton:
+                        furniture.SkeletonSpawners.Add(placement.Cell);
+                        break;
+                    case ShopItem.SpikeTrap:
+                    case ShopItem.PoisonDart:
+                        furniture.Traps.Add(placement.Cell);
+                        break;
+                    case ShopItem.Chest:
+                        furniture.Chests.Add(placement.Cell);
+                        break;
+                }
+            }
+
+            return furniture;
         }
 
         /// <summary>
@@ -586,6 +629,31 @@ namespace Dungeon.Game
             _shop = new Shop(purse);
             _carriedEnergy = 0f;
             _phase = Phase.Shopping;
+            _popupCell = null;
+            ShowPreview();
+        }
+
+        /// <summary>The tile whose build menu is open, if any.</summary>
+        private Vector2Int? _popupCell;
+
+        /// <summary>
+        /// Replaces what is on screen with the dungeon the player is currently buying.
+        /// </summary>
+        /// <remarks>
+        /// The shop is spatial, so it has to be shown the dungeon it is spending money on — and the
+        /// previous raid's dungeon is the wrong one the instant anything is bought. Rebuilt after
+        /// every purchase so a new hall or a new spawner appears where the player put it, not on the
+        /// next loading screen.
+        /// <para>
+        /// The preview raid is constructed but never ticked: <c>FixedUpdate</c> only advances a raid
+        /// during <see cref="Phase.Raiding"/>. It is scenery with a party standing at the door.
+        /// </para>
+        /// </remarks>
+        private void ShowPreview()
+        {
+            _raid = new Raid(BuildFromLoadout(), 0f, _nextParty, _partySeed);
+            RebuildView();
+            _view.MarkBuildableTiles(_raid.Layout);
         }
 
         /// <summary>
@@ -595,6 +663,11 @@ namespace Dungeon.Game
         private void TickShop(float deltaTime)
         {
             _shop.Tick(deltaTime);
+
+            // The shop is spatial now, so the player has to be able to reach the far end of a
+            // five-room corridor and the tiles at the top of a room. Without this the controls the
+            // shop draws on the dungeon are only usable on whichever part of it happens to be framed.
+            HandleZoom();
 
             if (TryReadTap(out Vector2 tap))
             {
@@ -625,23 +698,80 @@ namespace Dungeon.Game
 
             float scale = Screen.height / 720f;
 
-            if (ShopScreen.TryHitItem(screenPosition, scale, out ShopItem item))
-            {
-                if (_shop.Buy(item))
-                {
-                    _loadout.Add(item);
-                    AudioFacade.Cue(Sfx.Purchase, 0.7f);
-                }
-
-                return;
-            }
-
             if (ShopScreen.HitReady(screenPosition, scale))
             {
                 // The bonus is carried into the next raid rather than paid into the purse being
                 // closed, so pressing Ready buys starting energy instead of buying nothing.
                 _bonusEnergy += _shop.Ready();
+                return;
             }
+
+            // An open menu swallows the tap first, so a row can never be missed because the tile
+            // underneath it also matched.
+            if (_popupCell.HasValue)
+            {
+                Vector2 anchor = GuiPointOf(_popupCell.Value);
+                if (ShopScreen.TryHitPopup(screenPosition, anchor, scale, out ShopItem picked))
+                {
+                    BuyOnto(picked, _popupCell.Value);
+                    return;
+                }
+
+                // A tap anywhere else dismisses the menu rather than buying something. Backing out
+                // has to be as easy as opening it, or every mis-tap costs energy.
+                _popupCell = null;
+                return;
+            }
+
+            if (CanBuyHall && ShopScreen.HitHallMarker(
+                    screenPosition, GuiPointOf(_raid.Layout.NextHallCentre), scale))
+            {
+                if (_shop.Buy(ShopItem.Door))
+                {
+                    _loadout.Add(ShopItem.Door);
+                    AudioFacade.Cue(Sfx.Purchase, 0.7f);
+                    ShowPreview();
+                }
+
+                return;
+            }
+
+            Vector2Int cell = DungeonView.WorldToCell(_camera.ScreenToWorldPoint(screenPosition));
+            if (_raid.Layout.CanBuildOn(cell))
+            {
+                _popupCell = cell;
+            }
+        }
+
+        /// <summary>Whether the corridor can still take another hall.</summary>
+        private bool CanBuyHall => _loadout.Count(ShopItem.Door) < MaxRooms - 3;
+
+        /// <summary>Buys an item onto a cell and rebuilds the preview so the player sees it land.</summary>
+        /// <param name="item">Item to buy.</param>
+        /// <param name="cell">Cell to put it on.</param>
+        private void BuyOnto(ShopItem item, Vector2Int cell)
+        {
+            if (_shop.BuyAt(item, cell))
+            {
+                _loadout.Add(item, cell);
+                AudioFacade.Cue(Sfx.Purchase, 0.7f);
+                ShowPreview();
+            }
+
+            _popupCell = null;
+        }
+
+        /// <summary>Where a dungeon cell sits on screen, in GUI space.</summary>
+        /// <remarks>
+        /// GUI space is measured from the top of the screen and Unity's screen space from the bottom,
+        /// so the flip happens here once rather than at each of the four call sites that need it.
+        /// </remarks>
+        /// <param name="cell">Cell to locate.</param>
+        /// <returns>The point in GUI space.</returns>
+        private Vector2 GuiPointOf(Vector2Int cell)
+        {
+            Vector3 screen = _camera.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+            return new Vector2(screen.x, Screen.height - screen.y);
         }
 
         /// <summary>
@@ -766,7 +896,11 @@ namespace Dungeon.Game
 
             if (_phase == Phase.Shopping)
             {
-                ShopScreen.Draw(_shop, scale);
+                Vector2? hall = CanBuyHall
+                    ? GuiPointOf(_raid.Layout.NextHallCentre)
+                    : null;
+                Vector2? popup = _popupCell.HasValue ? GuiPointOf(_popupCell.Value) : null;
+                ShopScreen.Draw(_shop, scale, hall, _shop.Price(ShopItem.Door), popup);
                 return;
             }
 

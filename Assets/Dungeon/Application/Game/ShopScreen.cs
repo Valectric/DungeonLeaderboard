@@ -8,8 +8,15 @@ namespace Dungeon.Game
     /// Draws the thirty-second shop, and answers where the player just tapped.
     /// </summary>
     /// <remarks>
-    /// Layout and hit-testing come from the same <see cref="Cards"/> call, so a card can never be
-    /// drawn in one place and clicked in another.
+    /// The shop is spatial. The player looks at the dungeon they are about to send a party into and
+    /// buys onto it: a marker past the last hall extends the corridor, and tapping any empty tile
+    /// opens a small menu of things that can stand there. The old six-card grid sold counts and let
+    /// the dungeon decide where they landed, so the player chose <i>what</i> and never <i>where</i> —
+    /// which is the more interesting half of the decision and the half that makes the layout theirs.
+    /// <para>
+    /// Layout and hit-testing come from the same call in every case, so a control can never be drawn
+    /// in one place and clicked in another.
+    /// </para>
     /// <para>
     /// It deliberately does not use <c>GUI.Button</c>. Every verb in this game is read through
     /// <c>Mouse.current</c> and <c>Touchscreen.current</c>, because the project runs the Input System
@@ -20,12 +27,8 @@ namespace Dungeon.Game
     /// </remarks>
     public static class ShopScreen
     {
-        /// <summary>The six items, in the order they are shown.</summary>
-        public static readonly ShopItem[] Items =
-        {
-            ShopItem.Slime, ShopItem.Skeleton, ShopItem.SpikeTrap,
-            ShopItem.PoisonDart, ShopItem.Door, ShopItem.Chest
-        };
+        /// <summary>The items that stand on a tile, in the order the popup lists them.</summary>
+        public static readonly ShopItem[] Items = Shop.Placeable;
 
         private static readonly Color Ink = new(0.82f, 0.80f, 0.90f);
         private static readonly Color Dim = new(0.45f, 0.43f, 0.52f);
@@ -34,7 +37,7 @@ namespace Dungeon.Game
 
         /// <summary>Human-readable name of an item.</summary>
         /// <param name="item">Item to name.</param>
-        /// <returns>The name shown on its card.</returns>
+        /// <returns>The name shown on its row.</returns>
         public static string NameOf(ShopItem item) => item switch
         {
             ShopItem.Slime => "SLIME PIT",
@@ -47,7 +50,7 @@ namespace Dungeon.Game
 
         /// <summary>One line saying what an item does to the next raid.</summary>
         /// <param name="item">Item to describe.</param>
-        /// <returns>The description shown on its card.</returns>
+        /// <returns>The description shown beside its name.</returns>
         public static string DescriptionOf(ShopItem item) => item switch
         {
             ShopItem.Slime => "a spawner. weak, cheap, buys seconds",
@@ -58,187 +61,269 @@ namespace Dungeon.Game
             _ => "they detour to loot it. seconds are money"
         };
 
-        /// <summary>
-        /// Computes the card rectangles, in GUI space.
-        /// </summary>
-        /// <param name="scale">UI scale.</param>
-        /// <param name="ready">Receives the Ready button's rectangle.</param>
-        /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
-        public static Rect[] Cards(float scale, out Rect ready)
-        {
-            return Cards(scale, Screen.width, Screen.height, out ready);
-        }
+        /// <summary>Height of one row in the tile popup, before scaling.</summary>
+        private const float RowHeight = 30f;
+
+        /// <summary>Width of the tile popup, before scaling.</summary>
+        private const float PopupWidth = 250f;
 
         /// <summary>
-        /// Computes the card rectangles for a given canvas size.
+        /// The Ready button's rectangle, in GUI space.
         /// </summary>
-        /// <remarks>
-        /// Takes the size explicitly so the layout can be checked at resolutions the editor is not
-        /// currently running at — the itch.io embed is far smaller than the 960x600 canvas, and a
-        /// screen that fits in the editor and overflows there is invisible until somebody plays the
-        /// published page. The standings prompt was lost exactly that way once already.
-        /// </remarks>
         /// <param name="scale">UI scale.</param>
         /// <param name="width">Canvas width in pixels.</param>
         /// <param name="height">Canvas height in pixels.</param>
-        /// <param name="ready">Receives the Ready button's rectangle.</param>
-        /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
-        public static Rect[] Cards(float scale, float width, float height, out Rect ready)
+        /// <returns>Where Ready is drawn and clicked.</returns>
+        public static Rect ReadyRect(float scale, float width, float height)
         {
-            float panelWidth = Mathf.Min(width * 0.94f, 760f * scale);
-            float left = (width - panelWidth) * 0.5f;
-            float gap = 10f * scale;
-            float cardWidth = (panelWidth - (gap * 2f)) / 3f;
-            float cardHeight = 96f * scale;
-            float top = Mathf.Max(96f * scale, (height - (cardHeight * 2.9f)) * 0.5f);
-
-            var rects = new Rect[Items.Length];
-            for (int i = 0; i < Items.Length; i++)
-            {
-                int column = i % 3;
-                int row = i / 3;
-                rects[i] = new Rect(
-                    left + (column * (cardWidth + gap)),
-                    top + (row * (cardHeight + gap)),
-                    cardWidth, cardHeight);
-            }
-
-            ready = new Rect(left, top + ((cardHeight + gap) * 2f), panelWidth, 54f * scale);
-            return rects;
+            float buttonWidth = Mathf.Min(width * 0.9f, 620f * scale);
+            return new Rect(
+                (width - buttonWidth) * 0.5f,
+                height - (66f * scale),
+                buttonWidth,
+                50f * scale);
         }
 
-        /// <summary>Draws the whole shop over the dungeon.</summary>
+        /// <summary>
+        /// The rows of the popup opened on a tile, in GUI space.
+        /// </summary>
+        /// <remarks>
+        /// Anchored to the tapped point but clamped inside the canvas, because a tile near the right
+        /// edge would otherwise open a menu half off screen — and the itch.io embed is far narrower
+        /// than the editor, so "it fits here" proves nothing about where it ships.
+        /// <para>
+        /// It is also kept clear of the Ready button, which is checked first by the hit test. A menu
+        /// opened on a low tile put its last row straight over Ready, so buying the bottom item
+        /// started the raid instead — the player loses the purchase, the remaining shop time, and any
+        /// idea of what they did wrong. Found by a test tapping every row rather than by reading the
+        /// arithmetic.
+        /// </para>
+        /// </remarks>
+        /// <param name="anchor">Where on screen the tile was tapped, in GUI space.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
+        public static Rect[] PopupRows(Vector2 anchor, float scale, float width, float height)
+        {
+            // Floored in absolute pixels, not just scaled. The itch.io embed is 523x293, which puts
+            // the scale at 0.4 and would give 12-pixel rows -- on screen, drawn correctly, and far
+            // too small for a thumb or for the text to be read. A control that cannot be hit is not
+            // a control.
+            float popupWidth = Mathf.Min(width * 0.88f, Mathf.Max(180f, PopupWidth * scale));
+            float rowHeight = Mathf.Max(26f, RowHeight * scale);
+            float titleHeight = Mathf.Max(18f, 24f * scale);
+            float popupHeight = titleHeight + (rowHeight * Items.Length);
+
+            float left = Mathf.Clamp(anchor.x - (popupWidth * 0.5f), 4f, width - popupWidth - 4f);
+            float floor = Mathf.Min(
+                height - popupHeight - 4f,
+                ReadyRect(scale, width, height).y - popupHeight - (6f * scale));
+            float top = Mathf.Clamp(anchor.y + (14f * scale), 4f, Mathf.Max(4f, floor));
+
+            var rows = new Rect[Items.Length];
+            for (int i = 0; i < Items.Length; i++)
+            {
+                rows[i] = new Rect(left, top + titleHeight + (i * rowHeight), popupWidth, rowHeight);
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// The marker that buys the next hall, in GUI space.
+        /// </summary>
+        /// <param name="anchor">Screen point just past the end of the corridor, in GUI space.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>Where the marker is drawn and clicked.</returns>
+        public static Rect HallMarkerRect(Vector2 anchor, float scale, float width, float height)
+        {
+            float markerWidth = Mathf.Max(96f, 132f * scale);
+            float markerHeight = Mathf.Max(44f, 60f * scale);
+
+            // Held clear of Ready for the same reason the menu is: Ready is hit-tested first, so
+            // anything overlapping it is not merely ugly, it is unreachable.
+            float floor = Mathf.Min(
+                height - markerHeight - 2f,
+                ReadyRect(scale, width, height).y - markerHeight - (6f * scale));
+            return new Rect(
+                Mathf.Clamp(anchor.x - (markerWidth * 0.5f), 8f, width - markerWidth - 8f),
+                Mathf.Clamp(anchor.y - (markerHeight * 0.5f), 2f, Mathf.Max(2f, floor)),
+                markerWidth, markerHeight);
+        }
+
+        /// <summary>
+        /// Draws the shop over the dungeon it is spending money on.
+        /// </summary>
         /// <param name="shop">Shop being shown.</param>
         /// <param name="scale">UI scale.</param>
-        public static void Draw(Shop shop, float scale)
+        /// <param name="hallAnchor">Where the next hall would begin, in GUI space, or null at the cap.</param>
+        /// <param name="hallPrice">What that hall costs.</param>
+        /// <param name="popupAnchor">Where a tile popup is open, in GUI space, or null for none.</param>
+        public static void Draw(Shop shop, float scale, Vector2? hallAnchor, float hallPrice,
+            Vector2? popupAnchor)
         {
+            // Barely a tint. The dungeon underneath is the thing being shopped for, and the old
+            // 86%-opaque panel hid it completely -- which was fine when the shop was a list of cards
+            // and is the whole problem now.
             Color previous = GUI.color;
-            GUI.color = new Color(0.06f, 0.05f, 0.09f, 0.86f);
+            GUI.color = new Color(0.06f, 0.05f, 0.09f, 0.34f);
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = previous;
 
+            DrawHeader(shop, scale);
+
+            if (hallAnchor.HasValue)
+            {
+                DrawHallMarker(shop, hallAnchor.Value, hallPrice, scale);
+            }
+
+            if (popupAnchor.HasValue)
+            {
+                DrawPopup(shop, popupAnchor.Value, scale);
+            }
+
+            DrawReady(shop, ReadyRect(scale, Screen.width, Screen.height), scale);
+        }
+
+        /// <summary>Draws the title, the countdown, the purse and the one-line instruction.</summary>
+        private static void DrawHeader(Shop shop, float scale)
+        {
             var title = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(28 * scale),
+                fontSize = Mathf.RoundToInt(24 * scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
             title.normal.textColor = Gold;
-            GUI.Label(new Rect(0f, 16f * scale, Screen.width, 40f * scale), "SPEND IT", title);
+            GUI.Label(new Rect(0f, 8f * scale, Screen.width, 32f * scale),
+                shop.Purse.ToString("0", CultureInfo.InvariantCulture) + " ENERGY TO SPEND", title);
 
-            // The countdown is the pressure. It sits under the title at a size that cannot be missed,
-            // and turns red at the end, because a shop that quietly closes is a shop the player will
-            // swear they were never given.
+            // The countdown is the pressure, and it turns red at the end, because a shop that quietly
+            // closes is a shop the player will swear they were never given.
             var clock = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(40 * scale),
+                fontSize = Mathf.RoundToInt(38 * scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
             clock.normal.textColor = shop.TimeRemaining <= 8f
                 ? new Color(0.95f, 0.35f, 0.35f)
                 : Ink;
-            GUI.Label(new Rect(0f, 46f * scale, Screen.width, 52f * scale),
+            GUI.Label(new Rect(0f, 34f * scale, Screen.width, 48f * scale),
                 Mathf.CeilToInt(shop.TimeRemaining).ToString(CultureInfo.InvariantCulture), clock);
 
-            Rect[] cards = Cards(scale, out Rect ready);
-            for (int i = 0; i < cards.Length; i++)
+            var hint = new GUIStyle(GUI.skin.label)
             {
-                DrawCard(shop, Items[i], cards[i], scale);
-            }
-
-            DrawReady(shop, ready, scale);
-
-            var purse = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.RoundToInt(20 * scale),
-                fontStyle = FontStyle.Bold,
+                fontSize = Mathf.RoundToInt(13 * scale),
                 alignment = TextAnchor.MiddleCenter
             };
-            purse.normal.textColor = Gold;
-            GUI.Label(new Rect(0f, ready.yMax + (10f * scale), Screen.width, 30f * scale),
-                shop.Purse.ToString("0", CultureInfo.InvariantCulture) + " ENERGY TO SPEND", purse);
-
-            var footer = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.RoundToInt(12 * scale),
-                alignment = TextAnchor.MiddleCenter
-            };
-            footer.normal.textColor = Dim;
-            GUI.Label(new Rect(0f, ready.yMax + (36f * scale), Screen.width, 26f * scale),
-                "WHAT YOU DO NOT SPEND IS LOST WHEN THE PARTY ARRIVES", footer);
+            hint.normal.textColor = Dim;
+            GUI.Label(new Rect(0f, 80f * scale, Screen.width, 22f * scale),
+                "TAP ANY EMPTY TILE TO BUILD ON IT", hint);
         }
 
-        /// <summary>Draws one item card.</summary>
+        /// <summary>Draws the marker that buys another hall onto the end of the corridor.</summary>
         /// <remarks>
-        /// The colours here were set by looking at a WebGL build, not by picking values that read
-        /// well in a swatch. The first pass drew the description in the same grey the standings use
-        /// and it was <b>completely invisible</b> on every affordable card: those cards rendered far
-        /// lighter than the numbers suggested, so grey-on-dark became grey-on-grey. The cards are
-        /// near-black now and the description is bright, which is legible whichever way the
-        /// compositing goes.
+        /// Drawn where the hall would actually appear rather than in a menu, so the purchase reads as
+        /// extending this dungeon rather than as incrementing a number.
         /// </remarks>
-        private static void DrawCard(Shop shop, ShopItem item, Rect card, float scale)
+        private static void DrawHallMarker(Shop shop, Vector2 anchor, float price, float scale)
         {
-            bool affordable = shop.CanAfford(item);
-            int owned = shop.Loadout.Count(item);
+            Rect rect = HallMarkerRect(anchor, scale, Screen.width, Screen.height);
+            bool affordable = shop.IsOpen && shop.Purse >= price;
 
             Color was = GUI.color;
-
-            // An outline, drawn as a slightly larger rectangle behind the fill. Affordable cards get
-            // a violet edge so they read as pressable rather than as coloured panels.
             GUI.color = affordable
-                ? new Color(0.42f, 0.24f, 0.55f, 1f)
-                : new Color(0.10f, 0.09f, 0.13f, 1f);
-            GUI.DrawTexture(card, Texture2D.whiteTexture);
+                ? new Color(0.42f, 0.24f, 0.55f, 0.95f)
+                : new Color(0.14f, 0.12f, 0.17f, 0.9f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
 
             float inset = Mathf.Max(1f, 2f * scale);
-            GUI.color = affordable
-                ? new Color(0.045f, 0.035f, 0.085f, 1f)
-                : new Color(0.03f, 0.028f, 0.04f, 1f);
+            GUI.color = new Color(0.045f, 0.035f, 0.085f, 0.96f);
             GUI.DrawTexture(
-                new Rect(card.x + inset, card.y + inset,
-                    card.width - (inset * 2f), card.height - (inset * 2f)),
+                new Rect(rect.x + inset, rect.y + inset,
+                    rect.width - (inset * 2f), rect.height - (inset * 2f)),
                 Texture2D.whiteTexture);
             GUI.color = was;
 
+            var label = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(Mathf.Max(11f, 15f * scale)),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.UpperCenter
+            };
+            label.normal.textColor = affordable ? Ink : new Color(0.36f, 0.34f, 0.42f);
+            GUI.Label(new Rect(rect.x, rect.y + (7f * scale), rect.width, 22f * scale),
+                "+ NEW HALL", label);
+
+            var cost = new GUIStyle(label)
+            {
+                fontSize = Mathf.RoundToInt(Mathf.Max(13f, 18f * scale)),
+                alignment = TextAnchor.LowerCenter
+            };
+            cost.normal.textColor = affordable ? Gold : new Color(0.42f, 0.24f, 0.28f);
+            GUI.Label(new Rect(rect.x, rect.y, rect.width, rect.height - (8f * scale)),
+                price.ToString("0", CultureInfo.InvariantCulture), cost);
+        }
+
+        /// <summary>Draws the menu of things that can stand on the tapped tile.</summary>
+        private static void DrawPopup(Shop shop, Vector2 anchor, float scale)
+        {
+            Rect[] rows = PopupRows(anchor, scale, Screen.width, Screen.height);
+            float titleHeight = Mathf.Max(18f, 24f * scale);
+            var frame = new Rect(rows[0].x, rows[0].y - titleHeight, rows[0].width,
+                titleHeight + (rows.Length * rows[0].height));
+
+            Color was = GUI.color;
+            GUI.color = new Color(0.42f, 0.24f, 0.55f, 0.98f);
+            GUI.DrawTexture(frame, Texture2D.whiteTexture);
+            float inset = Mathf.Max(1f, 2f * scale);
+            GUI.color = new Color(0.035f, 0.028f, 0.06f, 0.99f);
+            GUI.DrawTexture(new Rect(frame.x + inset, frame.y + inset,
+                frame.width - (inset * 2f), frame.height - (inset * 2f)), Texture2D.whiteTexture);
+            GUI.color = was;
+
+            var heading = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(Mathf.Max(10f, 12f * scale)),
+                fontStyle = FontStyle.Bold
+            };
+            heading.normal.textColor = Dim;
+            GUI.Label(new Rect(frame.x + (8f * scale), frame.y + (4f * scale),
+                frame.width, titleHeight), "BUILD HERE", heading);
+
+            for (int i = 0; i < rows.Length; i++)
+            {
+                DrawPopupRow(shop, Items[i], rows[i], scale);
+            }
+        }
+
+        /// <summary>Draws one row of the tile popup.</summary>
+        /// <remarks>
+        /// Unaffordable rows are dimmed rather than hidden. A menu that changes length as the purse
+        /// empties moves every other row out from under the player's finger.
+        /// </remarks>
+        private static void DrawPopupRow(Shop shop, ShopItem item, Rect row, float scale)
+        {
+            bool affordable = shop.CanAfford(item);
+
             var name = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(16 * scale),
-                fontStyle = FontStyle.Bold
+                fontSize = Mathf.RoundToInt(Mathf.Max(11f, 14f * scale)),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft
             };
             name.normal.textColor = affordable ? Ink : new Color(0.34f, 0.32f, 0.40f);
-            GUI.Label(new Rect(card.x + (10f * scale), card.y + (8f * scale),
-                card.width - (20f * scale), 24f * scale), NameOf(item), name);
+            GUI.Label(new Rect(row.x + (10f * scale), row.y, row.width * 0.62f, row.height),
+                NameOf(item), name);
 
-            var body = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.RoundToInt(11 * scale),
-                wordWrap = true
-            };
-            body.normal.textColor = affordable
-                ? new Color(0.68f, 0.64f, 0.78f)
-                : new Color(0.28f, 0.27f, 0.33f);
-            GUI.Label(new Rect(card.x + (10f * scale), card.y + (30f * scale),
-                card.width - (20f * scale), 36f * scale), DescriptionOf(item), body);
-
-            var price = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = Mathf.RoundToInt(17 * scale),
-                fontStyle = FontStyle.Bold
-            };
+            var price = new GUIStyle(name) { alignment = TextAnchor.MiddleRight };
             price.normal.textColor = affordable ? Gold : new Color(0.42f, 0.24f, 0.28f);
-            GUI.Label(new Rect(card.x + (10f * scale), card.yMax - (28f * scale),
-                    card.width - (20f * scale), 24f * scale),
+            GUI.Label(new Rect(row.x, row.y, row.width - (10f * scale), row.height),
                 shop.Price(item).ToString("0", CultureInfo.InvariantCulture), price);
-
-            if (owned > 0)
-            {
-                var count = new GUIStyle(price) { alignment = TextAnchor.MiddleRight };
-                count.normal.textColor = Green;
-                GUI.Label(new Rect(card.x, card.yMax - (28f * scale),
-                    card.width - (10f * scale), 24f * scale), "x" + owned, count);
-            }
         }
 
         /// <summary>Draws the Ready button and the bonus it currently pays.</summary>
@@ -251,7 +336,7 @@ namespace Dungeon.Game
 
             var label = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(20 * scale),
+                fontSize = Mathf.RoundToInt(19 * scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -262,24 +347,26 @@ namespace Dungeon.Game
         }
 
         /// <summary>
-        /// Works out what a tap landed on.
+        /// Works out which popup row a tap landed on.
         /// </summary>
         /// <param name="screenPosition">
         /// Tap position in input space, whose origin is the <b>bottom</b> left. GUI rectangles are
         /// measured from the top, so it is flipped here rather than at every call site.
         /// </param>
+        /// <param name="anchor">Where the popup is anchored, in GUI space.</param>
         /// <param name="scale">UI scale.</param>
         /// <param name="item">Receives the item tapped, when one was.</param>
-        /// <returns>True for an item, false otherwise; check <paramref name="item"/> only when true.</returns>
-        public static bool TryHitItem(Vector2 screenPosition, float scale, out ShopItem item)
+        /// <returns>True for an item row, false otherwise.</returns>
+        public static bool TryHitPopup(
+            Vector2 screenPosition, Vector2 anchor, float scale, out ShopItem item)
         {
             item = default;
             var point = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
-            Rect[] cards = Cards(scale, out _);
+            Rect[] rows = PopupRows(anchor, scale, Screen.width, Screen.height);
 
-            for (int i = 0; i < cards.Length; i++)
+            for (int i = 0; i < rows.Length; i++)
             {
-                if (cards[i].Contains(point))
+                if (rows[i].Contains(point))
                 {
                     item = Items[i];
                     return true;
@@ -289,14 +376,25 @@ namespace Dungeon.Game
             return false;
         }
 
+        /// <summary>Whether a tap landed on the marker that buys another hall.</summary>
+        /// <param name="screenPosition">Tap position in input space.</param>
+        /// <param name="anchor">Where the marker is anchored, in GUI space.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>True when the hall marker was pressed.</returns>
+        public static bool HitHallMarker(Vector2 screenPosition, Vector2 anchor, float scale)
+        {
+            return HallMarkerRect(anchor, scale, Screen.width, Screen.height)
+                .Contains(new Vector2(screenPosition.x, Screen.height - screenPosition.y));
+        }
+
         /// <summary>Whether a tap landed on the Ready button.</summary>
         /// <param name="screenPosition">Tap position in input space.</param>
         /// <param name="scale">UI scale.</param>
         /// <returns>True when Ready was pressed.</returns>
         public static bool HitReady(Vector2 screenPosition, float scale)
         {
-            Cards(scale, out Rect ready);
-            return ready.Contains(new Vector2(screenPosition.x, Screen.height - screenPosition.y));
+            return ReadyRect(scale, Screen.width, Screen.height)
+                .Contains(new Vector2(screenPosition.x, Screen.height - screenPosition.y));
         }
     }
 }
