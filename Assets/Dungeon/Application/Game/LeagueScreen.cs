@@ -52,12 +52,31 @@ namespace Dungeon.Game
         /// <returns>The prompt's rectangle in GUI space.</returns>
         public static Rect PromptRect(float scale, bool hasNextParty)
         {
+            return PromptRect(scale, hasNextParty, Screen.width, Screen.height);
+        }
+
+        /// <summary>
+        /// Where the prompt lands on a canvas of a given size.
+        /// </summary>
+        /// <remarks>
+        /// Takes the size explicitly so the layout can be checked at resolutions the editor is not
+        /// running at. The itch.io embed is far smaller than the 960x600 canvas, and this screen has
+        /// already lost its prompt off the bottom once — a failure that is invisible until somebody
+        /// opens the published page.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="hasNextParty">Whether the party announcement is shown.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>The prompt's rectangle in GUI space.</returns>
+        public static Rect PromptRect(float scale, bool hasNextParty, float width, float height)
+        {
             float rowHeight = 26f * scale;
             float top = Mathf.Max(8f * scale,
-                (Screen.height - (rowHeight * (LeagueTable.Size + 7))) * 0.5f);
+                (height - (rowHeight * (LeagueTable.Size + 7))) * 0.5f);
             float listTop = top + (rowHeight * 2.6f);
             float promptRow = LeagueTable.Size + 1.2f + (hasNextParty ? 1.9f : 0f);
-            return new Rect(0f, listTop + (rowHeight * promptRow), Screen.width, rowHeight * 1.4f);
+            return new Rect(0f, listTop + (rowHeight * promptRow), width, rowHeight * 1.4f);
         }
 
         public static void Draw(LeagueTable league, float scale, float shift, string prompt,

@@ -69,12 +69,80 @@ namespace Dungeon.Editor
 
             if (summary.result == BuildResult.Succeeded)
             {
+                MakeCanvasResponsive(output);
                 Debug.Log($"[Dungeon] WebGL build succeeded: "
                     + $"{summary.totalSize / (1024f * 1024f):F1} MB in {summary.totalTime}");
                 return;
             }
 
             Debug.LogError($"[Dungeon] WebGL build {summary.result} with {summary.totalErrors} error(s)");
+        }
+
+        /// <summary>
+        /// Rewrites the built page so the canvas fills whatever frame it is embedded in.
+        /// </summary>
+        /// <remarks>
+        /// Unity's stock template hardcodes <c>canvas.style.width = "960px"</c> and a matching height
+        /// for desktop. Inside itch.io's embed — configured at <b>523x293</b> here — a 960x600 canvas
+        /// simply overflows and is clipped, which is why the HUD and the shop lost their edges on the
+        /// published page while looking perfect in the editor.
+        /// <para>
+        /// Patched after the build rather than by shipping a custom WebGL template: it is one
+        /// substitution against a known line, it lives in code next to the rest of the build
+        /// settings, and it cannot drift out of sync with a template file nobody remembers exists.
+        /// If Unity changes that line, the log says so instead of silently doing nothing.
+        /// </para>
+        /// <para>
+        /// The game copes with any aspect ratio already — the camera fits the dungeon to its own
+        /// <c>aspect</c> — so filling the frame is strictly better than letter-boxing a fixed size.
+        /// </para>
+        /// </remarks>
+        /// <param name="output">Folder the player was built into.</param>
+        private static void MakeCanvasResponsive(string output)
+        {
+            string page = Path.Combine(output, "index.html");
+            if (!File.Exists(page))
+            {
+                Debug.LogWarning("[Dungeon] no index.html to make responsive");
+                return;
+            }
+
+            string html = File.ReadAllText(page);
+            const string fixedSize = "canvas.style.width = \"960px\";";
+            if (!html.Contains(fixedSize))
+            {
+                Debug.LogWarning(
+                    "[Dungeon] the WebGL template no longer sizes the canvas the way this patch "
+                    + "expects -- the embed may be cropped again. Check Builds/index.html.");
+                return;
+            }
+
+            html = html
+                .Replace(fixedSize, "canvas.style.width = \"100%\";")
+                .Replace("canvas.style.height = \"600px\";", "canvas.style.height = \"100%\";");
+
+            // The container has to fill the frame too, or a canvas at 100% is 100% of nothing.
+            //
+            // The selectors below deliberately repeat the template's own `.unity-desktop` class.
+            // Its stylesheet centres the container with `#unity-container.unity-desktop`, which is a
+            // class plus an id and therefore beats a plain `#unity-container` -- so a first attempt
+            // that styled the id alone was silently overridden, and the game rendered at about 40%
+            // of the frame, centred in a sea of background, instead of filling it.
+            html = html.Replace("</head>",
+                "  <style>\n"
+                + "    html, body { margin: 0; padding: 0; width: 100%; height: 100%;\n"
+                + "                 overflow: hidden; background: #15101D; }\n"
+                + "    #unity-container, #unity-container.unity-desktop {\n"
+                + "      position: absolute; left: 0; top: 0; transform: none;\n"
+                + "      width: 100%; height: 100%; }\n"
+                + "    #unity-canvas, .unity-desktop #unity-canvas {\n"
+                + "      width: 100%; height: 100%; display: block; background: #15101D; }\n"
+                + "    #unity-footer, .unity-desktop #unity-footer { display: none; }\n"
+                + "  </style>\n"
+                + "</head>");
+
+            File.WriteAllText(page, html);
+            Debug.Log("[Dungeon] canvas made responsive, so the itch embed cannot crop it");
         }
 
         /// <summary>

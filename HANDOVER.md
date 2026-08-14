@@ -145,9 +145,12 @@ against `PLAN.md`, so the next work is playing it and tuning what feels wrong.
   health. Either glass cannons *should* be poor customers, or that is a dead minute. Recorded at the
   end of D12.
 
-**One thing needs the author, not an agent:** the itch embed is **523x293** against a 960x600 canvas,
-so it crops the HUD and the shop. Fix it in *Edit theme* — set the frame to 960x600 and the page
-background to `#15101D`.
+**The itch embed crop is fixed in code — you no longer need to change anything on itch.** Unity's
+stock template hardcodes `canvas.style.width = "960px"`, so a 960x600 canvas inside a 523x293 embed
+simply overflowed and was clipped. `DungeonWebGLBuilder` now patches the built page to fill whatever
+frame it is given, and the whole standings screen — all twenty rows, the relegation line, the
+next-party line and the prompt — fits inside 523x293. Changing the embed to 960x600 would still be
+*nicer*, but nothing is cropped either way.
 
 Known rough edges:
 

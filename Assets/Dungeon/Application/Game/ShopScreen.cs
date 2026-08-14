@@ -66,12 +66,31 @@ namespace Dungeon.Game
         /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
         public static Rect[] Cards(float scale, out Rect ready)
         {
-            float panelWidth = Mathf.Min(Screen.width * 0.94f, 760f * scale);
-            float left = (Screen.width - panelWidth) * 0.5f;
+            return Cards(scale, Screen.width, Screen.height, out ready);
+        }
+
+        /// <summary>
+        /// Computes the card rectangles for a given canvas size.
+        /// </summary>
+        /// <remarks>
+        /// Takes the size explicitly so the layout can be checked at resolutions the editor is not
+        /// currently running at — the itch.io embed is far smaller than the 960x600 canvas, and a
+        /// screen that fits in the editor and overflows there is invisible until somebody plays the
+        /// published page. The standings prompt was lost exactly that way once already.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <param name="ready">Receives the Ready button's rectangle.</param>
+        /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
+        public static Rect[] Cards(float scale, float width, float height, out Rect ready)
+        {
+            float panelWidth = Mathf.Min(width * 0.94f, 760f * scale);
+            float left = (width - panelWidth) * 0.5f;
             float gap = 10f * scale;
             float cardWidth = (panelWidth - (gap * 2f)) / 3f;
             float cardHeight = 96f * scale;
-            float top = Mathf.Max(96f * scale, (Screen.height - (cardHeight * 2.9f)) * 0.5f);
+            float top = Mathf.Max(96f * scale, (height - (cardHeight * 2.9f)) * 0.5f);
 
             var rects = new Rect[Items.Length];
             for (int i = 0; i < Items.Length; i++)
