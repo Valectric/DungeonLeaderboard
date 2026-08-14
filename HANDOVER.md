@@ -150,7 +150,12 @@ stock template hardcodes `canvas.style.width = "960px"`, so a 960x600 canvas ins
 simply overflowed and was clipped. `DungeonWebGLBuilder` now patches the built page to fill whatever
 frame it is given, and the whole standings screen — all twenty rows, the relegation line, the
 next-party line and the prompt — fits inside 523x293. Changing the embed to 960x600 would still be
-*nicer*, but nothing is cropped either way.
+*nicer* — at 523x293 the standings rows are legible but small — and nothing is cropped either way.
+
+The whole loop was played through in a real 523x293 iframe after the fix: standings, raid, the
+adventurers' review, and the shop. Every screen fits with margin, and the review does its job
+unprompted — doing nothing for a minute earns two stars, *"walked straight through"*, and the line
+"THEY LEFT EARLY AND STOPPED PAYING. SHUT A DOOR IN FRONT OF THEM."
 
 Known rough edges:
 
