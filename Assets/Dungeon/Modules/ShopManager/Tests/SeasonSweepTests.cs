@@ -67,39 +67,11 @@ namespace Dungeon.ShopManager.Tests
                 var raid = new Raid(layout, bonus, null, seed + round);
                 bonus = 0f;
 
-                int guard = 0;
-                while (raid.IsRunning && guard++ < 5000)
-                {
-                    // A competent player, not a button-masher. Spawning at every spawner on every
-                    // tick drains the purse to zero and leaves nothing for the shop -- which is
-                    // exactly what an earlier version of this bot did, buying zero items across
-                    // twenty seasons and hiding whether the shop was reachable at all.
-                    foreach (Vector2Int spawner in layout.SpawnerCells)
-                    {
-                        int room = layout.Grid.RoomAt(spawner);
-                        if (raid.Mobs.CountInRoom(room) == 0 && raid.TotalEnergy > Raid.SpawnCost * 2f)
-                        {
-                            raid.SpawnMob(spawner);
-                        }
-                    }
-
-                    // Traps are the wound curve, and the wound curve is where the money is.
-                    if (raid.IsTrapReady && raid.TotalEnergy > Raid.TrapCost * 2f)
-                    {
-                        foreach (Trap trap in layout.Traps)
-                        {
-                            if (trap.IsArmed && trap.Cell == raid.Party.Cell)
-                            {
-                                raid.FireTrap(trap.Cell);
-                                break;
-                            }
-                        }
-                    }
-
-                    raid.Tick(0.02f);
-                }
-
-                Assert.Less(guard, 5000, $"raid {round} never ended");
+                // Played through the shared bot so this sweep and the placement sweep agree about
+                // what "a competent player" does. Two definitions would eventually disagree about
+                // the same season and nobody would know which number to believe.
+                float seconds = ShopBot.Play(raid, layout);
+                Assert.Greater(seconds, 0f, $"raid {round} never ended");
                 result.Harvests.Add(raid.EnergyHarvested);
                 result.FinalRooms = layout.RoomCentres.Count;
 

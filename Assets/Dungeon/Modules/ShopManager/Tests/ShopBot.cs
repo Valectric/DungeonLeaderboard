@@ -1,4 +1,5 @@
 using Dungeon.DungeonManager;
+using Dungeon.RaidManager;
 using UnityEngine;
 
 namespace Dungeon.ShopManager.Tests
@@ -93,6 +94,57 @@ namespace Dungeon.ShopManager.Tests
 
             loadout.Add(item, cell);
             return true;
+        }
+
+        /// <summary>
+        /// Plays one raid the way a competent player would, and reports how long it took.
+        /// </summary>
+        /// <remarks>
+        /// Spawners do not fire themselves — spawning is one of the game's three verbs, so a raid
+        /// nobody plays meets no monsters at all. A sweep that ticks a raid without pressing anything
+        /// measures an empty corridor and reports a harvest of one, whatever was bought. That is
+        /// exactly what the first version of the placement sweep did, and it made twelve spawners
+        /// look worthless.
+        /// <para>
+        /// Competent, not a masher: spawning at every spawner every tick drains the purse to nothing
+        /// and leaves the shop unreachable. One mob per empty room, traps fired under the party's
+        /// feet, and always a reserve kept back.
+        /// </para>
+        /// </remarks>
+        /// <param name="raid">Raid to play.</param>
+        /// <param name="layout">Dungeon being raided.</param>
+        /// <returns>Seconds of simulated time, or -1 if the raid never ended.</returns>
+        public static float Play(Raid raid, DungeonLayout layout)
+        {
+            int ticks = 0;
+            while (raid.IsRunning && ticks++ < 5000)
+            {
+                foreach (Vector2Int spawner in layout.SpawnerCells)
+                {
+                    int room = layout.Grid.RoomAt(spawner);
+                    if (raid.Mobs.CountInRoom(room) == 0 && raid.TotalEnergy > Raid.SpawnCost * 2f)
+                    {
+                        raid.SpawnMob(spawner);
+                    }
+                }
+
+                // Traps are the wound curve, and the wound curve is where the money is.
+                if (raid.IsTrapReady && raid.TotalEnergy > Raid.TrapCost * 2f)
+                {
+                    foreach (Trap trap in layout.Traps)
+                    {
+                        if (trap.IsArmed && trap.Cell == raid.Party.Cell)
+                        {
+                            raid.FireTrap(trap.Cell);
+                            break;
+                        }
+                    }
+                }
+
+                raid.Tick(0.02f);
+            }
+
+            return ticks >= 5000 ? -1f : ticks * 0.02f;
         }
 
         /// <summary>Finds the first tile the player could build on, scanning from the entrance.</summary>
