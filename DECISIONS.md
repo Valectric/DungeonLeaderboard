@@ -797,3 +797,60 @@ author's call.
 **Re-run this after Phase 5.** The +2-for-3-seconds room-entry bonus pays a party for *reaching* new
 rooms, which lifts exactly the walk-through-empty-rooms stretch that currently makes the careless
 layout look good. There is a real chance the inversion disappears without anyone touching the test.
+
+---
+
+## 2026-08-14 — D30. The author's four calls, and what each one cost
+
+D29 was recorded as an open question left deliberately red. It is resolved, along with three others.
+All four were put to the author with the options measured rather than described, and he chose the
+same way each time: **accept the new behaviour and narrow the claim**. That is the right call in each
+case and it is also the exact shape D23 warns about, so each is written as a *narrowed or reversed
+claim carrying its evidence* — because "the author decided this" and "a threshold was nudged until
+it went green" look identical in a diff a month later.
+
+**1. The wound correlation — accepted flatter.** The positioning rules broke SPEC's "wounded pays
+most" ordering: THE PILGRIMAGE finished at 94% health harvesting 408 against THE SKIRMISHERS' 354
+from nothing. Two fixes were measured. Pricing retreat as `Fleeing` made it **worse** — wounded
+stopped paying at all and `TheSteepEndOfTheCurve_IsReachable` broke too. Steepening the curve
+(`WoundAmplitude` 9 → 25) **worked exactly**, restoring the ordering with healthy income untouched,
+but turns 20% health into 9.2× against the 1× / 4× / 8× SPEC states outright. The author chose to
+accept the flatter correlation rather than rewrite SPEC.
+
+`TheLeastWoundedRoster_IsTheWorstPaying` was **deleted, not loosened**. It ranks rosters by deepest
+wound, and with the positioning rules the least wounded bottoms at 5% and the most wounded at 0% —
+the independent variable stopped varying, so it passed or failed by luck. A test whose variable does
+not vary cannot be rescued by a looser threshold; that only hides that it measures nothing.
+
+**Outstanding:** the league's rival earnings are downstream of measured harvest (D13) and have
+**not** been retuned for the flatter correlation.
+
+**2. Rate crossings, 4 → 6.** The limit was set against a curve with no bonuses in it. The variation
+modifiers arrive and leave mid-fight, so the rate legitimately crosses its own average more often;
+measured at 5 over 1003 ticks. This is not the flicker the test exists to catch — that was the number
+jumping most of its range in a fiftieth of a second, which `TheRate_MovesSmoothlyBetweenFrames` still
+guards and passes at 1.19/s against 1.5.
+
+**3. Early escape, 5× → 2.5×.** The ordering is the claim and still holds: strolled 38.5, stalled
+128.3, a gap of 3.3×. The new-room bonus credits the score, so a party that strolls through now
+collects something. **This cost was predicted before the modifier was written** — M9-PLAN.md open
+question 1 warned that paying score for entering rooms pays for *advancing*, the behaviour the door
+verb exists to prevent. The author read that and chose score knowingly. **If this threshold ever
+needs lowering again, the modifier is too strong — do not lower it twice.**
+
+**4. Placement — depth pays, not proximity.** `AThoughtfulLayout_OutEarnsACarelessOne` is now
+`ADeepLayout_OutEarnsAFrontLoadedOne`, and the reversal is correct rather than convenient. Monsters
+placed deep mean the party walks the early rooms earning almost nothing, meets them late, and is
+**still fighting when the clock stops** — SPEC's ideal outcome stated exactly. Monsters at the
+entrance die in the opening seconds and the party walks the rest for free. Measured 260 against 316;
+the item mix was ruled out as a confound (equalising it changed the numbers by *exactly nothing*, to
+the digit). The test still asserts that *where* things go changes what a raid is worth, which is what
+justifies a spatial shop. It never needed the entrance to be the right answer — that was the premise,
+not the claim.
+
+**Merged to `main`: 4 only.** 1–3 sit on `m11-positioning` and `m9-phase5-unverified`, which touch
+`Raid.cs`, `Party.cs` and `AdventurerAI.cs` between them and want one verification pass each.
+
+**Operational, and the single most useful thing to know first:** the RaidManager and ShopManager
+suites now need **~1600s, not 800s**. Raids that used to end early run the full clock because parties
+neither die nor escape. Twice in one session that looked exactly like a hang and cost real time.
