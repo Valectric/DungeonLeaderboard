@@ -741,7 +741,7 @@ namespace Dungeon.PartyManager
         /// <param name="desired">Where they want to be.</param>
         /// <param name="deltaTime">Seconds since the last tick.</param>
         /// <param name="speed">Multiple of walking pace, so a panicking role can scramble.</param>
-        private static void Glide(
+        private void Glide(
             Adventurer member, Vector2 desired, float deltaTime, float speed = 1f)
         {
             member.Position = Vector2.MoveTowards(
