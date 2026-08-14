@@ -96,22 +96,28 @@ namespace Dungeon.PartyManager
         public const float PanicSpeed = 2.2f;
 
         /// <summary>
-        /// Panic multiplier for an archer, which is fast enough to actually break away.
+        /// Panic multiplier for an archer. Parked at the shared value until the rate curve changes.
         /// </summary>
         /// <remarks>
-        /// Everything here is a multiplier on <see cref="Party.WalkSpeed"/>, so the old shared 2.2
-        /// meant a fleeing archer moved at 1.32 cells a second against a monster's 1.90 — the
-        /// monster was 1.44 times faster and the escape could not succeed, only delay. The comment
-        /// above says that was deliberate, and for a healer or a mage it still is: a mage blinks
-        /// instead, and a healer is meant to stay near the people it is healing.
+        /// The author asked for an archer that can outrun a single monster. Everything here is a
+        /// multiplier on <see cref="Party.WalkSpeed"/>, so the shared 2.2 gives 1.32 cells a second
+        /// against a monster's 1.90 — the escape can only delay, never succeed. Clearing 3.17 fixes
+        /// that, and 3.6 was measured to work.
         /// <para>
-        /// An archer is the one role whose whole job is fought at range, so it is the one that
-        /// should be able to open the distance again. Above 3.17 it outpaces a monster; 3.6 gives
-        /// 2.16 cells a second, about 1.14 times a monster's chase, which is enough to peel away
-        /// over a few seconds without being able to simply ignore one.
+        /// It is <b>not</b> applied yet, because it inverts the game's one rule. Measured with
+        /// <c>KillingTheParty_NeverPaysBest</c>: at 3.6 the best wipe earns 185 against 175 for the
+        /// best raid the party survived; at 2.2 it is 161 against 169, the right way round. An
+        /// archer that escapes is never wounded, so a surviving party earns less, while a party that
+        /// wipes anyway was wounded deeply on the way down.
+        /// </para>
+        /// <para>
+        /// The cause is that under the current curve the only thing that pays is being hurt. Once
+        /// firing at something pays on its own — the per-action rate the author has designed — an
+        /// archer can kite and still earn, and this can go to 3.6. Raise it then, and re-run that
+        /// test.
         /// </para>
         /// </remarks>
-        public const float ArcherPanicSpeed = 3.6f;
+        public const float ArcherPanicSpeed = 2.2f;
 
         /// <summary>
         /// How fast this adventurer should move right now, as a multiple of walking pace.
