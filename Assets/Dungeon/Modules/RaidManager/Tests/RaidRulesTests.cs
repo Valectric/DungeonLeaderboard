@@ -255,7 +255,24 @@ namespace Dungeon.RaidManager.Tests
 
             MooseRunnerFacade.Log($"strolled harvested {strolled.EnergyHarvested:F1} ({strolled.Outcome}), " +
                                   $"stalled harvested {stalled.EnergyHarvested:F1} ({stalled.Outcome})");
-            Assert.Greater(stalled.EnergyHarvested, strolled.EnergyHarvested * 5f,
+            // NARROWED BY DECISION, 2026-08-14, from 5x to 2.5x. The ORDERING is the claim and it
+            // still holds; only the magnitude moved.
+            //
+            // The author's new-room bonus pays the whole team +2/s for three seconds each time they
+            // reach somewhere new, and he chose it to credit the SCORE rather than the purse --
+            // "the whole point is to make them traverse the dungeon". A party that strolls through
+            // and leaves therefore collects something now, where before it collected almost
+            // nothing. Measured: strolled 38.5, stalled 128.3, a gap of 3.3x where it used to be
+            // over 5x.
+            //
+            // This was predicted before the modifier was written, in M9-PLAN.md's open question 1:
+            // paying score for entering rooms pays for ADVANCING, which is the behaviour the door
+            // verb exists to prevent. The author read that and chose score anyway, knowingly. So
+            // this records the cost of a decision rather than a regression.
+            //
+            // 2.5x rather than 3x, so the bonus firing one extra time does not fail it. If this
+            // ever needs lowering again, the modifier is too strong -- do not lower it twice.
+            Assert.Greater(stalled.EnergyHarvested, strolled.EnergyHarvested * 2.5f,
                 "stalling and fighting must dominate letting the party leave");
         }
 

@@ -60,6 +60,32 @@ namespace Dungeon.RaidManager
         /// </remarks>
         public const float TankPull = 3f;
 
+        /// <summary>
+        /// The bonuses and penalties that pay this party for varying what it does.
+        /// </summary>
+        /// <remarks>
+        /// Public so the HUD can show them. A bonus the player cannot see is a bonus they cannot
+        /// learn to chase, which is the whole point of paying for variety.
+        /// </remarks>
+        public RateModifiers Modifiers { get; } = new();
+
+        /// <summary>Living monsters sharing the party's room.</summary>
+        /// <returns>The count, which drives both the crowd bonus and the grind decay.</returns>
+        private int EnemiesFacingParty()
+        {
+            int room = Layout.Grid.RoomAt(Party.Cell);
+            int facing = 0;
+            foreach (Mob mob in Mobs.Living)
+            {
+                if (Layout.Grid.RoomAt(mob.Cell) == room)
+                {
+                    facing++;
+                }
+            }
+
+            return facing;
+        }
+
         /// <summary>Energy a spawn costs.</summary>
         public const float SpawnCost = 25f;
 
@@ -213,7 +239,9 @@ namespace Dungeon.RaidManager
                 .Select(mob => mob.Position)
                 .ToList();
 
-            Party.Tick(deltaTime, visible, Layout.ArmedTrapCells(), Layout.ChestCells);
+            Party.Tick(
+                deltaTime, visible, Layout.ArmedTrapCells(), Layout.ChestCells,
+                Modifiers.SpeedMultiplier);
 
             // A teleport with no visual reads as the sprite glitching across the room, so the blink
             // draws its own streak -- the same presentation an arrow gets, in the mage's colour.
@@ -226,10 +254,25 @@ namespace Dungeon.RaidManager
             // PartyManager from having to know what a trap is beyond a cell to stand on.
             if (Party.DisarmingCell.HasValue)
             {
-                Layout.TrapAt(Party.DisarmingCell.Value)?.Disarm(Party.DisarmSeconds);
+                Trap defusing = Layout.TrapAt(Party.DisarmingCell.Value);
+                bool wasArmed = defusing != null && defusing.IsArmed;
+                defusing?.Disarm(Party.DisarmSeconds);
+
+                // The author's A1. Paid on COMPLETION rather than for crouching there, so the bonus
+                // rewards finishing the job and cannot be farmed by hovering over a trap forever.
+                if (wasArmed && defusing is { IsArmed: false })
+                {
+                    Modifiers.RecordDisarm();
+                }
             }
 
             ChargeForDeathsAndLoot(deltaTime);
+            if (Party.JustEnteredNewRoom)
+            {
+                Modifiers.RecordNewRoom();
+            }
+
+            Modifiers.Tick(deltaTime, EnemiesFacingParty());
             AccrueEnergy(deltaTime);
             RecordCombatNumbers();
             Feed.Tick(deltaTime);
@@ -802,6 +845,24 @@ namespace Dungeon.RaidManager
                 _chestBonusLeft = Mathf.Max(0f, _chestBonusLeft - deltaTime);
                 target += EnergyCurve.ChestBonus * _chestBonusScale;
             }
+
+            // Everything that pays for VARIETY -- a disarm, a room nobody had reached, a crowd
+            // rather than a duel -- and the decay that stops one endless fight paying forever.
+            // Added here, after the per-member sum and beside the chest bonus, because these are
+            // team-wide flat amounts rather than anything a single body earns.
+            target += Modifiers.Total();
+
+            // Never below what an idle party makes. The decay is meant to make grinding DULL, not
+            // ruinous: if a long fight could earn less than no fight at all, the cheapest way out of
+            // the hole would be to let the party die, and that is the losing state the whole design
+            // exists to make unattractive.
+            float floor = 0f;
+            foreach (PartyManager.Adventurer member in Party.Living)
+            {
+                floor += EnergyCurve.MemberRate(AdventurerAction.Idle, member.HealthFraction);
+            }
+
+            target = Mathf.Max(floor, target);
 
             CurrentRate = Mathf.Lerp(
                 CurrentRate, target, Mathf.Clamp01(deltaTime / RateEaseSeconds));
