@@ -482,7 +482,7 @@ namespace Dungeon.Game
                     (member.Position.x + shove.x) * CellSize,
                     ((member.Position.y + shove.y) * CellSize) + lift, -1f);
                 view.transform.rotation = Quaternion.Euler(0f, 0f, tilt);
-                view.sprite = _sprites.Load($"party/{RoleName(member.Role)}-{StateName(member.Wounds)}");
+                view.sprite = FrameFor(member, i);
 
                 // Squash on the footfall so the walk has weight. Left at scale 1 the bob alone reads
                 // as hovering.
