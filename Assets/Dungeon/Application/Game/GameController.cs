@@ -30,6 +30,9 @@ namespace Dungeon.Game
         /// <summary>What the game is currently showing.</summary>
         private enum Phase
         {
+            /// <summary>Key art and a marching party, for two seconds before anything else.</summary>
+            Loading = 6,
+
             /// <summary>The standings, which are also the title screen.</summary>
             Standings = 0,
 
@@ -62,7 +65,10 @@ namespace Dungeon.Game
         private Camera _camera;
         private float _ratePulse;
         private LeagueTable _league;
-        private Phase _phase = Phase.Standings;
+        private Phase _phase = Phase.Loading;
+
+        /// <summary>Seconds the loading screen has been up.</summary>
+        private float _loadingAge;
         private float _shift = 1f;
         private int _finalPosition;
         private Shop _shop;
@@ -525,6 +531,21 @@ namespace Dungeon.Game
         {
             if (_raid == null)
             {
+                return;
+            }
+
+            if (_phase == Phase.Loading)
+            {
+                _loadingAge += Time.deltaTime;
+
+                // A tap or a key skips it. Two seconds is short, but it is two seconds a returning
+                // player has already seen, and the first click on the itch embed is the one that
+                // gives the page focus -- so it should do something rather than be swallowed.
+                if (_loadingAge >= LoadingScreen.Seconds || TryReadTap(out _) || AnyKeyPressed())
+                {
+                    _phase = Phase.Standings;
+                }
+
                 return;
             }
 
@@ -1026,6 +1047,15 @@ namespace Dungeon.Game
             }
 
             float scale = Screen.height / 720f;
+
+            // Before anything else, and returning immediately: the loading screen is the whole
+            // frame for its two seconds, and drawing the standings underneath it would show through
+            // the moment the art failed to load.
+            if (_phase == Phase.Loading)
+            {
+                LoadingScreen.Draw(_loadingAge, scale);
+                return;
+            }
 
             if (_phase == Phase.Shopping)
             {
