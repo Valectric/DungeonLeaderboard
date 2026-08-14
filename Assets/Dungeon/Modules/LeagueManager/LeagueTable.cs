@@ -51,14 +51,28 @@ namespace Dungeon.LeagueManager
         /// <summary>How many dungeons compete.</summary>
         public const int Size = 20;
 
-        /// <summary>How many leave at the end of each round.</summary>
+        /// <summary>
+        /// How many leave at the end of a round while the field is still large.
+        /// </summary>
         /// <remarks>
-        /// One. The field shrinks every round until a single dungeon is left, and that one wins --
-        /// which is the goal of the game. The old table knocked out the bottom two of a fixed twenty
-        /// and refilled the gaps, so the competition had no end and the player could only avoid
-        /// losing.
+        /// Two, which is what makes the competition a sitting rather than a campaign. Twenty
+        /// dungeons losing two a round reach the last pair in nine rounds, and a tenth round decides
+        /// it — against nineteen rounds at one a time, which is nineteen minutes plus shops and far
+        /// too long for somebody voting on a jam entry.
         /// </remarks>
-        public const int RelegationCount = 1;
+        public const int RelegationCount = 2;
+
+        /// <summary>
+        /// How many dungeons leave at the end of the round about to be played.
+        /// </summary>
+        /// <remarks>
+        /// Two until only two are left, and then one — because taking two from a field of two would
+        /// leave nobody holding the trophy. That last round is the final.
+        /// </remarks>
+        public int EliminationsThisRound => _entries.Count > 2 ? RelegationCount : 1;
+
+        /// <summary>Whether this is the last round, with the competition decided at the end of it.</summary>
+        public bool IsFinal => _entries.Count == 2;
 
         /// <summary>Where the player starts, one-based, per the spec's "around 14th".</summary>
         public const int PlayerStartPosition = 14;
@@ -84,7 +98,8 @@ namespace Dungeon.LeagueManager
         /// One dungeon leaves each round, so last place is the only dangerous one — and with the
         /// field shrinking, last place gets easier to reach every round.
         /// </remarks>
-        public bool PlayerRelegated => _entries.Count > 1 && PlayerPosition >= _entries.Count;
+        public bool PlayerRelegated =>
+            _entries.Count > 1 && PlayerPosition > _entries.Count - EliminationsThisRound;
 
         /// <summary>How many dungeons are still in the competition.</summary>
         public int Remaining => _entries.Count;
@@ -184,32 +199,31 @@ namespace Dungeon.LeagueManager
         }
 
         /// <summary>
-        /// Knocks the bottom dungeon out of the competition.
+        /// Knocks the bottom dungeons out of the competition.
         /// </summary>
         /// <remarks>
-        /// Called after the player survives a round. The field shrinks by one every time, so twenty
-        /// dungeons become nineteen, then eighteen, and the last one left is the winner. Nothing
-        /// refills the gap -- that is the difference between a league that runs forever and a
-        /// competition that ends.
+        /// Called after the player survives a round. Two leave each time until only two are left,
+        /// and then one, so twenty dungeons reach a winner in ten rounds. Nothing refills the gaps --
+        /// that is the difference between a league that runs forever and a competition that ends.
         /// <para>
-        /// Refuses to remove the player. Being bottom is what <see cref="PlayerRelegated"/> reports,
-        /// and the run ends there rather than here; this only ever clears a rival out of the way.
+        /// Refuses to remove the player. Being in the drop zone is what <see cref="PlayerRelegated"/>
+        /// reports, and the run ends there rather than here; this only ever clears rivals away.
         /// </para>
         /// </remarks>
         public void CollapseRelegated()
         {
-            if (_entries.Count <= 1)
+            int leaving = EliminationsThisRound;
+            for (int i = 0; i < leaving && _entries.Count > 1; i++)
             {
-                return;
+                LeagueEntry doomed = _entries[_entries.Count - 1];
+                if (doomed.IsPlayer)
+                {
+                    return;
+                }
+
+                _entries.Remove(doomed);
             }
 
-            LeagueEntry doomed = _entries[_entries.Count - 1];
-            if (doomed.IsPlayer)
-            {
-                return;
-            }
-
-            _entries.Remove(doomed);
             Sort();
         }
 

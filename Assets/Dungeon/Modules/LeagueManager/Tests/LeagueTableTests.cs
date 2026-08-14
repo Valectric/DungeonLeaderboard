@@ -222,6 +222,13 @@ namespace Dungeon.LeagueManager.Tests
             Assert.AreEqual(1, league.Remaining, "the competition never resolved to one dungeon");
             Assert.IsTrue(league.PlayerWon,
                 "playing a good raid every round did not win the competition");
+
+            // Ten rounds, not nineteen: two dungeons leave each round until the last pair, and the
+            // final round decides it. Nineteen minutes of raids plus shops was far too long for
+            // somebody voting on a jam entry.
+            Assert.AreEqual(10, league.Round,
+                $"the competition took {league.Round} rounds; twenty dungeons losing two a round "
+                + "should reach a winner in ten");
         }
 
         /// <summary>
@@ -276,6 +283,42 @@ namespace Dungeon.LeagueManager.Tests
             }
 
             Assert.Fail("harvesting nothing every round never got the player eliminated");
+        }
+
+        /// <summary>
+        /// Two leave each round until the last pair, and then one.
+        /// </summary>
+        /// <remarks>
+        /// Taking two from a field of two would leave nobody holding the trophy, so the final round
+        /// drops a single dungeon. The shape matters to the player as well as the arithmetic: they
+        /// need to know when they are one place from going out, and the drop zone is two deep for
+        /// nine rounds and one deep for the last.
+        /// </remarks>
+        [Test]
+        public void TwoLeaveEachRound_UntilTheFinalPair()
+        {
+            var league = new LeagueTable(5);
+            var sizes = new List<int>();
+
+            while (league.Remaining > 1)
+            {
+                sizes.Add(league.Remaining);
+
+                Assert.AreEqual(league.Remaining > 2 ? 2 : 1, league.EliminationsThisRound,
+                    $"with {league.Remaining} left, the wrong number was about to be dropped");
+                Assert.AreEqual(league.Remaining == 2, league.IsFinal,
+                    $"with {league.Remaining} left, IsFinal disagreed with the field size");
+
+                league.SubmitRaid(LeagueTable.GoodRun);
+                league.CollapseRelegated();
+            }
+
+            MooseRunnerFacade.Log(
+                $"field went {string.Join(" -> ", sizes)} -> {league.Remaining} "
+                + $"over {league.Round} rounds");
+
+            Assert.AreEqual(10, league.Round, "twenty dungeons should reach a winner in ten rounds");
+            Assert.IsTrue(league.PlayerWon, "a good raid every round should win");
         }
     }
 }

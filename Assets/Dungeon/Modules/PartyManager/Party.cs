@@ -205,6 +205,16 @@ namespace Dungeon.PartyManager
         public int LootedCount => _looted.Count;
 
         /// <summary>
+        /// The chest opened this tick, if one was, so the view can throw sparks off it.
+        /// </summary>
+        /// <remarks>
+        /// Cleared at the start of every tick, so it names a moment rather than a state. The raid
+        /// already notices the count changing to start the team bonus; this says <i>where</i>, which
+        /// a count cannot.
+        /// </remarks>
+        public Vector2Int? JustLooted { get; private set; }
+
+        /// <summary>
         /// Aggregate health of the living party, 1 down to 0.
         /// </summary>
         /// <remarks>
@@ -333,6 +343,7 @@ namespace Dungeon.PartyManager
             IReadOnlyCollection<Vector2Int> chests = null)
         {
             _chests = chests ?? System.Array.Empty<Vector2Int>();
+            JustLooted = null;
 
             if (Goal is PartyGoal.Escaped or PartyGoal.Wiped)
             {
@@ -487,6 +498,7 @@ namespace Dungeon.PartyManager
             if (_lootProgress >= LootSeconds)
             {
                 _looted.Add(chest.Value);
+                JustLooted = chest.Value;
                 LootingCell = null;
                 _lootProgress = 0f;
             }

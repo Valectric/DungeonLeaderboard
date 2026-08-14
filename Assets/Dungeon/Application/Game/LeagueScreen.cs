@@ -117,10 +117,19 @@ namespace Dungeon.Game
             };
             caption.normal.textColor = Dim;
             GUI.Label(new Rect(0f, top + (rowHeight * 1.5f), Screen.width, rowHeight),
-                "YOU ARE A DUNGEON.  CLIMB, OR BE DESTROYED.", caption);
+                                league.IsFinal
+                    ? "THE FINAL.  ONE OF YOU LEAVES; THE OTHER WINS."
+                    : $"{league.Entries.Count} DUNGEONS LEFT.  THE BOTTOM "
+                      + $"{league.EliminationsThisRound} ARE DESTROYED.", caption);
 
             float listTop = top + (rowHeight * 2.6f);
-            int relegationFrom = LeagueTable.Size - LeagueTable.RelegationCount;
+
+            // Measured off the field as it stands, not off the twenty it started with. Dungeons
+            // leave and are never replaced, so a line pinned to LeagueTable.Size would drift further
+            // below the last row every round and stop marking anything -- and the drop zone is two
+            // deep for nine rounds and one deep for the final, which the player has to be able to
+            // see.
+            int relegationFrom = league.Entries.Count - league.EliminationsThisRound;
 
             for (int i = 0; i < league.Entries.Count; i++)
             {
@@ -152,7 +161,8 @@ namespace Dungeon.Game
             };
             warn.normal.textColor = RelegationRed;
             GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 0.1f)),
-                Screen.width, rowHeight), "BOTTOM TWO ARE DESTROYED", warn);
+                                Screen.width, rowHeight),
+                league.IsFinal ? "LAST PLACE IS DESTROYED" : "THE BOTTOM TWO ARE DESTROYED", warn);
 
             float promptRow = LeagueTable.Size + 1.2f;
 

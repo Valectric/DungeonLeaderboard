@@ -16,7 +16,17 @@ namespace Dungeon.RaidManager
         MobDied = 2,
 
         /// <summary>A door was opened or shut. The third verb, and the cheapest.</summary>
-        DoorToggled = 3
+        DoorToggled = 3,
+
+        /// <summary>
+        /// A chest was prised open.
+        /// </summary>
+        /// <remarks>
+        /// Worth its own burst because it is the one moment the player is <i>paid</i> for something
+        /// the party chose to do. A chest costs the party seconds and now pays the whole team a
+        /// bonus for five of them, and a reward nobody sees arrive is a reward nobody learns to buy.
+        /// </remarks>
+        ChestOpened = 4
     }
 
     /// <summary>One effect waiting to be drawn.</summary>

@@ -220,6 +220,7 @@ namespace Dungeon.Game
                     EffectKind.TrapFired => "VfxTrapFire",
                     EffectKind.MobSpawned => "VfxSpawn",
                     EffectKind.MobDied => "VfxDeath",
+                    EffectKind.ChestOpened => "VfxLoot",
                     _ => "VfxDoor"
                 }, effect.Position);
 
@@ -228,6 +229,11 @@ namespace Dungeon.Game
                     EffectKind.TrapFired => Sfx.TrapFire,
                     EffectKind.MobSpawned => Sfx.MobSpawn,
                     EffectKind.MobDied => Sfx.MobDied,
+
+                    // The purchase chime, borrowed deliberately. The player already reads it as
+                    // "you have been paid", which is exactly what opening a chest now means: five
+                    // seconds of bonus rate for the whole team.
+                    EffectKind.ChestOpened => Sfx.Purchase,
                     _ => Sfx.DoorToggle
                 }, effect.Kind == EffectKind.TrapFired ? 0.85f : 0.6f);
             }

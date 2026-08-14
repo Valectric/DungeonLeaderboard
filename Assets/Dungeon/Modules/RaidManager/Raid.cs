@@ -565,6 +565,11 @@ namespace Dungeon.RaidManager
             int looted = Party.LootedCount;
             if (looted > _lootedLastTick)
             {
+                if (Party.JustLooted.HasValue)
+                {
+                    Effects.Raise(EffectKind.ChestOpened, Party.JustLooted.Value);
+                }
+
                 _chestBonusScale = EnergyCurve.ChestValue(_sinceLastChest);
                 _chestBonusLeft = EnergyCurve.ChestBonusSeconds;
                 _sinceLastChest = 0f;
