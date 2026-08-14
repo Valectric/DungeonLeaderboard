@@ -139,6 +139,32 @@ balance questions in D20 — round one is sudden death, and a full run is ninete
 
 ---
 
+## M7 — Drawn animation ▸ *done*
+
+The author asked for true sprite animation rather than the procedural motion: real frames for
+movement and for attacks, on every entity that moves.
+
+**66 frames**, six per cycle at twelve a second, produced by the sprite-maker's `character` harness:
+walk and attack for all four party roles, walk and attack for the skeleton, a hop for the slime.
+
+The harness takes each existing sprite as its **source master and rigs it**, so ImageGen is never
+called and the character cannot drift off-model — the output matches its source on average colour
+and opaque pixel count. That is also the check every batch was verified with before import, and it
+is the only one that catches the three traps the pipeline has: reusing another character's rig,
+recolouring toward a pasted palette, and an invalid `--command` failing a whole batch. All three are
+written up in `CLAUDE.md`.
+
+The view plays attack frames off `AttackPhase` — the same phase driving the procedural lunge, so the
+drawn swing and the sprite's throw at its target are one event — then walk frames, then the static
+sprite. Every entity keeps rendering whatever art exists for it.
+
+Guarded by a test that samples the **renderer** during a real raid and requires more than one
+distinct sprite to reach it. It caught the animation being entirely dead on arrival: `FrameFor` was
+never called, because an edit that was meant to redirect the sprite assignment matched nothing after
+an earlier refactor and silently did nothing.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate
