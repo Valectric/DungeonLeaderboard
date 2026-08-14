@@ -25,10 +25,42 @@ namespace Dungeon.Game
         /// <param name="harvested">Energy taken, shown as the raid's score.</param>
         /// <param name="scale">UI scale.</param>
         /// <param name="age">Seconds the card has been up, used to animate the stars landing.</param>
+        /// <summary>Key art drawn behind the review card, loaded once and kept.</summary>
+        /// <remarks>
+        /// Null is a supported state rather than an error. The card was built to work on a flat
+        /// wash and still does, so a missing or failed texture costs the picture and nothing else --
+        /// which matters because this is the screen that tells the player how they did, and it must
+        /// never be the thing that breaks.
+        /// </remarks>
+        private static Texture2D Backdrop =>
+            _backdrop != null ? _backdrop : _backdrop = Resources.Load<Texture2D>("scenes/end-screen");
+
+        /// <summary>Cached backdrop, so the card does not hit Resources every frame.</summary>
+        private static Texture2D _backdrop;
+
         public static void Draw(RaidReview review, float harvested, float scale, float age)
         {
             Color previous = GUI.color;
-            GUI.color = new Color(0.05f, 0.04f, 0.08f, 0.9f);
+
+            // Key art behind the card, then the old flat wash over it at reduced opacity. The wash
+            // is not decoration: the review's text was tuned against a near-black field, and dropping
+            // a lit picture underneath it without dimming would leave the quip and the coaching line
+            // competing with masonry. Half the original alpha keeps the art legible and the words
+            // readable at the same time.
+            Texture2D art = Backdrop;
+            if (art != null)
+            {
+                // Cover, not stretch: the art is 16:9 and the itch embed is not always. Scaling to
+                // fill and cropping the overflow keeps the core centred, where the headline sits.
+                GUI.DrawTexture(
+                    new Rect(0f, 0f, Screen.width, Screen.height), art, ScaleMode.ScaleAndCrop);
+                GUI.color = new Color(0.05f, 0.04f, 0.08f, 0.55f);
+            }
+            else
+            {
+                GUI.color = new Color(0.05f, 0.04f, 0.08f, 0.9f);
+            }
+
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = previous;
 
