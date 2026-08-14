@@ -357,7 +357,14 @@ namespace Dungeon.ShopManager.Tests
                 }
                 else if (room == lastRoom && placedBadly < 6)
                 {
-                    careless.Add(ShopItem.Skeleton, cell);
+                    // The SAME item mix as the thoughtful layout, only somewhere useless. It used to
+                    // be six skeletons against the thoughtful layout's traps-and-skeletons, so the
+                    // two differed in what was bought as well as where it went -- and the test is
+                    // named for where. A trap the party never stands on is worth nothing, so the
+                    // old careless layout was quietly handed a better mix while being called worse.
+                    careless.Add(
+                        cell.y == empty.EntranceCell.y ? ShopItem.SpikeTrap : ShopItem.Skeleton,
+                        cell);
                     placedBadly++;
                 }
             }

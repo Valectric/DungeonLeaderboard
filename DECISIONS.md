@@ -757,3 +757,43 @@ the mean to 42.3 ms and the suite to green with no code change at all.
 
 Restore with a computed mask, not a literal — `0xF` is right for the build and `0xFF` is wrong for
 the restore on a 24-core machine.
+
+---
+
+## 2026-08-14 — D29. Room-scoped combat inverted "aim your purchases", and the test's premise is what broke
+
+Left **red on purpose**, because the fix is a balance decision the author owns and quietly retuning
+it would be exactly the D23 mistake.
+
+`PlacementSweepTests.AThoughtfulLayout_OutEarnsACarelessOne` is the justification for the whole
+spatial shop: aiming purchases must beat scattering them, or the player is pointing at tiles for
+nothing. It compares six items in the **first** room (thoughtful — the party must cross it) against
+six in the **last** room (careless — "which a stalled party may never reach").
+
+After M9 Phase 2 scoped combat per room, aimed earns **274.8** against careless's **297.3**. The gap
+used to be 397 vs 242.
+
+**Ruled out: the item mix.** The thoughtful layout bought traps and skeletons while the careless one
+bought only skeletons, so the two differed in *what* was bought as well as *where* — in a test named
+for where. Equalising the mix changed the numbers by **exactly nothing** (274.783478 vs 297.326233,
+to the digit). The confound was real and worth removing; it was not the cause.
+
+**So the effect is genuine, and on reflection the "careless" layout is good play.** Monsters in the
+last room mean the party walks the early rooms earning almost nothing, meets them late, and is
+**still fighting when the clock stops** — which is precisely SPEC's ideal outcome: alive, in combat,
+badly wounded, still inside the dungeon. Monsters in the first room get killed in the opening
+seconds and the party then walks the rest of the raid for free.
+
+The premise the test was written on — *a stalled party may never reach the last room* — was true
+when a fight could pull in the whole party from anywhere via the leader's room. With combat scoped
+per room, fights resolve locally and the party keeps moving.
+
+**What is NOT acceptable** is redefining "thoughtful" as whatever currently wins; that makes the test
+unfalsifiable. Either the design intends depth to pay (and the test should say so, and say why), or
+it intends early pressure to pay (and something must make early rooms worth more — the author's new
+room-entry bonus in M9 Phase 5 does exactly that, and may resolve this for free). Both are the
+author's call.
+
+**Re-run this after Phase 5.** The +2-for-3-seconds room-entry bonus pays a party for *reaching* new
+rooms, which lifts exactly the walk-through-empty-rooms stretch that currently makes the careless
+layout look good. There is a real chance the inversion disappears without anyone touching the test.
