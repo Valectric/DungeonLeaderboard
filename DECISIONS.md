@@ -573,3 +573,119 @@ claim weakened; five were measuring through a window sized on the old monster:
 
 **After:** 136 raid tests green with the nerf live. A skeleton holds a party **7.0s** and harvests
 108. The central invariant reads **14 against 231**, and the roster spread is **3.7x**.
+
+---
+
+## 2026-08-14 — D23. Only the halls the player buys arrive empty
+
+The author, having played M7: *"added rooms are filled with spawner and trap. Instead make them
+empty and it should be possible to click in a placed room on a floor tile to get a menu to place
+stuff."*
+
+The first attempt read this as *every* room, and removed the auto-placement outright. That is what
+the sentence says in isolation, and it is wrong: **34 tests went red and the shipped game opened on
+a dungeon with nothing in it.** An entirely bare dungeon has no spawner to fire and no trap to
+spring, so two of the three verbs are unavailable and the party walks an empty corridor at the idle
+rate. Round one would be a game over screen with extra steps.
+
+Re-reading, the complaint is specifically about **added** rooms — a hall bought in the shop. So
+`Build` takes a `furnishedRooms` count: the opening corridor comes stocked, anything grown past it
+arrives bare. Tests and `BuildCorridor` default to furnishing everything, so nothing that was
+measuring a stocked dungeon quietly started measuring an empty one.
+
+**The lesson is about the first fix, not the second.** Removing the placement block made 34 tests
+red, and the instinct was to make the tests pass — a blind sed added `extraSkeletonSpawners: 2,
+extraTraps: 2` to 47 call sites. That "fixed" the suite while the *game* stayed broken, and it
+silently changed what four other tests were measuring (a shop test comparing a plain dungeon against
+one with two bought spawners was handed two dungeons with two bought spawners each). All 47 were
+reverted. A wave of failures after a design change is evidence about the change; it is not a list of
+chores.
+
+Click-to-place already existed and needed no work — the menu opens on any tile `CanBuildOn` accepts,
+which a bare hall satisfies everywhere.
+
+---
+
+## 2026-08-14 — D24. Spawning is a loan against the room, not a purchase
+
+The author: *"Spawning just temporarily consumes energy. Once the enemy is dead the value is
+recovered."*
+
+At a flat 25 the arithmetic argued against the design. A monster the party kills in four seconds had
+to earn its price back before it was worth pressing, so the optimal play was to **hoard** — in a game
+whose whole premise is a dungeon full of monsters the party is grinding through. The verb the design
+wants pressed constantly was the one the economy punished.
+
+As a loan the cost stops being a fee and becomes a **risk**: the stake leaves the core while the
+monster lives and returns when it dies, so the player is only ever out of pocket for monsters still
+standing when the clock stops. That is a bet on the party being slow, which is exactly the bet the
+game wants them making.
+
+Three things it deliberately does not do:
+
+- **It refunds the purse, never the score.** `EnergyHarvested` is what the league ranks and spawning
+  never docked it, so crediting refunds there would pay twice for one monster. Only spending power
+  changes.
+- **It refunds only monsters that were paid for.** A monster a test or the dungeon puts straight into
+  the pack was never bought; refunding it would mint energy from nothing and every sweep that spawns
+  freely would report a richer economy than the game has.
+- **It draws a number, not a burst.** The refund lands on the same tick and the same spot as the
+  monster's own death effect, so a second burst there is noise on the one the player is already
+  reading — and an effect kind with no case of its own falls through to the **door** visual and the
+  door chime, which would tell them something opened. It rises off the corpse as a `+25`, the exact
+  mirror of the death penalty.
+
+---
+
+## 2026-08-14 — D25. The dungeons left standing get better, but never luckier
+
+The author: *"The ones left should be better and better…"*
+
+The dungeons knocked out each round are the ones that earned least, so a competition whose survivors
+keep rolling from the same range the opening twenty rolled from gets **easier** as it goes. The
+player faces a stronger average opponent while the numbers those opponents actually roll never move.
+
+The fix is one-sided on purpose. **Only the floor rises.** The ceiling stays at ninety per cent of a
+good raid in every round of the competition, so the promise D20 is built on survives intact: play a
+genuinely good raid and no rival can have beaten it, in the final exactly as in round one. The player
+is never eliminated from a round they played well.
+
+What a shrinking field takes away is their **bad rounds**. Measured, the worst round a rival has
+climbs from **33 to 440** between the opening round and the final — so late on a rival never has an
+off day, and the player cannot coast in on one good raid and a rival's stumble.
+
+`FinalistPressure` stops at 0.9 rather than 1. At 1 the last rival would score the same number every
+round and the final would be an arithmetic check rather than a race.
+
+**And the measurement this exposed.** The soak plays twelve competitions with a competent bot and the
+bot wins all twelve, which is either a well-tuned league or no contest at all — the soak cannot tell,
+because it only asserts that a competition *resolves*. Asking directly: the player needs **400 a
+round** to win and **never wins below 375**. It answers skill. The soak's bot is simply good.
+
+---
+
+## 2026-08-14 — D26. A straggler pulled monsters out of their rooms
+
+Found by the soak, not by any unit test: *"a Skeleton left room 1 for room 0"*.
+
+Room-bounded pursuit is load-bearing rather than polish — the game's one safety valve is opening a
+door behind a losing party so they can retreat and heal, and that only works because monsters stop at
+the threshold. This broke it.
+
+D-note in M6 changed monsters to chase the **nearest** party member rather than whoever leads, which
+fixed the standoff that was costing two rosters a ninth of their income. The room check was left on
+the party **leader**. So a member left behind across a threshold could be the nearest body, and the
+mob would charge straight out of its room after them — the valve failing at the exact moment it
+exists for.
+
+Bounded in two places, because one is not enough:
+
+- **Quarry selection** now only considers members standing in the mob's own room.
+- **The landing cell** is checked as well. Inside 2.5 cells a mob abandons cell-by-cell pathing and
+  charges directly at its target, which skips the `path[0]` room check that was doing the only
+  checking. A doorway is allowed through: it belongs to no room, and a mob straddling its own
+  threshold has not escaped.
+
+`NoMonster_EverLeavesItsRoom` passed 5694 assertions beside this bug the whole time. It ticks a raid
+where the party moves as a group, so it never produced the straggler that triggers it. The new test
+constructs the case directly.

@@ -159,9 +159,21 @@ namespace Dungeon.RaidManager.Tests
                 announced |= effect.Kind == EffectKind.SpawnRefunded;
             }
 
+            // The channel the player actually reads. The effect above carries no visual of its own
+            // on purpose: it lands on the same tick and the same spot as the monster's death burst,
+            // so a second burst there is noise -- and an effect kind with no case of its own falls
+            // through to the DOOR visual and chime, which would say something opened.
+            bool numbered = false;
+            foreach (CombatNumber number in raid.Feed.Numbers)
+            {
+                numbered |= number.IsHeal && number.Amount == Mathf.RoundToInt(Raid.SpawnCost);
+            }
+
             Assert.IsTrue(announced,
                 "a refund the player never sees leaves them hoarding against a cost that is not "
                 + "really there");
+            Assert.IsTrue(numbered,
+                $"no +{Raid.SpawnCost:F0} rose off the corpse, so the loan comes back invisibly");
         }
     }
 }

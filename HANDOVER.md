@@ -1,10 +1,34 @@
 # Handover
 
-**State: M1–M7 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
+**State: M1–M8 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
 standings, a thirty-second spatial shop, the next raid — the league ends in a winner, and every
 entity that moves is drawn animation.**
 
 Last updated: 2026-08-14.
+
+> **Latest pass (M8), directed by the author after playing M7:**
+>
+> - **Bought halls arrive empty.** A hall used to come with a spawner and a trap in it, bundling two
+>   fittings the player never chose. Only the opening corridor is furnished now — an entirely bare
+>   dungeon has no verb to press and earns the idle rate, so round one would be unplayable.
+> - **Spawning is a loan.** The 25 leaves the core while the monster lives and returns when the party
+>   kills it, so the player is only out of pocket for monsters still standing at the bell. It returns
+>   to the **purse only, never the score**, so the league's balance is untouched and only spending
+>   power changes. Shown as a `+25` rising off the corpse, not a particle burst — a burst there would
+>   stack on the death effect, and an unhandled effect kind falls through to the *door* visual.
+> - **The survivors get better.** Only the rivals' floor rises as the field shrinks; the ceiling stays
+>   at ninety per cent of a good raid in every round, so a good run stays unbeatable in the final
+>   exactly as in round one. The worst round a rival has climbs from 33 to 440.
+>
+> **And a real bug the soak found**, invisible to the dedicated containment test that passed 5694
+> assertions beside it: *"a Skeleton left room 1 for room 0"*. Monsters chase the nearest party
+> member, but the room check was on the party **leader** — a straggler across a threshold could be
+> the nearest body and pull a mob straight out of its room. That is the retreat valve failing at the
+> one moment it exists for. Bounded now at both the quarry choice and the landing cell, because
+> charging straight at a quarry skips the cell-by-cell path that was doing the only checking.
+>
+> **What the league actually asks**, measured because the soak only asserted a competition
+> *resolves*: the player needs **400 a round** to win and **never wins below 375**.
 
 > **Read D12 and D13 in `DECISIONS.md` first.** Two bugs were found overnight by exploratory sweeps,
 > both of which had shipped, and both of which broke a rule SPEC.md states outright. Neither was

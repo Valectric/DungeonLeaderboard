@@ -366,6 +366,13 @@ namespace Dungeon.RaidManager
             // Only the purse. EnergyHarvested is the score and spawning never docked it, so adding
             // the refund there would pay the player twice for one monster.
             TotalEnergy += SpawnCost;
+
+            // Shown as a number rising off the corpse, the exact mirror of the death penalty. NOT
+            // as a particle burst: a refund fires on the same tick and at the same spot as the
+            // monster's own death effect, so a second burst there is just noise on top of the one
+            // the player is already reading -- and every effect kind without its own case falls
+            // through to the DOOR visual and the door chime, which would tell them something opened.
+            Feed.Heal(mob.Position, SpawnCost);
             Effects.Raise(EffectKind.SpawnRefunded, mob.Position);
         }
 

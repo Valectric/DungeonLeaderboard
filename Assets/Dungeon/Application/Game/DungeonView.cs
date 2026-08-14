@@ -215,6 +215,15 @@ namespace Dungeon.Game
             // instant it is read and then lives as its own particle system.
             foreach (Effect effect in raid.Effects.Pending)
             {
+                // The refund is a NUMBER, not a burst -- Raid raises it through the combat feed at
+                // the corpse. It shares its tick and its position with the monster's death effect,
+                // so drawing it here would stack a second burst on the one already playing, and the
+                // fall-through below would make that burst a door.
+                if (effect.Kind == EffectKind.SpawnRefunded)
+                {
+                    continue;
+                }
+
                 Burst(effect.Kind switch
                 {
                     EffectKind.TrapFired => "VfxTrapFire",

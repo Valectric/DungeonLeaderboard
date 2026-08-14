@@ -165,6 +165,40 @@ an earlier refactor and silently did nothing.
 
 ---
 
+## M8 — The second redesign pass ▸ *done*
+
+Directed by the author after playing M7. Three asks and one bug found on the way.
+
+- **Bought halls arrive empty.** A hall used to come with a spawner and a trap already in it, which
+  bundled two fittings the player never chose and could not place, and made a room they had furnished
+  deliberately look identical to one the builder had stocked. Only the opening corridor is furnished
+  now — a dungeon with nothing in it has no verbs to press and earns nothing, so an unfurnished round
+  one would be a game over screen with extra steps. Click-to-place already existed and works on the
+  bare floor unchanged.
+- **Spawning is a loan, not a purchase.** The stake leaves the core while the monster lives and comes
+  back when the party kills it, so the player is only ever out of pocket for monsters still standing
+  when the clock stops. At a flat 25 the arithmetic argued against the design: a monster killed in
+  four seconds had to earn its price back before it was worth pressing, so the optimal play was to
+  hoard, in a game whose premise is a dungeon full of monsters the party is grinding through.
+- **The survivors get better.** The dungeons knocked out each round are the ones that earned least,
+  so a competition whose survivors keep rolling from the opening range gets *easier* as it goes. Only
+  the floor rises; the ceiling stays at ninety per cent of a good raid in every round, so the handicap
+  promise survives intact and a good run is unbeatable in the final exactly as in round one. Measured,
+  the worst round a rival has climbs from 33 to 440.
+
+**The bug**, found by the soak rather than by any unit test: *"a Skeleton left room 1 for room 0"*.
+Monsters chase the nearest party member, but the room check was on the party **leader** — so a
+straggler across a threshold could be the nearest body and the mob would charge straight out of its
+room after them. That is the retreat valve failing at the exact moment it is meant to work. Quarry
+selection is now bounded to the mob's own room, and the landing cell is checked as well, because
+charging straight at a quarry skips the cell-by-cell path that was the only thing checking.
+
+Also **measured what the league asks**, because the soak only asserted that a competition *resolves*
+and so could not tell a tuned league from a formality: the player needs **400 a round** to win and
+**never wins below 375**. It answers skill.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate
