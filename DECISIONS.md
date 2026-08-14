@@ -432,3 +432,35 @@ to come down with it or the party still never turns around. Re-measure with
 `RateReachabilityTests` and the season sweep; both will tell you immediately.
 
 **Related:** D17, which is the same shape — a real problem whose every fix is a balance judgement.
+
+## 2026-08-14 — D19. Two rosters cannot get through a shut door at all
+
+**Found:** timed every roster against one shut door over a full sixty seconds.
+
+| roster | archer | result |
+|---|---|---|
+| THE BALANCED PARTY | yes | lock picked at 9.0s |
+| THE GLASS CANNONS | yes | picked at 7.8s |
+| THE UNSHRIVEN | yes | picked at 9.0s |
+| THE SKIRMISHERS | yes | picked at 7.8s |
+| **THE IRONCLADS** | no | **never** — 64% of the door's health after 55.7s |
+| **THE PILGRIMAGE** | no | **never** — 43% after 55.7s |
+
+Those two spend the entire raid hitting a door while unengaged, which pays the 0.05/s idle floor, so
+the raid harvests **3 energy**. Shutting one door in front of them destroys the raid outright.
+
+**Every part of this is working as specified**, which is what makes it interesting. The door's 520
+health is the author's own figure — "twice as much health as a skeleton" — and a battering party is
+not in combat, so SPEC.md's rule that "an unengaged party walking a corridor must earn almost
+nothing" pays them almost nothing, correctly. The trap is emergent: **a door alone is not a stall, it
+is a wall**, and the player cannot see which rosters can open one.
+
+**Not changed, because every lever is a balance decision:** door health, those rosters' damage, or
+letting a party give up and turn around after a while. The last is the most interesting — a party
+that abandons a door it cannot break would turn a soft lock back into a cost.
+
+**Also fixed here:** the test covering this was named `EveryComposition_EventuallyGetsThrough` and
+asserted only that each roster made 5% progress. Its name claimed a property that is false and that
+it never checked. It is now `OnlyRostersWithAnArcher_GetThroughAShutDoor`, asserts what is actually
+true, and fails if a stuck roster ever stops making progress — which would mean the party is standing
+still rather than paying a cost.

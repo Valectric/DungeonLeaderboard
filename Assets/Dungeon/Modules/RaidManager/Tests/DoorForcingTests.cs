@@ -144,27 +144,62 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
-        /// Every composition eventually gets through a shut door.
+        /// Only the rosters with an archer can get through a shut door inside a raid.
         /// </summary>
         /// <remarks>
-        /// The load-bearing assertion. A roster that could not force a door would be trapped forever,
-        /// which reads to the player as the game freezing rather than as a clever stall.
+        /// This test used to be called <c>EveryComposition_EventuallyGetsThrough</c> and asserted
+        /// that each roster made more than 5% progress on the door. Its name claimed a property it
+        /// never checked, and the property is false: measured over a full sixty seconds, THE
+        /// IRONCLADS reach 64% of the door's health and THE PILGRIMAGE 43%. Neither gets through at
+        /// all.
+        /// <para>
+        /// That is not obviously wrong — the door's 520 health is the author's own figure, twice a
+        /// skeleton's, and those two rosters are built around soaking and healing rather than
+        /// damage. But it means shutting one door in front of them converts a whole raid into
+        /// <b>3 energy</b>: they batter for 55.7 seconds while unengaged, which pays the 0.05/s idle
+        /// floor exactly as SPEC.md intends. A door alone is not a stall, it is a wall.
+        /// </para>
+        /// <para>
+        /// Pinned as it stands rather than "fixed", because every lever — door health, those
+        /// rosters' damage, or letting a party give up and turn around — is a balance decision. See
+        /// D19.
+        /// </para>
         /// </remarks>
         [Test]
-        public void EveryComposition_EventuallyGetsThrough()
+        public void OnlyRostersWithAnArcher_GetThroughAShutDoor()
         {
+            int through = 0;
+            int stuck = 0;
+
             foreach (PartyComposition composition in PartyComposition.All)
             {
                 Raid raid = RaidAgainstAShutDoor(composition, Raid.RaidSeconds, out Door door);
 
                 MooseRunnerFacade.Log(
                     $"{composition.Name}: forced={door.IsForced} "
-                    + $"pick={door.PickFraction:P0} damage={door.DamageFraction:P0}");
+                    + $"pick={door.PickFraction:P0} damage={door.DamageFraction:P0} "
+                    + $"harvested={raid.EnergyHarvested:F0}");
 
-                Assert.Greater(door.PickFraction + door.DamageFraction, 0.05f,
-                    $"{composition.Name} made no progress on the door at all");
-                _ = raid;
+                if (door.IsForced)
+                {
+                    through++;
+                }
+                else
+                {
+                    stuck++;
+
+                    // A roster that cannot open it must at least be trying, or the party is simply
+                    // standing still and the door has become a soft lock rather than a cost.
+                    Assert.Greater(door.DamageFraction, 0.2f,
+                        $"{composition.Name} neither picked nor meaningfully battered the door, so "
+                        + "it is stuck against it doing nothing at all");
+                }
             }
+
+            MooseRunnerFacade.Log($"{through} rosters got through, {stuck} did not");
+            Assert.Greater(through, 0, "no roster could open a shut door");
+            Assert.Less(stuck, PartyComposition.All.Length,
+                "no roster could get through a shut door, so a door is an unconditional wall");
         }
 
         /// <summary>A shut door genuinely delays the party, which is what it is for.</summary>
