@@ -249,6 +249,7 @@ namespace Dungeon.MobManager
                 // seconds beside THE GLASS CANNONS, reversed direction 46 times and dealt no damage
                 // at all -- the "wagging" a player reported, and the reason those rosters earned a
                 // ninth of the rest.
+                //
                 // Only members standing in the mob's OWN room are quarry. The room check above is on
                 // the party LEADER, so a straggler left behind in the previous room could be the
                 // nearest body -- and the mob would charge straight through the doorway after them,

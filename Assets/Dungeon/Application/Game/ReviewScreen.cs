@@ -55,9 +55,28 @@ namespace Dungeon.Game
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            stars.normal.textColor = review.Tint();
-            GUI.Label(new Rect(0f, top + (26f * scale), Screen.width, 60f * scale),
-                shown.StarBar(), stars);
+
+            // Five separate labels, all the SAME glyph, lit ones tinted and unlit ones dimmed.
+            //
+            // Drawn as one string it read as a rating that had lost its alignment: the filled star
+            // was an asterisk, which sits up at cap height, and the empty ones were full stops
+            // sitting on the baseline, so a one-star review showed a mark floating above a row of
+            // dots. No font choice fixes that -- the two characters are meant to sit at different
+            // heights. Using one glyph for both states makes the row level by construction, and
+            // avoids betting the payoff screen on whether a proper star character survives the
+            // WebGL font atlas.
+            float starWidth = 34f * scale;
+            float row = top + (26f * scale);
+            float first = (Screen.width * 0.5f) - (starWidth * 2.5f);
+            Color lit = review.Tint();
+            var unlit = new Color(lit.r, lit.g, lit.b, 0.22f);
+
+            for (int i = 0; i < 5; i++)
+            {
+                stars.normal.textColor = i < shown.Stars ? lit : unlit;
+                GUI.Label(
+                    new Rect(first + (i * starWidth), row, starWidth, 60f * scale), "*", stars);
+            }
 
             var headline = new GUIStyle(GUI.skin.label)
             {

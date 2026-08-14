@@ -60,6 +60,39 @@ namespace Dungeon.Game.Tests
             MooseRunnerFacade.Log($"captured {path}");
         }
 
+        /// <summary>
+        /// Photographs the whole screen, HUD included.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="Capture"/> renders the camera into a RenderTexture, which draws the dungeon and
+        /// <b>nothing else</b>. Every piece of this game's UI is IMGUI — the energy figure, the
+        /// pulsing rate, the clock, the standings strip, the shop — and IMGUI is drawn by the
+        /// player loop, not by <c>camera.Render()</c>. So every frame this project has ever
+        /// inspected has been a picture of the dungeon with the interface cropped out, while
+        /// CLAUDE.md said the Look tests "capture the HUD and the dungeon".
+        /// <para>
+        /// That is the project's own recurring failure in miniature: the check existed, was believed,
+        /// and was measuring something narrower than its name. <c>CaptureScreenshotAsTexture</c>
+        /// grabs the composited frame, so what lands on disk is what a player sees.
+        /// </para>
+        /// </remarks>
+        /// <param name="name">File name stem.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The awaitable capture.</returns>
+        private static async UniTask CaptureScreen(string name, CancellationToken ct)
+        {
+            // Must be after everything has drawn for the frame, or the grab races the UI.
+            await UniTask.WaitForEndOfFrame(ct);
+
+            Texture2D image = ScreenCapture.CaptureScreenshotAsTexture();
+            Directory.CreateDirectory(ShotDirectory);
+            string path = Path.Combine(ShotDirectory, $"{name}.png");
+            File.WriteAllBytes(path, image.EncodeToPNG());
+
+            MooseRunnerFacade.Log($"captured {path} ({image.width}x{image.height}, HUD included)");
+            Object.DestroyImmediate(image);
+        }
+
         /// <summary>Loads the real shipped scene. Nothing is built or wired by the test.</summary>
         [Test, Order(0)]
         public async UniTask Step0_LoadsTheShippedScene(CancellationToken ct)
@@ -96,6 +129,7 @@ namespace Dungeon.Game.Tests
             }
 
             Capture("01-raid-opening");
+            await CaptureScreen("01-raid-opening-hud", ct);
         }
 
         /// <summary>
@@ -117,6 +151,7 @@ namespace Dungeon.Game.Tests
             Assert.AreNotEqual(startCell, raid.Party.Cell, "an unopposed party must advance");
 
             Capture("02-party-advancing");
+            await CaptureScreen("02-party-advancing-hud", ct);
         }
 
         /// <summary>
@@ -151,6 +186,7 @@ namespace Dungeon.Game.Tests
                 "engaging the party must lift the rate far above idle");
 
             Capture("03-engaged");
+            await CaptureScreen("03-engaged-hud", ct);
         }
 
         /// <summary>The raid reaches an end state within its sixty seconds and stops earning.</summary>
@@ -168,6 +204,13 @@ namespace Dungeon.Game.Tests
             Assert.AreNotEqual(RaidOutcome.InProgress, raid.Outcome);
 
             Capture("04-raid-over");
+
+            // The stars land one at a time over about a second, and the photograph was racing them:
+            // measured off the PNG, all five came out at an identical (60,54,68), because none had
+            // landed yet. A picture of the payoff screen taken before the payoff happens cannot show
+            // whether the payoff works.
+            await UniTask.WaitForSeconds(1.6f, cancellationToken: ct);
+            await CaptureScreen("04-raid-over-hud", ct);
         }
     }
 }
