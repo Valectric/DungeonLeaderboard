@@ -180,48 +180,31 @@ namespace Dungeon.RaidManager.Tests
                 + "decided before they start.");
         }
 
-        /// <summary>
-        /// A party that never gets hurt is the one that earns least, which is the design working.
-        /// </summary>
-        /// <remarks>
-        /// The inverse check on the loop above, and the reason the spread is not simply a bug: the
-        /// whole game pays for wounded survivors, so a roster that ends a raid at three-quarters
-        /// health <i>should</i> be a poor customer. Asserting the correlation makes the tankless
-        /// problem legible as a consequence of the design rather than an unexplained number.
-        /// </remarks>
-        [Test]
-        public void TheLeastWoundedRoster_IsTheWorstPaying()
-        {
-            float leastWoundedDepth = 0f;
-            float leastWoundedRate = 0f;
-            float mostWoundedDepth = 1f;
-            float mostWoundedRate = 0f;
-
-            foreach (PartyComposition composition in PartyComposition.All)
-            {
-                Reach reach = Play(composition);
-
-                if (reach.DeepestWound > leastWoundedDepth)
-                {
-                    leastWoundedDepth = reach.DeepestWound;
-                    leastWoundedRate = reach.PeakRate;
-                }
-
-                if (reach.DeepestWound < mostWoundedDepth)
-                {
-                    mostWoundedDepth = reach.DeepestWound;
-                    mostWoundedRate = reach.PeakRate;
-                }
-            }
-
-            MooseRunnerFacade.Log(
-                $"least wounded roster bottomed at {leastWoundedDepth:F2} health and peaked at "
-                + $"{leastWoundedRate:F1}/s; most wounded bottomed at {mostWoundedDepth:F2} and "
-                + $"peaked at {mostWoundedRate:F1}/s");
-
-            Assert.Greater(mostWoundedRate, leastWoundedRate,
-                "the roster that was hurt worst did not earn most, which inverts the wound curve "
-                + "the whole game is built on");
-        }
+        // REMOVED BY DECISION, 2026-08-14: TheLeastWoundedRoster_IsTheWorstPaying.
+        //
+        // It ranked the six rosters by their deepest wound and asserted the most wounded earned
+        // most. That worked while rosters differed in how badly they were hurt -- the old figures
+        // ran from 0.76 down to 0.03.
+        //
+        // With the author's positioning rules in, they no longer differ. Measured, the LEAST
+        // wounded roster bottoms out at 5% health and the most wounded at 0%. The independent
+        // variable stopped varying, so ranking by it is noise: the test was comparing two nearly
+        // dead parties and reporting whichever happened to peak higher for unrelated reasons
+        // (crowd size, engagement share). It passed or failed by luck.
+        //
+        // The author chose to accept the flatter correlation rather than rewrite SPEC's curve, so
+        // this is deleted rather than narrowed. A test whose variable does not vary cannot be
+        // rescued by loosening its threshold -- that would only hide the fact that it measures
+        // nothing, which is the exact failure this project has shipped four times.
+        //
+        // What still guards the wound curve, and genuinely does:
+        //   WoundMultiplier_* (six tests)          the curve's shape, directly
+        //   TheSteepEndOfTheCurve_IsReachable      that the steep end is reached in play
+        //   SimulatedRaid_StallingWoundedParty_*   at a 250x threshold proven to fail on a flat
+        //                                          curve, so the wound term is what carries it
+        //
+        // OUTSTANDING: the league's rival earnings are downstream of measured harvest (D13) and
+        // have not been retuned for the flatter correlation. That is the other half of this
+        // decision and it is not done.
     }
 }
