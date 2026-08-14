@@ -1,7 +1,7 @@
 # Handover
 
-**State: M1–M4 built, tested and published. The whole loop runs: standings, a raid, the adventurers'
-review, standings, a thirty-second shop, the next raid.**
+**State: M1–M5 built, tested and published. The whole loop runs: standings, a raid, the adventurers'
+review, standings, a thirty-second spatial shop, the next raid.**
 
 Last updated: 2026-08-14.
 
@@ -19,6 +19,35 @@ Last updated: 2026-08-14.
 > Both are balance-adjacent and both are yours to re-tune. The tests pin the *ordering*, not the
 > numbers.
 
+> **Since then (D14–D16), three more that had shipped:**
+>
+> - **The game was completely silent.** Every sound synthesised correctly and played into a scene
+>   with no `AudioListener` in it — the play scene is generated, and a code-built camera does not
+>   bring one. Six green audio tests could not see it; the mandatory console sweep after a *passing*
+>   run did.
+> - **Combat was invisible.** Two health bars changed length while every sprite stood perfectly
+>   still. Sprites now walk, face where they are going, and attack in a shape particular to their
+>   role.
+> - **The shop sold *what* and never *where*.** It is spatial now: buy onto the dungeon you are
+>   looking at. This is the author's design, and it earns its keep — aiming purchases harvests 397
+>   against 242 for scattering them.
+>
+> The shop rework surfaced two layout bugs no model test could see: a tile menu opened low on screen
+> put its bottom row over the **Ready** button, which is hit-tested first, so buying the last item
+> started the raid instead; and the itch embed's 0.4 UI scale made menu rows **twelve pixels tall**,
+> drawn correctly and impossible to hit.
+
+---
+
+## Open question for the author
+
+**Does the game take input on the itch.io page?** Automated clicks never reached it there and a key
+press scrolled the itch page instead — but the identical build takes the first click in a same-size
+local iframe and standalone, so this is most likely the automation failing to reach itch's
+cross-origin frame. A canvas-focus hardening patch was tried and **measured to make it worse** (it
+ate the first click in the case that already worked), so it was reverted rather than shipped on
+speculation. Open the page, click once on the standings, and see whether the raid starts.
+
 ---
 
 ## Read these first, in this order
@@ -28,7 +57,7 @@ Last updated: 2026-08-14.
    the sister project, and the sprite-generation section now carries four more that were paid for
    here.
 3. **`PLAN.md`** — milestone order.
-4. **`DECISIONS.md`** — D1–D13. Read before reversing anything.
+4. **`DECISIONS.md`** — D1–D16. Read before reversing anything.
 
 ---
 

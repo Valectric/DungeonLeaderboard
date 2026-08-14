@@ -96,6 +96,26 @@ Shipped as built:
 
 ---
 
+## M5 — The rework pass ▸ *done*
+
+Not in the original plan; added after the author played M4 and asked for two things.
+
+- **The shop became spatial.** The six-card grid is gone. During the thirty seconds the player looks
+  at the dungeon the next party will walk into and buys onto it: a marker past the last hall extends
+  the corridor, and tapping any empty tile opens a menu of the five things that can stand there.
+  Buildable tiles are marked, because the rule is not guessable from the picture. See D16.
+- **Everything animates.** Walking gained squash on the footfall and sprites face the way they are
+  going; each role attacks in its own shape — a tank lunges, an archer recoils from its own shot, a
+  mage rises to cast, a skeleton hits heavier than any of them. Procedural rather than drawn, and
+  the reasoning for that is D14.
+- **The game gained an ear.** It had been shipping completely silent. See D15.
+
+Measured after the rework: aiming six purchases where the party arrives harvests **397** against
+**242** for dumping them in a room the party may never reach, so placement is a decision rather than
+a chore. Seasons finish 10th–14th instead of 13th flat.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate
