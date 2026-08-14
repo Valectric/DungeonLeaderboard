@@ -387,3 +387,48 @@ Option 2 is the smallest change that keeps the player's verbs live.
 **Pinned by:** `RateReachabilityTests` — the steep end stays reachable, no roster falls below an
 empty corridor, and the spread may not exceed 14x. It pins the measured 9.3x rather than a target,
 so it catches the gap widening without pretending 9.3x was chosen.
+
+## 2026-08-14 — D18. The retreat valve never fires before a death (fix attempted, measured, reverted)
+
+**Found:** across every roster, the party **never retreats before losing a member**. Traced at the
+moment of each first death:
+
+| roster | pooled health | worst survivor | retreated first? |
+|---|---|---|---|
+| THE BALANCED PARTY | 0.48 | 0.07 | no |
+| THE IRONCLADS | 0.55 | 0.04 | no |
+| THE PILGRIMAGE | 0.41 | 0.07 | no |
+| THE UNSHRIVEN | 0.54 | 0.02 | no |
+
+`Party.ChooseGoal` reads `HealthFraction` — the **pool** — against `RetreatThreshold` 0.28. Three
+healthy members mask one at 0.02, so the pool never approaches the threshold and the party fights on
+until somebody dies. CLAUDE.md calls this valve load-bearing: *"open a door behind a losing party and
+let them retreat and heal… the central regret."* It cannot fire until after the death it exists to
+prevent.
+
+D12 made exactly this correction for the energy curve, which now reads `WoundFraction` (the worst
+survivor). The AI was left on the pool.
+
+**The obvious fix was tried and is much worse than the bug.** Switching `ChooseGoal` to
+`WoundFraction`, plus a clause letting a healer-less party stop retreating once safe:
+
+- the valve fired correctly — every roster that took damage retreated before any death;
+- and **the economy collapsed**. Peak rate fell from 25.8–37.8/s to **4.1–9.4/s** across the board,
+  engagement from 44–74% down to 10–12%, because one member is below 28% almost all the time, so the
+  party spends the raid running instead of fighting. Two rosters that previously kept a survivor
+  wiped instead.
+
+Caught by `RateReachabilityTests.TheSteepEndOfTheCurve_IsReachable`, added hours earlier for this
+exact class of failure. Reverted.
+
+**Why it is not fixed:** the two thresholds were tuned against pooled semantics, and swapping the
+measure without retuning them is what produced the collapse. Retuning them is a balance decision the
+author owns, and one guess already made the game strictly worse by every measure.
+
+**The lever, if you want it:** keep `WoundFraction` in `ChooseGoal` but drop `RetreatThreshold` far
+lower — the pool sat at 0.41–0.55 while the dying member was at 0.02–0.07, so something near **0.12**
+would fire only when a death is genuinely imminent rather than continuously. `RecoverThreshold` needs
+to come down with it or the party still never turns around. Re-measure with
+`RateReachabilityTests` and the season sweep; both will tell you immediately.
+
+**Related:** D17, which is the same shape — a real problem whose every fix is a balance judgement.
