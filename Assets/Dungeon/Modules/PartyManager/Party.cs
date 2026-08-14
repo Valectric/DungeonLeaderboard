@@ -78,6 +78,18 @@ namespace Dungeon.PartyManager
         /// </remarks>
         public const float WalkSpeed = 0.9f;
 
+        /// <summary>
+        /// How fast the party is currently moving, as a fraction of its normal pace.
+        /// </summary>
+        /// <remarks>
+        /// One for a fresh party; less for one that has been grinding. The author asked for a party
+        /// in a long fight to visibly tire — <i>"it's not much, like eighty percent of normal speed,
+        /// but you'll see the speed up after a while"</i> — which is the same idea as the rate decay
+        /// expressed in movement instead of money, and the better half of it: the player <b>sees</b>
+        /// the boredom being priced rather than only watching a number shrink.
+        /// </remarks>
+        public float Pace { get; private set; } = 1f;
+
         /// <summary>Seconds between the healer's casts.</summary>
         public const float HealInterval = 2.2f;
 
@@ -215,6 +227,17 @@ namespace Dungeon.PartyManager
         public Vector2Int? JustLooted { get; private set; }
 
         /// <summary>
+        /// Whether the party stepped into a room it had not seen this raid, this tick.
+        /// </summary>
+        /// <remarks>
+        /// True for the single tick of arrival. New <b>this raid</b> rather than new ever: purchases
+        /// are permanent for a season and the party explores toward the nearest unseen room, so
+        /// "new ever" would pay nothing from the third round onward, while the author's intent is
+        /// plainly to reward traversal every raid.
+        /// </remarks>
+        public bool JustEnteredNewRoom { get; private set; }
+
+        /// <summary>
         /// Aggregate health of the living party, 1 down to 0.
         /// </summary>
         /// <remarks>
@@ -340,10 +363,16 @@ namespace Dungeon.PartyManager
             float deltaTime,
             IReadOnlyList<Vector2> threats,
             IReadOnlyCollection<Vector2Int> traps,
-            IReadOnlyCollection<Vector2Int> chests = null)
+            IReadOnlyCollection<Vector2Int> chests = null,
+            float paceMultiplier = 1f)
         {
+            // A tired party moves at a fraction of its pace. Passed in rather than computed here
+            // because the fight timer that decides it lives with the rate modifiers, and the party
+            // has no business knowing how long it has been earning less.
+            Pace = Mathf.Clamp(paceMultiplier, 0.1f, 1f);
             _chests = chests ?? System.Array.Empty<Vector2Int>();
             JustLooted = null;
+            JustEnteredNewRoom = false;
 
             if (Goal is PartyGoal.Escaped or PartyGoal.Wiped)
             {
@@ -716,7 +745,7 @@ namespace Dungeon.PartyManager
             Adventurer member, Vector2 desired, float deltaTime, float speed = 1f)
         {
             member.Position = Vector2.MoveTowards(
-                member.Position, desired, WalkSpeed * speed * deltaTime);
+                member.Position, desired, WalkSpeed * speed * Pace * deltaTime);
         }
 
         /// <summary>Moves an adventurer one step along a path toward a cell.</summary>
@@ -1112,7 +1141,9 @@ namespace Dungeon.PartyManager
             int room = _grid.RoomAt(leader.Cell);
             if (room != DungeonGrid.NoRoom)
             {
-                _visited.Add(room);
+                // Add returns false when the room was already known, which makes this the exact
+                // moment the party reaches somewhere new -- what the author's room bonus pays for.
+                JustEnteredNewRoom = _visited.Add(room);
             }
 
             HasExploredEverything = _visited.Count >= _roomCentres.Count;
