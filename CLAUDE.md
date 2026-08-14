@@ -116,6 +116,14 @@ These cost real time there. They are properties of the toolchain, not of that ga
   Unity process CPU affinity to ~4 cores so child compilers inherit it —
   `(Get-Process -Id <pid>).ProcessorAffinity = [IntPtr]0xF` — then restore it. This happens often
   enough to do pre-emptively before a build.
+- **Restoring that affinity is not optional, and forgetting it looks exactly like a code regression.**
+  A Unity left pinned to 4 of 24 cores took `PerformanceSweepTests.TheFrameLoop_KeepsItsBudget` from
+  a mean frame time of **2.5 ms to 370–500 ms** against a 100 ms budget — a red test, reproducible,
+  and still red with the machine otherwise idle, so it survives the usual "it was contention" check.
+  The tell is that the *simulation* cost is unchanged (310 µs/tick before and after) while the
+  *frame* time explodes: the sim is not slower, the editor simply has fewer cores to run it on.
+  Restore with the full mask, not `0xFF` — this machine has 24 cores:
+  `Get-Process Unity | %{ $_.ProcessorAffinity = [IntPtr]([int64][Math]::Pow(2,[Environment]::ProcessorCount)-1) }`
 
 ## Verification doctrine
 

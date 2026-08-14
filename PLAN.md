@@ -199,6 +199,54 @@ and so could not tell a tuned league from a formality: the player needs **400 a 
 
 ---
 
+## M9 — Walls, aggro, and paying for variety ▸ *planned, not started*
+
+Directed by the author after playing M8: more variation in the rate, a real aggro rule, solid walls,
+and a push toward Unity idiom (prefabs, built-in pathfinding).
+
+**The full plan is `M9-PLAN.md`** — nine phases, the cuts, the open questions, and the one change
+most likely to break the shipped game. It was produced by five independent reviewers, each stress
+-tested by an adversarial critic (every one came back `needs-changes`, 4–7 broken constraints each)
+and then synthesised. Read that file before starting any of it; what follows is only the shape.
+
+**Phases, in a forced order.** Three of the four asks terminate in the same seven lines
+(`Raid.AccrueEnergy`, `Raid.ResolveCombat`), so tuning the rate against a resolver that still fires
+through walls tunes it against the wrong game.
+
+| # | Phase | Why it is here |
+|---|---|---|
+| 0 | Measure the walls *(done, `a124c5d`)* | 11.7% of samples inside a wall, 13.7% of shots through one |
+| 1 | Truth up the instruments | five `EnergyCurveTests` assert a curve the game no longer runs |
+| 2 | Shots stop at walls | never fire the illegal shot, rather than drawing it and stopping it |
+| 3 | Bodies stay out of walls | **the dangerous one — see below** |
+| 4 | Aggro the game actually runs | there is no aggro system; the tank is hit because it walks in front |
+| 5 | The rate variation | the author's five modifiers |
+| 6 | Make the modifiers visible | a bonus the player cannot see is a bonus they cannot learn |
+| 7 | Re-measure once, then ship | league constants stay frozen until here |
+| 8 | View prefabs *(optional)* | the safe half of the architecture ask |
+
+**Two standing rules for the milestone**, both already paid for once:
+
+- **A wave of red is evidence about the change, not a list of chores** (D23).
+- **The league constants are frozen until Phase 7** (D13): four phases move harvest, and re-tuning
+  per phase means chasing four different games.
+
+**The one most likely to break the game is Phase 3**, and not because it is hard. Clamping movement
+turns "walks through the wall" into "presses against the wall and stops" — and a party that never
+moves scores a **perfect zero** on every violation counter the fix is judged by. This project has
+shipped that exact shape three times with a green suite (D11, D19, D21). The mitigation is a
+liveness probe paired with the violation counter — assert *progress*, not position — and then
+photograph a raid.
+
+**What was cut, and the argument that settled the biggest one.** Unity NavMesh is out on four
+independent grounds, but the one that ends the discussion is this: a `NavMeshAgent` would path
+*correctly* through an open door, which is exactly what the retreat valve forbids — so the room
+bound would have to be reimplemented on top of it, leaving strictly more code enforcing the same
+rule twice. The grid it would replace is ~70 lines over 133–217 cells. Prefabs and Unity systems go
+in the **view**; the simulation stays plain C#, fixed-step, seeded and scene-free.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate

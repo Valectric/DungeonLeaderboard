@@ -689,3 +689,71 @@ Bounded in two places, because one is not enough:
 `NoMonster_EverLeavesItsRoom` passed 5694 assertions beside this bug the whole time. It ticks a raid
 where the party moves as a group, so it never produced the straggler that triggers it. The new test
 constructs the case directly.
+
+---
+
+## 2026-08-14 — D27. The simulation stays plain C#. Prefabs and Unity systems go in the view.
+
+The author, after playing M8: *"we need to rethink how the structure of the game is designed so that
+we have enemies and the players as prefabs, and the shots fired as prefabs… Keep it more inside the
+Unity systems. Right now it sounds like we have a lot of things handcrafted ourselves instead of
+relying on the pathfinding which is offered inside Unity."*
+
+Half of that is right and is now Phase 8 of M9. The pathfinding half is refused, and this records
+why, because it will be asked again.
+
+**Unity has no 2D navmesh.** `com.unity.ai.navigation` is not in the manifest; only the 3D, XZ-plane
+`com.unity.modules.ai`. So the ask is not "switch on the thing Unity offers", it is "add
+NavMeshPlus or the A* Pathfinding Project".
+
+Four independent disqualifiers, any one sufficient:
+
+1. **288 headless tests** tick `new Raid(layout).Tick(0.02f)` with no scene. A `NavMeshAgent` needs
+   Play Mode and Unity's own update order, and cannot be stepped at a fixed dt.
+2. **The dungeon is rebuilt per raid and after every shop purchase**, against a 250 ms budget. A
+   runtime re-bake is a main-thread stall on single-threaded WebGL, and every door toggle — the
+   cheapest and most spammable verb — would need obstacle carving.
+3. **Agent avoidance is not reproducible from a seed**, and seeded reproduction is a CLAUDE.md hard
+   constraint, pinned by `SoakTests.ASoakSeason_ReplaysFromItsSeed`.
+4. **Zero physics symbols exist anywhere under `Assets/Dungeon`.** This is not a broken integration
+   to repair, it is a first integration, and every line of it is new risk against the property that
+   makes headless testing and seeded replay possible.
+
+**And the argument that actually settles it:** a `NavMeshAgent` would path *correctly* through an
+open door. That is precisely what the retreat valve forbids — mobs must not pursue past a threshold,
+which CLAUDE.md calls load-bearing rather than polish. So the room bound would have to be
+reimplemented on top of the navmesh anyway, leaving strictly more code enforcing the same rule
+twice. The grid it would replace is about seventy lines over 133–217 cells.
+
+**The line, for future readers:** prefabs and Unity systems for the **view** — sprites, particles,
+child structure, shots as prefabs. The **simulation** stays plain C#, fixed-step, seeded and
+scene-free. Amends D4 rather than reopening it.
+
+Both wall bugs the author reported are, on inspection, *missing checks* in code that already holds
+the grid one call away — `Party.Glide` is an unchecked `Vector2.MoveTowards`, and ranged targeting
+has neither a range limit nor a sight test. Neither is evidence that the hand-rolled simulation is
+wrong. Replacing it would have fixed them incidentally, at the cost of determinism, seeded replay,
+and the entire test suite.
+
+---
+
+## 2026-08-14 — D28. A pinned CPU affinity fails the perf test and looks like a code regression
+
+Operational, and it cost real time today, so it is written down rather than remembered.
+
+CLAUDE.md prescribes limiting Unity's CPU affinity to ~4 cores before a WebGL build, because the
+build otherwise exhausts Windows commit memory. It says to restore it afterwards. It did not say
+what forgetting looks like.
+
+Forgetting looks like a **code regression**. `PerformanceSweepTests.TheFrameLoop_KeepsItsBudget`
+went from a mean frame time of **2.5 ms to 370–500 ms** against a 100 ms budget — red, reproducible,
+and still red with the machine otherwise idle, so it survives the usual "it was contention" check
+that this project has learned to apply to perf numbers.
+
+The tell is the pair of numbers, not either one alone: the **simulation** cost was unchanged at
+~310 µs/tick across the whole episode while the **frame** time exploded. The sim was not slower;
+the editor simply had four cores instead of twenty-four to run it on. Restoring the full mask took
+the mean to 42.3 ms and the suite to green with no code change at all.
+
+Restore with a computed mask, not a literal — `0xF` is right for the build and `0xFF` is wrong for
+the restore on a 24-core machine.
