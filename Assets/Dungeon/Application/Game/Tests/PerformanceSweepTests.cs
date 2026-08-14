@@ -178,5 +178,127 @@ namespace Dungeon.Game.Tests
 
             Assert.Less(mean, 0.1, "the mean frame time is over 100 ms, which is 10 fps");
         }
+
+        /// <summary>
+        /// Shopping does not leave the scene fuller than it found it.
+        /// </summary>
+        /// <remarks>
+        /// The spatial shop rebuilds the entire dungeon view after every purchase — tiles, props,
+        /// sprites, and one marker per buildable cell — so a busy thirty seconds can trigger dozens
+        /// of rebuilds. Unity's <c>Destroy</c> is deferred to the end of the frame, which is fine for
+        /// one rebuild and would be a steady leak if the old objects were ever forgotten. On a WebGL
+        /// heap that ends as a crash rather than as slowness.
+        /// <para>
+        /// Asserts the count is bounded rather than pinning a number, because the right number is a
+        /// property of the dungeon and changes whenever a room gains furniture.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public async UniTask ShoppingRepeatedly_DoesNotLeakObjects(CancellationToken ct)
+        {
+            DoNotDestroyOnTeardown.CleanSceneImmediate();
+            await MooseRunnerFacade.InstanceQuiet.LoadSceneFromNameAsync("Raid");
+            var game = new GameObject("game").AddComponent<GameController>();
+            await UniTask.Yield(ct);
+
+            game.OpenShopWith(9000f);
+            await UniTask.Yield(ct);
+            int afterFirst = game.transform.childCount;
+
+            // Twenty purchases, one per frame, exactly as a fast player would make them.
+            for (int i = 0; i < 20; i++)
+            {
+                Vector2Int cell = FirstBuildable(game);
+                if (cell.x < 0)
+                {
+                    break;
+                }
+
+                Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+                game.TapShop(new Vector2(screen.x, screen.y));
+
+                Rect[] rows = ShopScreen.PopupRows(
+                    new Vector2(screen.x, Screen.height - screen.y),
+                    Screen.height / 720f, Screen.width, Screen.height);
+                game.TapShop(new Vector2(rows[0].center.x, Screen.height - rows[0].center.y));
+                await UniTask.Yield(ct);
+            }
+
+            await UniTask.Yield(ct);
+            int afterTwenty = game.transform.childCount;
+
+            MooseRunnerFacade.Log(
+                $"scene held {afterFirst} objects after one build, {afterTwenty} after twenty "
+                + $"purchases, loadout {game.Loadout.Total}");
+
+            Assert.Greater(game.Loadout.Total, 10, "the test needs to have actually bought things");
+            Assert.Less(afterTwenty, afterFirst * 2,
+                $"twenty purchases grew the scene from {afterFirst} to {afterTwenty} objects, "
+                + "so each rebuild is leaving the last one behind");
+        }
+
+        /// <summary>
+        /// Rebuilding the shop preview is fast enough to happen on every purchase.
+        /// </summary>
+        /// <remarks>
+        /// A purchase that hitches is worse than one that is slow to appear: the shop has a
+        /// thirty-second clock, and a player who loses a fifth of a second per tap loses several
+        /// seconds of decision time to the renderer.
+        /// </remarks>
+        [Test]
+        public async UniTask BuyingSomething_RedrawsPromptly(CancellationToken ct)
+        {
+            DoNotDestroyOnTeardown.CleanSceneImmediate();
+            await MooseRunnerFacade.InstanceQuiet.LoadSceneFromNameAsync("Raid");
+            var game = new GameObject("game").AddComponent<GameController>();
+            await UniTask.Yield(ct);
+
+            game.OpenShopWith(9000f);
+            await UniTask.Yield(ct);
+
+            var clock = Stopwatch.StartNew();
+            const int purchases = 6;
+            int made = 0;
+            for (int i = 0; i < purchases; i++)
+            {
+                Vector2Int cell = FirstBuildable(game);
+                Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+                game.TapShop(new Vector2(screen.x, screen.y));
+
+                Rect[] rows = ShopScreen.PopupRows(
+                    new Vector2(screen.x, Screen.height - screen.y),
+                    Screen.height / 720f, Screen.width, Screen.height);
+                game.TapShop(new Vector2(rows[0].center.x, Screen.height - rows[0].center.y));
+                made++;
+            }
+
+            clock.Stop();
+            double each = clock.Elapsed.TotalMilliseconds / made;
+            MooseRunnerFacade.Log($"each purchase redraws the dungeon in {each:F0} ms");
+
+            Assert.Less(each, 250.0,
+                "a purchase takes a quarter second to appear, which eats the shop clock");
+        }
+
+        /// <summary>Finds the first tile the player could build on right now.</summary>
+        /// <param name="game">Controller whose preview dungeon to search.</param>
+        /// <returns>A buildable cell, or a negative cell when there is none.</returns>
+        private static Vector2Int FirstBuildable(GameController game)
+        {
+            DungeonManager.DungeonLayout layout = game.CurrentRaid.Layout;
+            for (int y = 0; y < layout.Grid.Height; y++)
+            {
+                for (int x = 0; x < layout.Grid.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (layout.CanBuildOn(cell))
+                    {
+                        return cell;
+                    }
+                }
+            }
+
+            return new Vector2Int(-1, -1);
+        }
     }
 }

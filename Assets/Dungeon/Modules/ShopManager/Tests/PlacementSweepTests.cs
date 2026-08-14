@@ -34,10 +34,12 @@ namespace Dungeon.ShopManager.Tests
         /// <param name="raid">Raid to run.</param>
         /// <param name="layout">Dungeon being raided.</param>
         /// <param name="what">What is being tested, for the failure message.</param>
+        /// <param name="aggressive">Whether to use every spawner rather than one at a time.</param>
         /// <returns>Seconds of simulated time the raid took.</returns>
-        private static float RunToEnd(Raid raid, DungeonLayout layout, string what)
+        private static float RunToEnd(
+            Raid raid, DungeonLayout layout, string what, bool aggressive = false)
         {
-            float seconds = ShopBot.Play(raid, layout);
+            float seconds = ShopBot.Play(raid, layout, aggressive);
             Assert.Greater(seconds, 0f, $"{what}: the raid never ended");
             return seconds;
         }
@@ -95,7 +97,7 @@ namespace Dungeon.ShopManager.Tests
                 + $"{layout.TrapCells.Count} traps, {layout.ChestCells.Count} chests");
 
             var raid = new Raid(layout, 0f, null, 99);
-            float seconds = RunToEnd(raid, layout, "a completely filled dungeon");
+            float seconds = RunToEnd(raid, layout, "a completely filled dungeon", aggressive: true);
             MooseRunnerFacade.Log($"filled dungeon ended {raid.Outcome} after {seconds:F1}s");
         }
 
@@ -127,7 +129,7 @@ namespace Dungeon.ShopManager.Tests
 
             DungeonLayout stacked = ShopBot.Build(loadout);
             var raid = new Raid(stacked, 0f, null, 7);
-            float seconds = RunToEnd(raid, stacked, "every spawner in the first room");
+            float seconds = RunToEnd(raid, stacked, "every spawner in the first room", aggressive: true);
 
             MooseRunnerFacade.Log(
                 $"{placed} spawners in room one: {raid.Outcome} after {seconds:F1}s, "
@@ -370,6 +372,103 @@ namespace Dungeon.ShopManager.Tests
             Assert.Greater(aimed, dumped,
                 "placing purchases where the party will meet them has to be worth more than "
                 + "dumping them where the party may never arrive, or aiming is a chore not a choice");
+        }
+
+        /// <summary>
+        /// No arrangement of purchases makes killing the party the best-paying dungeon.
+        /// </summary>
+        /// <remarks>
+        /// CLAUDE.md's one rule: <i>"if a change makes killing the party more attractive, it is
+        /// wrong however well it plays"</i>. There is already a test that this holds across rosters
+        /// and seeds — but it plays one fixed, unfurnished dungeon, and the shop rework handed the
+        /// player a lever that test cannot see. Cramming a dozen bone piles into the room the party
+        /// walks into is the most obvious thing a new player will try, and it is precisely the layout
+        /// most likely to invert the design.
+        /// <para>
+        /// Swept over densities rather than tested at one, because the interesting point is the
+        /// crossover: the dungeon strong enough to wipe them has to earn <b>less</b> than the one
+        /// that merely maims them, or the shop is teaching the opposite of the game.
+        /// </para>
+        /// <para>
+        /// <b>As it stands no density wipes them at all</b> — twelve skeletons at the door leave
+        /// three survivors and the clock runs out. So the inversion assertion below is currently
+        /// unfalsifiable, and a test that can only pass is not a test. It therefore also asserts the
+        /// property that <i>is</i> live: that stacking spawners pays, measured at 507 against 378 for
+        /// a single one. If a future change makes wipes reachable, the first assertion starts doing
+        /// the work it was written for.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void NoPlacement_MakesKillingThemPayBest()
+        {
+            float bestWipe = 0f;
+            float bestSurvival = 0f;
+            float sparsest = 0f;
+            float densest = 0f;
+            int wipes = 0;
+
+            int[] densities = { 1, 2, 4, 6, 9, 12 };
+            foreach (int density in densities)
+            {
+                var loadout = new Loadout();
+                DungeonLayout empty = ShopBot.Build(loadout);
+                int firstRoom = empty.Grid.RoomAt(empty.RoomCentres[0]);
+
+                int placed = 0;
+                foreach (Vector2Int cell in FreeCells(empty))
+                {
+                    if (empty.Grid.RoomAt(cell) == firstRoom && placed < density)
+                    {
+                        loadout.Add(ShopItem.Skeleton, cell);
+                        placed++;
+                    }
+                }
+
+                DungeonLayout layout = ShopBot.Build(loadout);
+                var raid = new Raid(layout, 0f, PartyComposition.Opening, 55);
+                RunToEnd(raid, layout, $"{density} spawners at the entrance", aggressive: true);
+
+                if (raid.Outcome == RaidOutcome.PartyWiped)
+                {
+                    wipes++;
+                    bestWipe = Mathf.Max(bestWipe, raid.EnergyHarvested);
+                }
+                else
+                {
+                    bestSurvival = Mathf.Max(bestSurvival, raid.EnergyHarvested);
+                }
+
+                if (density == densities[0])
+                {
+                    sparsest = raid.EnergyHarvested;
+                }
+
+                if (density == densities[densities.Length - 1])
+                {
+                    densest = raid.EnergyHarvested;
+                }
+
+                MooseRunnerFacade.Log(
+                    $"{placed} bone piles at the entrance: {raid.Outcome}, "
+                    + $"harvested {raid.EnergyHarvested:F0}, "
+                    + $"{raid.Party.LivingCount} survivors");
+            }
+
+            MooseRunnerFacade.Log(
+                $"across densities: {wipes} wipes, best wipe {bestWipe:F0}, "
+                + $"best survival {bestSurvival:F0}, "
+                + $"emptiest {sparsest:F0} vs densest {densest:F0}");
+
+            Assert.Greater(bestSurvival, bestWipe,
+                "some arrangement of purchases made wiping the party the best-paying dungeon, "
+                + "which inverts the one idea the game is built on");
+
+            // Stated as its own assertion because the one above passes vacuously while no placement
+            // manages a wipe -- which is the case today, at every density tried. A test whose
+            // headline claim is currently unfalsifiable has to carry a second claim that is not.
+            Assert.Greater(densest, sparsest,
+                $"a dozen bone piles at the entrance harvested {densest:F0} against {sparsest:F0} "
+                + "for a single one, so the shop is selling spawners that do not pay for themselves");
         }
 
         /// <summary>Runs one raid and reports what it harvested.</summary>

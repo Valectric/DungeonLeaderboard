@@ -113,8 +113,23 @@ namespace Dungeon.ShopManager.Tests
         /// </remarks>
         /// <param name="raid">Raid to play.</param>
         /// <param name="layout">Dungeon being raided.</param>
+        /// <param name="aggressive">
+        /// Whether to use every spawner in a room rather than keeping one monster alive at a time.
+        /// <para>
+        /// Off by default, and the default is load-bearing: D13's rival earnings were calibrated
+        /// against the conservative policy, so changing it silently re-tunes the whole league. Turn
+        /// it on for tests about what a player can do to themselves, not for tests about balance.
+        /// </para>
+        /// <para>
+        /// It exists because the conservative policy makes buying spawners look pointless: it only
+        /// spawns into an <i>empty</i> room, so twelve bone piles crammed into one room behave
+        /// exactly like one. Measured, densities of 1 and 12 harvested an identical 378 — the sweep
+        /// that was supposed to prove stacking cannot break the game was comparing a dungeon against
+        /// itself six times.
+        /// </para>
+        /// </param>
         /// <returns>Seconds of simulated time, or -1 if the raid never ended.</returns>
-        public static float Play(Raid raid, DungeonLayout layout)
+        public static float Play(Raid raid, DungeonLayout layout, bool aggressive = false)
         {
             int ticks = 0;
             while (raid.IsRunning && ticks++ < 5000)
@@ -122,7 +137,9 @@ namespace Dungeon.ShopManager.Tests
                 foreach (Vector2Int spawner in layout.SpawnerCells)
                 {
                     int room = layout.Grid.RoomAt(spawner);
-                    if (raid.Mobs.CountInRoom(room) == 0 && raid.TotalEnergy > Raid.SpawnCost * 2f)
+                    int allowed = aggressive ? SpawnersIn(layout, room) : 1;
+                    if (raid.Mobs.CountInRoom(room) < allowed &&
+                        raid.TotalEnergy > Raid.SpawnCost * 2f)
                     {
                         raid.SpawnMob(spawner);
                     }
@@ -145,6 +162,24 @@ namespace Dungeon.ShopManager.Tests
             }
 
             return ticks >= 5000 ? -1f : ticks * 0.02f;
+        }
+
+        /// <summary>How many spawners a room holds, which caps how hard it can be played.</summary>
+        /// <param name="layout">Dungeon to count in.</param>
+        /// <param name="room">Room index.</param>
+        /// <returns>The spawner count, at least one.</returns>
+        private static int SpawnersIn(DungeonLayout layout, int room)
+        {
+            int count = 0;
+            foreach (Vector2Int spawner in layout.SpawnerCells)
+            {
+                if (layout.Grid.RoomAt(spawner) == room)
+                {
+                    count++;
+                }
+            }
+
+            return Mathf.Max(1, count);
         }
 
         /// <summary>Finds the first tile the player could build on, scanning from the entrance.</summary>
