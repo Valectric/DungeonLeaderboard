@@ -49,6 +49,17 @@ namespace Dungeon.RaidManager
         /// </remarks>
         public const float DoorwayReach = 1.6f;
 
+        /// <summary>
+        /// How many cells of head start a tank gets when a monster picks who to walk at.
+        /// </summary>
+        /// <remarks>
+        /// A monster prefers the tank as though it were this much closer than it really is. Sized
+        /// just over a 5x5 room's half-width, so within one room the tank is chosen from anywhere
+        /// while a body genuinely on top of a monster can still hold its attention -- a preference
+        /// the geometry can overcome, not a leash.
+        /// </remarks>
+        public const float TankPull = 3f;
+
         /// <summary>Energy a spawn costs.</summary>
         public const float SpawnCost = 25f;
 
@@ -183,12 +194,15 @@ namespace Dungeon.RaidManager
             // chasing whoever leads. Flattened to plain vectors here because MobManager and
             // PartyManager are siblings that must never reference each other.
             _partyPositions.Clear();
+            _partyPull.Clear();
             foreach (PartyManager.Adventurer member in Party.Living)
             {
                 _partyPositions.Add(member.Position);
+                _partyPull.Add(
+                    member.Role == PartyManager.AdventurerRole.Tank ? TankPull : 0f);
             }
 
-            Mobs.Tick(deltaTime, _partyPositions);
+            Mobs.Tick(deltaTime, _partyPositions, _partyPull);
 
             // Flatten the mobs the party can see into bare coordinates. PartyManager and MobManager
             // are siblings that must never reference each other, so the raid is the only place that
@@ -568,7 +582,22 @@ namespace Dungeon.RaidManager
                 // Mobs hit whoever is nearest, and the tank leads -- so the tank is almost always
                 // who they hit. That falls out of the marching order rather than being a rule, and
                 // it is why a party with no tank suffers so badly.
+                // The tank is struck FIRST when it is one of the bodies in reach -- the author's B2.
+                //
+                // Until now nothing in the shipped game implemented aggro at all. Party
+                // .DistributeDamage carries a 60/40 tank split and has ZERO non-test callers; live
+                // combat came through here and simply hit whoever was nearest. The tank was usually
+                // hit because it walks at the front of the column, which the old comment admitted
+                // outright: "that falls out of the marching order rather than being a rule". So a
+                // tank that fell behind, or a squishy that wandered ahead, silently inverted the
+                // party's whole defensive shape.
+                //
+                // Preference, not a redirect: the mob still has to be able to REACH the tank. A rule
+                // that let it swing past an adjacent mage at a tank across the room would be a
+                // second way to produce D17's standoff, where a monster fixated on someone it could
+                // never touch and dealt no damage for forty-eight seconds.
                 PartyManager.Adventurer target = null;
+                bool targetIsTank = false;
                 float best = PartyManager.Party.MeleeReach;
                 foreach (PartyManager.Adventurer member in Party.Living)
                 {
@@ -582,10 +611,24 @@ namespace Dungeon.RaidManager
                     }
 
                     float distance = Vector2.Distance(member.Position, mob.Position);
-                    if (distance <= best)
+                    if (distance > PartyManager.Party.MeleeReach)
+                    {
+                        continue;
+                    }
+
+                    bool isTank = member.Role == PartyManager.AdventurerRole.Tank;
+
+                    // A tank in reach outranks anyone closer; among equals, the nearest wins.
+                    if (targetIsTank && !isTank)
+                    {
+                        continue;
+                    }
+
+                    if (target == null || (isTank && !targetIsTank) || distance <= best)
                     {
                         best = distance;
                         target = member;
+                        targetIsTank = isTank;
                     }
                 }
 
@@ -670,6 +713,14 @@ namespace Dungeon.RaidManager
 
         /// <summary>Scratch list of living member positions, reused so the tick allocates nothing.</summary>
         private readonly System.Collections.Generic.List<Vector2> _partyPositions = new();
+
+        /// <summary>How much more attractive each party member is than its distance suggests.</summary>
+        /// <remarks>
+        /// Runs in lockstep with <c>_partyPositions</c>. Only tanks carry a value; it is the whole
+        /// of the aggro system, and it lives here rather than in MobManager so that module never
+        /// learns what an adventurer role is.
+        /// </remarks>
+        private readonly System.Collections.Generic.List<float> _partyPull = new();
 
         /// <summary>Seconds of chest bonus still owed to the team.</summary>
         private float _chestBonusLeft;

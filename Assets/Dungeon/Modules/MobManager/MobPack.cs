@@ -212,7 +212,10 @@ namespace Dungeon.MobManager
         /// </summary>
         /// <param name="deltaTime">Seconds since the last tick.</param>
         /// <param name="partyPosition">Where the party's leader currently stands.</param>
-        public void Tick(float deltaTime, IReadOnlyList<Vector2> partyPositions)
+        public void Tick(
+            float deltaTime,
+            IReadOnlyList<Vector2> partyPositions,
+            IReadOnlyList<float> pull = null)
         {
             if (partyPositions == null || partyPositions.Count == 0)
             {
@@ -257,8 +260,10 @@ namespace Dungeon.MobManager
                 // "a Skeleton left room 1 for room 0".
                 Vector2 quarry = Vector2.zero;
                 float best = float.MaxValue;
-                foreach (Vector2 candidate in partyPositions)
+                float bestScore = float.MaxValue;
+                for (int i = 0; i < partyPositions.Count; i++)
                 {
+                    Vector2 candidate = partyPositions[i];
                     var candidateCell = new Vector2Int(
                         Mathf.RoundToInt(candidate.x), Mathf.RoundToInt(candidate.y));
                     if (_grid.RoomAt(candidateCell) != mob.HomeRoom)
@@ -267,14 +272,27 @@ namespace Dungeon.MobManager
                     }
 
                     float distance = Vector2.Distance(mob.Position, candidate);
-                    if (distance < best)
+
+                    // `pull` makes some bodies more attractive than their distance alone -- it is
+                    // how a tank draws aggro without this module ever learning what a role is. The
+                    // caller owns the meaning; MobManager and PartyManager stay strangers, which is
+                    // the One-Flow rule.
+                    //
+                    // A score rather than a hard override, deliberately. A binary "always the tank"
+                    // rule flips target the instant the tank moves a fraction further away, and that
+                    // oscillation is exactly what produced D17's wagging skeleton -- forty-eight
+                    // seconds beside a party, forty-six direction reversals, no damage dealt.
+                    float score = distance - (pull != null && i < pull.Count ? pull[i] : 0f);
+
+                    if (score < bestScore)
                     {
+                        bestScore = score;
                         best = distance;
                         quarry = candidate;
                     }
                 }
 
-                if (best == float.MaxValue)
+                if (bestScore == float.MaxValue)
                 {
                     continue;
                 }
