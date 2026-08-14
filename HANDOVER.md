@@ -1,7 +1,7 @@
 # Handover
 
-**State: M1–M5 built, tested and published. The whole loop runs: standings, a raid, the adventurers'
-review, standings, a thirty-second spatial shop, the next raid.**
+**State: M1–M6 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
+standings, a thirty-second spatial shop, the next raid — and the league now ends in a winner.**
 
 Last updated: 2026-08-14.
 
@@ -39,14 +39,72 @@ Last updated: 2026-08-14.
 
 ---
 
+## What changed in the 2026-08-14 session, and why it matters
+
+The author played the build and directed a redesign. Six things landed; two are still on their desk.
+
+**The energy curve is per person, per action** (D-notes in `EnergyCurve`). It used to ask one
+yes-or-no question of the whole party — is it in combat? — and multiply by its worst survivor. That
+made *being wounded* the only thing that paid, and everything else followed from it. Now every living
+member earns for what it is doing (walking lowest, then fleeing, working, shooting, melee highest)
+times its own health. A corpse earns nothing and costs **50 points**.
+
+| | before | after |
+|---|---|---|
+| central invariant (wipe vs survival) | 161 vs 169 | **4 vs 214** |
+| roster spread | 9.3x | **2.9x** |
+| the two tankless rosters | 4.1/s | **8.4/s** |
+
+**Two changes the author asked for had to wait for that curve.** Faster archers and weaker monsters
+both *inverted the game* under the old one, because anything keeping the party healthier made killing
+it relatively more attractive. Archers are live now (4 vs 190). The monster nerf measures fine too
+(14 vs 231) but is parked behind seven tests that encode the current fight length.
+
+**The standoff is gone.** A player reported a skeleton "wagging back and forth" beside the glass
+cannons without landing a blow. Reproduced exactly: every fragile role runs at anything within 1.7
+cells, melee reach is 1.15, so the distance settled at 1.71 and neither side could touch the other —
+48 seconds, 46 reversals, no damage either way. Monsters chase the *nearest* member now and close
+straight in. That was the root cause of the 4.1/s rosters.
+
+**The league is an elimination.** Everyone starts on zero, the bottom dungeon leaves each round and is
+not replaced, and the last one standing wins — the game's first winning ending. Rivals roll between a
+bad run and a good one then lose a tenth, so their ceiling is 450 against a good run's 500: *a
+genuinely good raid cannot be beaten by luck*.
+
+**The dungeon is a lattice.** Rooms grow in any of four directions from any room that is not boxed
+in; the shop offers eight places to build on a three-room corridor. Growing left or down re-anchors
+the grid, so purchases are translated to stay in their rooms.
+
+**The party explores.** It heads for the nearest room it has not seen and leaves by the way it came
+in once it has seen them all. That is what makes chests and monsters steer anything.
+
+### Three tests were found cementing bugs by asserting their symptoms
+
+Worth internalising, because it happened three times in one session:
+
+- `EveryComposition_EventuallyGetsThrough` asserted 5% progress on a door while its name promised
+  everyone got through — two rosters never do.
+- `TheLeader_RoutesAroundArmedTraps` never checked whether the trap was **armed**.
+- `ClosingDoor_StallsTheParty` and `Clock_ExpiresAfterSixtySeconds` both passed *because of* a freeze:
+  once the party forced its own door open, the next door was not on its room's threshold, no path to
+  the boss existed, and it **stood still for the rest of the raid**. See D21.
+
+---
+
 ## Open question for the author
 
-**Does the game take input on the itch.io page?** Automated clicks never reached it there and a key
-press scrolled the itch page instead — but the identical build takes the first click in a same-size
-local iframe and standalone, so this is most likely the automation failing to reach itch's
-cross-origin frame. A canvas-focus hardening patch was tried and **measured to make it worse** (it
-ate the first click in the case that already worked), so it was reverted rather than shipped on
-speculation. Open the page, click once on the standings, and see whether the raid starts.
+**Answered: input works on itch.** The author confirmed a single click starts the raid. The earlier
+suspicion was automation failing to reach itch's cross-origin frame, not a defect — and the
+speculative canvas-focus patch was correctly reverted, since it *ate the first click* in the case
+that already worked.
+
+**Still open, both balance judgements (D20):**
+
+1. **Round one is sudden death.** Everyone starts on zero, so one weak opening raid puts the player
+   last and out with no banked score to absorb it. Levers: seed a small opening score, exempt the
+   first round, or leave it as a sharp lesson.
+2. **A full run is nineteen raids** — about nineteen minutes plus shops. Fine for a campaign, long
+   for a jam voter. The lever is `LeagueTable.Size`.
 
 ---
 

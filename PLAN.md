@@ -116,6 +116,29 @@ a chore. Seasons finish 10th–14th instead of 13th flat.
 
 ---
 
+## M6 — The author's redesign ▸ *done, bar two parked items*
+
+Directed by the author after playing M5. The pieces interlock, which is why they landed together.
+
+- **The energy curve pays per person, per action.** Walking lowest, then fleeing, working, shooting,
+  melee highest, each times that member's own health. A corpse earns nothing and costs 50 points.
+  This replaced a single party-wide "in combat?" flag multiplied by the worst survivor, which made
+  being wounded the only thing that paid. See D-notes in `EnergyCurve` and the table in HANDOVER.
+- **The standoff is fixed.** Monsters chase the nearest member rather than whoever leads, and close
+  directly once inside 2.5 cells. This was the root cause of two rosters earning a ninth of the rest.
+- **The league is an elimination with a winner.** Everyone from zero, bottom dungeon out each round,
+  last one standing wins. Rivals are handicapped a tenth below the player's own range, so a good raid
+  cannot be beaten by luck. See D20.
+- **The dungeon is a lattice.** Rooms grow in four directions; the shop offers every free side.
+- **The party explores** toward the nearest unseen room, then leaves the way it came in.
+- **Tank defence 50%, walk speed x1.5, archers outrun a single monster.**
+
+Parked, both recorded at their constants with measurements: the monster health nerf (viable at
+14 against 231, but seven tests encode the current fight length) and the two balance questions in
+D20.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate
