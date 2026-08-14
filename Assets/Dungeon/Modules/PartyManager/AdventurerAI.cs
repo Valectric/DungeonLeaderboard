@@ -96,6 +96,24 @@ namespace Dungeon.PartyManager
         public const float PanicSpeed = 2.2f;
 
         /// <summary>
+        /// Panic multiplier for an archer, which is fast enough to actually break away.
+        /// </summary>
+        /// <remarks>
+        /// Everything here is a multiplier on <see cref="Party.WalkSpeed"/>, so the old shared 2.2
+        /// meant a fleeing archer moved at 1.32 cells a second against a monster's 1.90 — the
+        /// monster was 1.44 times faster and the escape could not succeed, only delay. The comment
+        /// above says that was deliberate, and for a healer or a mage it still is: a mage blinks
+        /// instead, and a healer is meant to stay near the people it is healing.
+        /// <para>
+        /// An archer is the one role whose whole job is fought at range, so it is the one that
+        /// should be able to open the distance again. Above 3.17 it outpaces a monster; 3.6 gives
+        /// 2.16 cells a second, about 1.14 times a monster's chase, which is enough to peel away
+        /// over a few seconds without being able to simply ignore one.
+        /// </para>
+        /// </remarks>
+        public const float ArcherPanicSpeed = 3.6f;
+
+        /// <summary>
         /// How fast this adventurer should move right now, as a multiple of walking pace.
         /// </summary>
         /// <param name="self">The adventurer moving.</param>
@@ -114,7 +132,12 @@ namespace Dungeon.PartyManager
             bool cornered = nearest.HasValue &&
                             Vector2.Distance(self.Position, nearest.Value) <= PanicRange;
 
-            return cornered ? PanicSpeed : 1f;
+            if (!cornered)
+            {
+                return 1f;
+            }
+
+            return self.Role == AdventurerRole.Ranged ? ArcherPanicSpeed : PanicSpeed;
         }
 
         /// <summary>How far the rogue will detour to defuse a trap.</summary>

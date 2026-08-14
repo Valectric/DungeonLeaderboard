@@ -87,6 +87,33 @@ namespace Dungeon.Game
         private readonly List<SpriteRenderer> _mobHealthBacks = new();
         private readonly List<SpriteRenderer> _mobHealthFills = new();
 
+        /// <summary>
+        /// Draw order for the party, counted down by height so lower sprites overlap higher ones.
+        /// </summary>
+        /// <remarks>
+        /// The base has to be high enough that the whole grid stays above the scenery. It used to be
+        /// 20, which put a party member at y=5 on exactly the floor tiles' own order and anything at
+        /// y=6 <b>behind the floor</b> -- the sprite was still there, still simulated, and simply not
+        /// drawn. A mob was worse: base 15 meant y=4 already sorted under the tiles, and spawners sit
+        /// at y=5, so a monster spawned at one could be invisible from birth.
+        /// <para>
+        /// Reported from play as a party member vanishing during a Skirmishers raid. Nothing in the
+        /// simulation was wrong, which is why no test caught it and only a pair of eyes did.
+        /// </para>
+        /// <para>
+        /// Scenery occupies 0 to 9 and the bars start at 56, so the sprites get the band between.
+        /// The five-point gap between party and mobs is unchanged, so at equal height the party
+        /// still draws in front exactly as before.
+        /// </para>
+        /// </remarks>
+        private const int PartySortingBase = 50;
+
+        /// <summary>Draw order for monsters, five below the party at the same height.</summary>
+        private const int MobSortingBase = 45;
+
+        /// <summary>Draw order for arrows and bolts, above every sprite and below the bars.</summary>
+        private const int ShotSortingOrder = 54;
+
         /// <summary>Seconds since the raid began, driving all procedural motion.</summary>
         private float _time;
 
@@ -285,7 +312,7 @@ namespace Dungeon.Game
             IReadOnlyList<Shot> shots = feed.Shots;
             while (_shotViews.Count < shots.Count)
             {
-                _shotViews.Add(_sprites.MakeBar($"shot_{_shotViews.Count}", 40));
+                _shotViews.Add(_sprites.MakeBar($"shot_{_shotViews.Count}", ShotSortingOrder));
             }
 
             for (int i = 0; i < _shotViews.Count; i++)
@@ -474,7 +501,7 @@ namespace Dungeon.Game
 
                 // Whoever is lower on screen draws in front, so the party overlaps believably as it
                 // rounds a corner instead of the back rank punching through the front.
-                view.sortingOrder = 20 - Mathf.RoundToInt(member.Position.y * 4f);
+                view.sortingOrder = PartySortingBase - Mathf.RoundToInt(member.Position.y * 4f);
 
                 _bars.Draw(i, member, view.transform.position);
             }
@@ -521,7 +548,7 @@ namespace Dungeon.Game
                     ((mob.Position.y + shove.y) * CellSize) + 0.1f + lift,
                     -1f);
                 view.sprite = _sprites.Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
-                view.sortingOrder = 15 - Mathf.RoundToInt(mob.Position.y * 4f);
+                view.sortingOrder = MobSortingBase - Mathf.RoundToInt(mob.Position.y * 4f);
 
                 while (_mobFacing.Count <= i)
                 {

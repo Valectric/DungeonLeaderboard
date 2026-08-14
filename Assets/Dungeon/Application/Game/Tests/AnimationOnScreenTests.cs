@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Dungeon.DungeonManager;
 using Dungeon.PartyManager;
 using Dungeon.RaidManager;
 using MooseRunner;
@@ -106,6 +107,106 @@ namespace Dungeon.Game.Tests
             Assert.Greater(worstOffset, 0.04f,
                 "an attacking sprite must visibly leave its simulated position, or combat renders " +
                 "as two health bars changing length with everyone standing still");
+        }
+
+        /// <summary>
+        /// No adventurer or monster is ever drawn underneath the floor.
+        /// </summary>
+        /// <remarks>
+        /// Reported from play: a party member vanished during a Skirmishers raid. Nothing in the
+        /// simulation was wrong, which is why every assertion in the project stayed green — the
+        /// sprite was present, positioned and enabled, and sorted <i>behind the tiles</i>.
+        /// <para>
+        /// Draw order counts down with height (so a sprite lower on screen overlaps one behind it),
+        /// and the bases were low enough that the top of the grid went negative: a party member at
+        /// y=6 sorted to -4 against floor tiles at 0, and a monster at y=4 to -1. Spawners sit at
+        /// y=5, so a monster could be invisible from the moment it appeared.
+        /// </para>
+        /// <para>
+        /// Swept over every cell of the grid rather than the row the party happens to walk, because
+        /// the failure only appears once something leaves that row — which is exactly what a
+        /// panicking archer or a blinking mage does.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public async UniTask NothingIsEverDrawnUnderTheFloor(CancellationToken ct)
+        {
+            Controller.StartRaid();
+            await UniTask.Yield(ct);
+
+            Raid raid = Controller.CurrentRaid;
+            DungeonGrid grid = raid.Layout.Grid;
+
+            // The highest order anything in the scenery uses: props sit at 4 and the shop's
+            // buildable markers at 9.
+            const int highestSceneryOrder = 9;
+
+            int worstParty = int.MaxValue;
+            int worstMob = int.MaxValue;
+
+            for (int y = 0; y < grid.Height; y++)
+            {
+                int party = 50 - Mathf.RoundToInt(y * 4f);
+                int mob = 45 - Mathf.RoundToInt(y * 4f);
+                worstParty = Mathf.Min(worstParty, party);
+                worstMob = Mathf.Min(worstMob, mob);
+            }
+
+            MooseRunnerFacade.Log(
+                $"over {grid.Height} rows: worst party order {worstParty}, worst mob order "
+                + $"{worstMob}, scenery tops out at {highestSceneryOrder}");
+
+            Assert.Greater(worstParty, highestSceneryOrder,
+                $"an adventurer at the top of the grid sorts to {worstParty}, at or under the "
+                + "scenery, so it is drawn beneath the floor and simply disappears");
+            Assert.Greater(worstMob, highestSceneryOrder,
+                $"a monster at the top of the grid sorts to {worstMob}, at or under the scenery — "
+                + "and spawners sit near the top, so it would be invisible from birth");
+        }
+
+        /// <summary>
+        /// Every living sprite in a running raid is actually visible.
+        /// </summary>
+        /// <remarks>
+        /// The arithmetic above is checked against the real scene here: whatever the simulation is
+        /// doing, anything alive must be enabled, have a sprite, and sort above the floor.
+        /// </remarks>
+        [Test]
+        public async UniTask EveryLivingSpriteIsVisible(CancellationToken ct)
+        {
+            Controller.StartRaid();
+            await UniTask.Yield(ct);
+
+            Raid raid = Controller.CurrentRaid;
+            Camera camera = Camera.main;
+            Controller.ClickAt(camera.WorldToScreenPoint(
+                DungeonView.CellToWorld(raid.Layout.SpawnerCells[0])));
+
+            for (int frame = 0; frame < 600 && raid.IsRunning; frame++)
+            {
+                for (int i = 0; i < raid.Party.Members.Count; i++)
+                {
+                    if (!raid.Party.Members[i].IsAlive)
+                    {
+                        continue;
+                    }
+
+                    var view = GameObject.Find($"party_{i}");
+                    if (view == null)
+                    {
+                        continue;
+                    }
+
+                    var renderer = view.GetComponent<SpriteRenderer>();
+                    Assert.IsTrue(renderer.enabled,
+                        $"party member {i} is alive but its sprite is switched off");
+                    Assert.Greater(renderer.sortingOrder, 9,
+                        $"party member {i} sorts to {renderer.sortingOrder} at "
+                        + $"{raid.Party.Members[i].Position}, which draws it under the floor");
+                }
+
+                await UniTask.NextFrame(ct);
+            }
         }
     }
 }
