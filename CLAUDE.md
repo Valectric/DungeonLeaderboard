@@ -228,6 +228,25 @@ not six separate ones — a single run shares one context and stays consistent.
 **Nothing checks that output matches the style.** Open the PNGs and compare against
 the moodboard before copying anything into `Assets/Art/`.
 
+### One workspace per character, or you will animate the wrong one
+
+Generating a second character into a workspace that already holds a rig **silently reuses the first
+one**. Measured: a healer walk cycle requested with `healer-healthy.png` attached as the focused
+reference produced six files still named `tank_adventurer_march_down_*`, whose average colour and
+opaque pixel count matched the *tank* exactly — (96,81,68)/1115 against the healer's (102,95,69)/1254.
+The prose reported success.
+
+The harness brief itself forbids this — *"never reuse an older rig or source merely because its
+filename or appearance is similar; when a focused reference is supplied, provenance must trace to
+that exact reference"* — and the agent ignored it. Saying so more loudly in the prompt did not help.
+
+**Give every character its own `--workspace`.** The same request into a fresh directory produced
+`robed-healer-downward-walk_*` matching the healer exactly, first time.
+
+Check provenance by measurement, never by filename or prose: compare the generated frame's average
+colour and opaque pixel count against the source sprite. They should match within a few pixels,
+because a rigged animation *is* the source art articulated.
+
 ### Review every batch before import — mandatory
 
 Nothing in the pipeline verifies output. After **every** generation run:
