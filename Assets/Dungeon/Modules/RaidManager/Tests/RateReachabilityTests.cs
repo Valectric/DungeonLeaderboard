@@ -155,8 +155,18 @@ namespace Dungeon.RaidManager.Tests
                     + $"{reach.DeepestWound:F2}, engaged {reach.EngagedShare * 100f:F0}%, "
                     + $"{reach.MobsAfforded} monsters afforded");
 
-                Assert.Greater(reach.PeakRate, EnergyCurve.BaseRate * EnergyCurve.IdleEngagement,
-                    $"{composition.Name} never beat the rate of an empty corridor");
+                // The ruler is the rate of a party that is ACTUALLY walking a corridor, summed the
+                // way the game sums it. The old one -- BaseRate * IdleEngagement = 0.05/s -- was a
+                // relic of the party-wide curve and roughly five times too weak: four members
+                // standing still already earn 4 x 0.04 = 0.16/s, and four walking earn 0.24/s. A
+                // roster could have been earning a third of what an untouched corridor pays and
+                // still cleared it.
+                float walkingCorridor =
+                    4f * EnergyCurve.MemberRate(AdventurerAction.Walking, 1f);
+
+                Assert.Greater(reach.PeakRate, walkingCorridor,
+                    $"{composition.Name} peaked at {reach.PeakRate:F2}/s, which is no better than "
+                    + $"the {walkingCorridor:F2}/s four members earn just walking a corridor");
             }
 
             MooseRunnerFacade.Log($"roster spread: worst {worst:F1}/s, best {best:F1}/s, "

@@ -1,4 +1,5 @@
 using Dungeon.RaidManager;
+using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
 
@@ -117,6 +118,34 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
+        /// What a party of four earns per second, summed the way the shipped game sums it.
+        /// </summary>
+        /// <remarks>
+        /// <b>This helper is the point of the rewrite.</b> These two tests are named for SPEC's two
+        /// central invariants, and they used to compute them through
+        /// <c>EnergyCurve.Rate(engagedCount, healthFraction)</c> — the superseded party-wide model,
+        /// whose only surviving production caller is <c>Raid.cs:148</c> with hardcoded arguments,
+        /// purely to seed the opening HUD figure. The live rate has been a per-member sum of
+        /// <see cref="EnergyCurve.MemberRate"/> since M6.
+        /// <para>
+        /// So the game's two most important claims were being proved about arithmetic the player
+        /// never touches, and could not have failed however the shipped curve changed. That is the
+        /// same shape as the dead <c>FrameFor</c> animation and the unreachable energy curve: green,
+        /// believed, and measuring nothing.
+        /// </para>
+        /// </remarks>
+        /// <param name="living">How many members are alive and acting.</param>
+        /// <param name="action">What each living member is doing.</param>
+        /// <param name="healthFraction">Health of each living member.</param>
+        /// <returns>Energy per second for the party.</returns>
+        private static float PartyRate(int living, AdventurerAction action, float healthFraction)
+        {
+            // A corpse earns nothing -- it is simply absent from the sum, which is exactly how
+            // Raid.AccrueEnergy treats it.
+            return living * EnergyCurve.MemberRate(action, healthFraction);
+        }
+
+        /// <summary>
         /// A whole simulated 60-second raid, which is the unit the player actually experiences.
         /// Stalling a wounded party in combat must beat letting a healthy one walk to the boss.
         /// This is the test that a flat curve would fail and a per-instant assertion would not.
@@ -126,53 +155,80 @@ namespace Dungeon.RaidManager.Tests
         {
             const float step = 1f / 60f;
 
-            // Played badly: the party walks the corridor untouched and leaves early.
+            // Played badly: four healthy members walk the corridor untouched and leave early.
             float walkthrough = 0f;
             for (float t = 0f; t < 20f; t += step)
             {
-                walkthrough += EnergyCurve.Rate(0, 1f) * step;
+                walkthrough += PartyRate(4, AdventurerAction.Walking, 1f) * step;
             }
 
-            // Played well: engaged the whole minute, ground down from full health to a sliver.
+            // Played well: four members fighting the whole minute, ground from full to a sliver.
             float stalled = 0f;
             for (float t = 0f; t < 60f; t += step)
             {
-                float health = Mathf01(1f - (t / 60f) * 0.95f);
-                stalled += EnergyCurve.Rate(4, health) * step;
+                float health = Mathf01(1f - ((t / 60f) * 0.95f));
+                stalled += PartyRate(4, AdventurerAction.Fighting, health) * step;
             }
 
             MooseRunnerFacade.Log($"walkthrough = {walkthrough:F1}, stalled = {stalled:F1}, " +
                                   $"ratio {stalled / walkthrough:F0}x");
-            Assert.Greater(stalled / walkthrough, 100f,
-                "a stalled, wounded raid must be worth vastly more than a walkthrough");
+            // 250, not 100, and the number is load-bearing. MEASURED: with WoundMultiplier
+            // stubbed to return 1 -- the wound curve removed entirely, the single thing this test
+            // is named for -- the ratio is still 150x, because Fighting (3.0) over Walking (0.06)
+            // is 50x on the action multiplier alone and the durations differ by 3x. So at a
+            // threshold of 100 this test passed with the game's central mechanic deleted.
+            //
+            // The real curve gives 324x. 250 sits above the flat-curve figure with headroom in
+            // both directions, so the test now fails when the wound curve dies and survives
+            // ordinary tuning.
+            Assert.Greater(stalled / walkthrough, 250f,
+                "a stalled, wounded raid must be worth vastly more than a walkthrough -- and by "
+                + "more than the action multiplier alone would give, or the wound curve is not "
+                + "what is being measured");
         }
 
         /// <summary>
         /// Killing the party early must earn less than keeping it alive and bleeding for the full
         /// minute, even though the dying party spends time at the richest part of the curve.
         /// </summary>
+        /// <remarks>
+        /// Stronger than the version it replaces, because the shipped game also charges
+        /// <see cref="EnergyCurve.DeathPenalty"/> for every member lost and the old party-wide
+        /// arithmetic had no way to express that. A wipe now costs what it actually costs.
+        /// </remarks>
         [Test]
         public void SimulatedRaid_WipingTheParty_EarnsLessThanKeepingItAlive()
         {
             const float step = 1f / 60f;
 
-            // Wiped at 20s: members die one by one, so engagement collapses as health falls.
+            // Wiped at 20s: members die one by one, so the sum loses a term with each death, and
+            // each death is charged against the score.
             float wiped = 0f;
+            int lost = 0;
             for (float t = 0f; t < 20f; t += step)
             {
                 float progress = t / 20f;
                 int alive = 4 - (int)(progress * 4f);
-                wiped += EnergyCurve.Rate(alive, Mathf01(1f - progress)) * step;
+
+                while (lost < 4 - alive)
+                {
+                    lost++;
+                    wiped -= EnergyCurve.DeathPenalty;
+                }
+
+                wiped += PartyRate(alive, AdventurerAction.Fighting, Mathf01(1f - progress)) * step;
             }
 
             // Kept alive: four fighters the whole minute, hovering at a sliver of health.
             float sustained = 0f;
             for (float t = 0f; t < 60f; t += step)
             {
-                sustained += EnergyCurve.Rate(4, 0.08f) * step;
+                sustained += PartyRate(4, AdventurerAction.Fighting, 0.08f) * step;
             }
 
-            MooseRunnerFacade.Log($"wiped = {wiped:F1}, sustained = {sustained:F1}");
+            MooseRunnerFacade.Log(
+                $"wiped = {wiped:F1} (after {lost} deaths at -{EnergyCurve.DeathPenalty:F0} each), "
+                + $"sustained = {sustained:F1}");
             Assert.Greater(sustained, wiped,
                 "killing the party must never out-earn keeping it alive");
         }
