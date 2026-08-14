@@ -96,7 +96,7 @@ namespace Dungeon.PartyManager
         public const float PanicSpeed = 2.2f;
 
         /// <summary>
-        /// Panic multiplier for an archer. Parked at the shared value until the rate curve changes.
+        /// Panic multiplier for an archer, which is fast enough to actually break away.
         /// </summary>
         /// <remarks>
         /// The author asked for an archer that can outrun a single monster. Everything here is a
@@ -104,20 +104,19 @@ namespace Dungeon.PartyManager
         /// against a monster's 1.90 — the escape can only delay, never succeed. Clearing 3.17 fixes
         /// that, and 3.6 was measured to work.
         /// <para>
-        /// It is <b>not</b> applied yet, because it inverts the game's one rule. Measured with
-        /// <c>KillingTheParty_NeverPaysBest</c>: at 3.6 the best wipe earns 185 against 175 for the
-        /// best raid the party survived; at 2.2 it is 161 against 169, the right way round. An
-        /// archer that escapes is never wounded, so a surviving party earns less, while a party that
-        /// wipes anyway was wounded deeply on the way down.
+        /// It was held at 2.2 for a while because under the old curve it <b>inverted the game's one
+        /// rule</b>: an archer that escapes is never wounded, a surviving party therefore earned
+        /// less, and measured with <c>KillingTheParty_NeverPaysBest</c> the best wipe paid 185
+        /// against 175 for the best raid the party survived.
         /// </para>
         /// <para>
-        /// The cause is that under the current curve the only thing that pays is being hurt. Once
-        /// firing at something pays on its own — the per-action rate the author has designed — an
-        /// archer can kite and still earn, and this can go to 3.6. Raise it then, and re-run that
-        /// test.
+        /// The per-action curve fixed the cause rather than the symptom. Firing at something now pays
+        /// on its own, so an archer can kite all raid and still earn, and the same measurement reads
+        /// <b>4 against 190</b> — the right way round by a wide margin. Raised to 3.6 on that
+        /// evidence.
         /// </para>
         /// </remarks>
-        public const float ArcherPanicSpeed = 2.2f;
+        public const float ArcherPanicSpeed = 3.6f;
 
         /// <summary>
         /// How fast this adventurer should move right now, as a multiple of walking pace.
