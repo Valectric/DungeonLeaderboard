@@ -492,3 +492,32 @@ Harvesting nothing is eliminated immediately.
    elimination, or leave it as a sharp lesson.
 2. **A full run is nineteen raids** — about nineteen minutes plus shops. Fine for a campaign, long
    for a jam voter. The lever is `LeagueTable.Size`.
+
+## 2026-08-14 — D21. A second shut door froze the party for the rest of the raid
+
+**Found:** with every door shut, all six rosters forced the first door open at six or seven seconds
+and then **stood on cell (5,3) in room zero for the remaining fifty-three**, goal `Advancing`, all
+four alive, earning the idle floor.
+
+`Party.BlockingDoor` only ever considered doors **on the current room's threshold**. Once the party
+forced its own way out of room zero, the next door along joined rooms one and two — not room zero —
+so it was skipped and the method returned null. `NextObjective` then fell through to a path toward
+the boss cell, which was still unreachable behind that second shut door, so `FindPath` came back
+empty, `MoveAlongPath` had nowhere to go, and the party stopped moving permanently.
+
+**Two green tests were protecting it.** `ClosingDoor_StallsTheParty` asserted the party was still in
+the first room after twenty seconds, and `Clock_ExpiresAfterSixtySeconds` expected the clock to run
+out — both true, and both true *because of the freeze*. This is the third time in this session a test
+has cemented a bug by asserting a symptom.
+
+**Fixed:** when nothing shut is on the current threshold and the boss room is still unreachable, the
+party heads for the nearest shut door it can actually walk to. Reachability is the point — pathing at
+a door behind two more shut doors would strand them exactly as before.
+
+**After:** twenty seconds behind shut doors leaves the party at x=11 against x=17 with them open. A
+door is a cost now rather than a wall. The two tests assert that delay instead of the freeze, and the
+clock test uses THE IRONCLADS, who genuinely cannot pick a lock and batter a door to only 66% in a
+full minute (D19).
+
+**Wrong if:** a player wants a door to hold a party indefinitely. It never did — it froze them, which
+looked identical from the outside and paid the player almost nothing.

@@ -21,6 +21,22 @@ namespace Dungeon.RaidManager.Tests
         /// <summary>Builds the standard Milestone 1 corridor.</summary>
         private static DungeonLayout Corridor() => DungeonLayout.BuildCorridor();
 
+        /// <summary>Finds a roster by name, so a test can pick one with a known behaviour.</summary>
+        /// <param name="name">Roster name.</param>
+        /// <returns>That composition, or the opening one if the name is unknown.</returns>
+        private static PartyComposition Named(string name)
+        {
+            foreach (PartyComposition composition in PartyComposition.All)
+            {
+                if (composition.Name == name)
+                {
+                    return composition;
+                }
+            }
+
+            return PartyComposition.Opening;
+        }
+
         /// <summary>Runs a raid forward by a number of seconds at a fixed step.</summary>
         private static void Advance(Raid raid, float seconds, float step = 1f / 50f)
         {
@@ -85,11 +101,23 @@ namespace Dungeon.RaidManager.Tests
 
             Advance(raid, 20f);
 
-            MooseRunnerFacade.Log($"party stalled at {raid.Party.Cell}, goal {raid.Party.Goal}");
+            // Compared against the same dungeon left open, because a shut door is a COST, not a
+            // wall. This used to assert the party was still in the first room after twenty seconds,
+            // which was true only because of a freeze: once it had forced its own door open, the
+            // next door along was not on its room's threshold, no path to the boss existed, and the
+            // party stood still for the rest of the raid. The test protected that bug for as long as
+            // it existed.
+            var open = new Raid(Corridor());
+            Advance(open, 20f);
+
+            MooseRunnerFacade.Log(
+                $"after 20s: shut doors left the party at {raid.Party.Cell}, open doors at "
+                + $"{open.Party.Cell}");
+
             Assert.AreNotEqual(RaidOutcome.PartyEscaped, raid.Outcome,
-                "a party behind a closed door must never reach the boss room");
-            Assert.AreEqual(0, raid.Layout.Grid.RoomAt(raid.Party.Cell),
-                "the party must still be in the first room");
+                "a party behind a closed door must never reach the boss room this quickly");
+            Assert.Less(raid.Party.Position.x, open.Party.Position.x - 1f,
+                "shutting every door did not measurably delay the party, so the verb buys nothing");
         }
 
         /// <summary>
@@ -231,13 +259,19 @@ namespace Dungeon.RaidManager.Tests
         [Test]
         public void Clock_ExpiresAfterSixtySeconds()
         {
-            var raid = new Raid(Corridor());
+            // THE IRONCLADS specifically: they have nobody who picks locks, and measured over a full
+            // minute they batter a door to only 66% of its health. A roster with an archer picks in
+            // about seven seconds and now walks the whole dungeon well inside the clock, so it can
+            // no longer demonstrate the clock running out at all.
+            var raid = new Raid(Corridor(), 0f, Named("THE IRONCLADS"));
             foreach (Door door in raid.Layout.Grid.Doors)
             {
                 door.IsOpen = false;
             }
 
             Advance(raid, Raid.RaidSeconds + 1f);
+            MooseRunnerFacade.Log(
+                $"ironclads behind shut doors: {raid.Outcome} at {raid.Party.Cell}");
             Assert.AreEqual(RaidOutcome.TimeExpired, raid.Outcome);
             Assert.AreEqual(0f, raid.TimeRemaining, 0.001f);
         }

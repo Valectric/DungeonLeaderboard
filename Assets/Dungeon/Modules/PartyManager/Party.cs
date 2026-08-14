@@ -587,6 +587,56 @@ namespace Dungeon.PartyManager
                 }
             }
 
+            // Nothing shut on this room's threshold, yet the boss room is still unreachable: the
+            // party has already opened its own way out and the next door along is somebody else's
+            // threshold. Without this the objective fell through to a boss cell no path could reach,
+            // MoveAlongPath had nowhere to go, and the party STOOD STILL FOR THE REST OF THE RAID.
+            //
+            // Measured with every door shut: all six rosters forced the first door at six or seven
+            // seconds and then sat at cell (5,3) in room zero for the remaining fifty-three,
+            // earning the idle floor. Two tests had encoded that as correct -- one asserting the
+            // party is still in the first room after twenty seconds, one expecting the clock to run
+            // out -- so the freeze was protected rather than caught.
+            return nearest ?? NearestReachableShutDoor(leader);
+        }
+
+        /// <summary>
+        /// The nearest shut door the party can actually walk to, wherever it is.
+        /// </summary>
+        /// <remarks>
+        /// The fallback for a party that has opened its own room and now needs to cross another to
+        /// reach the next obstacle. Reachability is the whole point: a door behind two more shut
+        /// doors is no use as an objective, and pathing to it would strand the party exactly as
+        /// before.
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>A shut door with a walkable route to it, or null.</returns>
+        private Door NearestReachableShutDoor(Adventurer leader)
+        {
+            Door nearest = null;
+            int shortest = int.MaxValue;
+
+            foreach (Door door in _grid.Doors)
+            {
+                if (door.IsOpen)
+                {
+                    continue;
+                }
+
+                Vector2Int approach = ApproachCell(door, leader);
+                if (approach == leader.Cell)
+                {
+                    return door;
+                }
+
+                List<Vector2Int> route = _grid.FindPath(leader.Cell, approach);
+                if (route.Count > 0 && route.Count < shortest)
+                {
+                    shortest = route.Count;
+                    nearest = door;
+                }
+            }
+
             return nearest;
         }
 
