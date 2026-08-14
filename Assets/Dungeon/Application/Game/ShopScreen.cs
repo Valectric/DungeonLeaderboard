@@ -222,7 +222,10 @@ namespace Dungeon.Game
             };
             hint.normal.textColor = Dim;
             GUI.Label(new Rect(0f, 80f * scale, Screen.width, 22f * scale),
-                "TAP ANY EMPTY TILE TO BUILD ON IT", hint);
+                // Zoom is worth a mention here and not during a raid. In the itch embed a five-room
+                // corridor puts a tile at about sixteen pixels across, and the shop asks the player
+                // to aim at one -- so the mitigation has to be discoverable, not merely present.
+                "TAP ANY EMPTY TILE TO BUILD ON IT  /  SCROLL OR PINCH TO ZOOM IN", hint);
         }
 
         /// <summary>Draws the marker that buys another hall onto the end of the corridor.</summary>

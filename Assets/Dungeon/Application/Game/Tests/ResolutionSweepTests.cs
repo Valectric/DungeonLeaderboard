@@ -212,5 +212,74 @@ namespace Dungeon.Game.Tests
                     $"{size.x}x{size.y}: the marker runs off the right");
             }
         }
+
+        /// <summary>
+        /// A dungeon tile is big enough to tap at every size the game ships at.
+        /// </summary>
+        /// <remarks>
+        /// New with the spatial shop, and the one thing about it that the itch.io embed genuinely
+        /// threatens. Buying is now aimed at a <i>tile</i>, so the tile is a button — and at 523x293
+        /// the whole three-room corridor is fitted into 523 pixels of width. If a cell lands at eight
+        /// pixels, the shop is unusable on the page most jam voters will play it on, while looking
+        /// perfect in the editor. Exactly the class of bug the project's doctrine says only a
+        /// measurement catches.
+        /// <para>
+        /// The camera fit is reproduced here rather than called, because <c>FrameCamera</c> is
+        /// private to the controller and depends on a live scene. The arithmetic is small and stated
+        /// in one place; if the framing changes and this drifts, the numbers logged below stop
+        /// matching what the game does and the next person has a thread to pull.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADungeonTile_IsBigEnoughToTap()
+        {
+            // Swept over both ends of what the shop can build. Checking only the opening dungeon
+            // would have reported a comfortable 26px and missed the case that matters: a player who
+            // buys halls all season ends up aiming at a corridor two thirds again as wide, fitted
+            // into the same 523 pixels.
+            const int roomWidth = 5;
+            const int roomHeight = 5;
+            const int gridHeight = roomHeight + 2;
+
+            float smallest = float.MaxValue;
+            string smallestAt = "nowhere";
+
+            foreach (int roomCount in new[] { 3, 5 })
+            {
+                int gridWidth = (roomCount * roomWidth) + (roomCount - 1) + 2;
+
+                foreach (Vector2Int size in Sizes)
+                {
+                    float aspect = size.x / (float)size.y;
+
+                    // Matches GameController.FrameCamera: fit the dungeon by whichever axis binds.
+                    float halfHeight = (gridHeight * 0.5f) + 1.6f;
+                    float halfWidth = (gridWidth * 0.5f) + 0.5f;
+                    float orthographicSize = Mathf.Max(halfHeight, halfWidth / aspect);
+
+                    // One world unit is one cell, and the view is two orthographic sizes tall.
+                    float pixelsPerCell = size.y / (orthographicSize * 2f);
+
+                    MooseRunnerFacade.Log(
+                        $"{roomCount} rooms at {size.x}x{size.y}: one tile is "
+                        + $"{pixelsPerCell:F1}px across");
+
+                    if (pixelsPerCell < smallest)
+                    {
+                        smallest = pixelsPerCell;
+                        smallestAt = $"{roomCount} rooms at {size.x}x{size.y}";
+                    }
+                }
+            }
+
+            // 15px rather than a thumb-sized 44, because the shop lets the player zoom and pan and
+            // the hint now says so. The tightest case measured is a five-room corridor in the itch
+            // embed at 16.4px: fiddly with a mouse and genuinely awkward on a phone without zooming
+            // first. If it drops below this the default framing has stopped being a usable board and
+            // the shop needs to open closer in rather than fitted to the whole dungeon.
+            Assert.Greater(smallest, 15f,
+                $"at {smallestAt} a dungeon tile is only {smallest:F1}px across, so aiming a "
+                + "purchase at one is guesswork on the page the game actually ships on");
+        }
     }
 }
