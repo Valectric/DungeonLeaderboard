@@ -417,6 +417,7 @@ namespace Dungeon.RaidManager
                 }
 
                 member.AttackCooldown = member.AttackInterval;
+                member.LastAttackTarget = target.Position;
                 target.TakeDamage(CombatMath.Roll(
                     member.WeaponDamage, member.Might, target.Armour, _random));
 
@@ -464,6 +465,7 @@ namespace Dungeon.RaidManager
                 }
 
                 mob.AttackCooldown = mob.AttackInterval;
+                mob.LastAttackTarget = target.Position;
                 target.TakeDamage(CombatMath.Roll(
                     mob.WeaponDamage, mob.Might, target.Armour, _random));
             }

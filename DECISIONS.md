@@ -274,3 +274,43 @@ is retuned, these two constants must be re-measured against it — they are down
 **Wrong if:** climbing feels too easy, or relegation stops being a threat. Both are one constant away;
 the assertion to keep is `WhereYouFinish_DependsOnHowYouPlay`, which pins the ordering rather than the
 numbers.
+
+## 2026-08-14 — D14. Sprites animate procedurally, not from drawn frames
+
+**Decided:** walking, attacking, casting and shooting are procedural motion computed in
+`SpriteMotion` — bob, squash-and-stretch, per-role attack shapes, and facing — rather than drawn
+animation frames.
+**Why:** combat was invisible. Two health bars changed length, a number popped, and every sprite
+stood perfectly still throughout; the only moving parts were the projectile and the particles.
+Drawn cycles would need sprite-maker `--command character` runs for four roles times three wound
+states times three actions, each one non-deterministic and needing hand review against the
+moodboard. That is a large, uncertain job against a jam clock, and it would leave the wound states
+— which SPEC.md requires be read from movement, since HP may never be shown — depending on
+whichever cycles got rigged in time.
+Procedural motion applies to every sprite at once, is a pure function of state (so a seeded run
+photographs identically, which SPEC.md requires for bug reports), and costs one multiply per sprite.
+The shapes are deliberately different per role: a tank lunges bodily, an archer recoils *backwards*
+from its own shot, a mage rises and leans back. Same-shaped motion would have made the roles read as
+one thing.
+**Rules out:** treating this as a placeholder to be swapped for frames later. Frames can be added on
+top, but the wound-state legibility must not become dependent on them.
+**Wrong if:** it reads as floaty at the shipped zoom. The lever is the constants in `SpriteMotion`;
+`AnimationOnScreenTests` pins that the motion reaches the real sprites in the shipped scene, which is
+the part a unit test cannot see.
+
+## 2026-08-14 — D15. The audio module brings its own AudioListener
+
+**Decided:** `AudioFacade.Awake` adds an `AudioListener` when the scene has none.
+**Why:** the shipped game was **completely silent**. Every clip synthesised correctly, every cue
+dispatched correctly, and nothing was audible, because the play scene is generated from code and a
+camera created with `AddComponent<Camera>()` does not bring a listener the way the editor's default
+Main Camera does. Unity does not treat this as an error — it logs one warning and plays nothing.
+Six green audio tests covered synthesis and dispatch and none of them could see it. It surfaced only
+from the mandatory `console --types error,warning` sweep after a passing run, which is exactly the
+case that habit exists for.
+Putting it in the module rather than the scene builder keeps the module self-bootstrapping, so audio
+works in any scene that touches the facade, including the stripped scenes tests build.
+**Rules out:** relying on the scene to provide the listener. The scene is regenerated from code and
+would discard it.
+**Wrong if:** a scene ever wants a listener somewhere specific (positional audio on the camera). The
+facade yields to an existing one, and `TheFacade_DoesNotAddASecondEar` pins that.

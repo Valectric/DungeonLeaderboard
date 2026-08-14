@@ -81,6 +81,25 @@ namespace Dungeon.PartyManager
         public float AttackCooldown { get; set; }
 
         /// <summary>
+        /// Where this adventurer last struck, so the view can throw the sprite at it.
+        /// </summary>
+        /// <remarks>
+        /// The simulation already knows who swung at what; without publishing it the view has to
+        /// guess, and a lunge aimed at the wrong monster looks worse than no lunge at all.
+        /// </remarks>
+        public Vector2? LastAttackTarget { get; set; }
+
+        /// <summary>
+        /// How far through its attack this adventurer is, 0 at the moment of the blow to 1 at rest.
+        /// </summary>
+        /// <remarks>
+        /// Derived from the cooldown rather than stored separately, so it cannot disagree with the
+        /// combat that produced it.
+        /// </remarks>
+        public float AttackPhase =>
+            AttackInterval <= 0f ? 1f : Mathf.Clamp01(1f - (AttackCooldown / AttackInterval));
+
+        /// <summary>
         /// This caster's own spell pool, and it regenerates.
         /// </summary>
         /// <remarks>

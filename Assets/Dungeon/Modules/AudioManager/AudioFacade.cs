@@ -61,9 +61,27 @@ namespace Dungeon.AudioManager
             return _instance;
         }
 
-        /// <summary>Builds the voice pool.</summary>
+        /// <summary>Builds the voice pool, and an ear to hear it with.</summary>
+        /// <remarks>
+        /// The listener is not an afterthought — without one Unity plays nothing at all, silently.
+        /// The play scene is built from code and its camera is created with
+        /// <c>AddComponent&lt;Camera&gt;</c>, which does <b>not</b> bring an <see cref="AudioListener"/>
+        /// with it the way the editor's default Main Camera does. So every sound the game synthesised
+        /// was dispatched correctly to a room with nobody in it, and the only trace was a lone Unity
+        /// warning that a passing test suite buried.
+        /// <para>
+        /// Adding it here rather than in the scene builder keeps the module responsible for its own
+        /// bootstrap, and means the audio works in any scene that touches the facade — including the
+        /// stripped scenes tests build.
+        /// </para>
+        /// </remarks>
         private void Awake()
         {
+            if (FindFirstObjectByType<AudioListener>() == null)
+            {
+                gameObject.AddComponent<AudioListener>();
+            }
+
             _sources = new AudioSource[Voices];
             for (int i = 0; i < Voices; i++)
             {

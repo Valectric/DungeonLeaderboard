@@ -146,5 +146,67 @@ namespace Dungeon.AudioManager.Tests
             AudioFacade.ResetForTests();
             Assert.Pass("played every sound without throwing");
         }
+
+        /// <summary>
+        /// Bootstrapping the facade puts an ear in the scene, because otherwise nothing is audible.
+        /// </summary>
+        /// <remarks>
+        /// This is the test that was missing. Every assertion above passed while the shipped game was
+        /// completely silent: the clips were synthesised correctly, dispatched correctly, and played
+        /// into a scene with no <see cref="AudioListener"/> in it. Unity does not treat that as an
+        /// error — it logs one warning and plays nothing.
+        /// <para>
+        /// The play scene builds its camera from code, and a code-created camera brings no listener,
+        /// unlike the editor's default Main Camera. So the whole audio feature was inaudible in the
+        /// only configuration that ships.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheFacade_BringsAnEarWithIt()
+        {
+            AudioFacade.ResetForTests();
+            foreach (AudioListener stray in
+                     Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
+            {
+                Object.DestroyImmediate(stray);
+            }
+
+            AudioFacade.Instance();
+
+            Assert.IsNotNull(Object.FindFirstObjectByType<AudioListener>(),
+                "without a listener every sound the game plays is silent");
+
+            AudioFacade.ResetForTests();
+        }
+
+        /// <summary>
+        /// A scene that already has an ear does not get a second one.
+        /// </summary>
+        /// <remarks>
+        /// Two listeners is not a harmless duplicate: Unity warns and the audio behaviour becomes
+        /// undefined, so the fix for silence must not itself introduce the opposite fault.
+        /// </remarks>
+        [Test]
+        public void TheFacade_DoesNotAddASecondEar()
+        {
+            AudioFacade.ResetForTests();
+            foreach (AudioListener stray in
+                     Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
+            {
+                Object.DestroyImmediate(stray);
+            }
+
+            var existing = new GameObject("ExistingEar");
+            existing.AddComponent<AudioListener>();
+
+            AudioFacade.Instance();
+
+            Assert.AreEqual(1,
+                Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None).Length,
+                "a scene must never end up with two listeners");
+
+            Object.DestroyImmediate(existing);
+            AudioFacade.ResetForTests();
+        }
     }
 }

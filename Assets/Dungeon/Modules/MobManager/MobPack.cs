@@ -53,6 +53,13 @@ namespace Dungeon.MobManager
         /// <summary>Seconds until this monster can swing again.</summary>
         public float AttackCooldown { get; set; }
 
+        /// <summary>Where this monster last struck, so the view can throw the sprite at it.</summary>
+        public Vector2? LastAttackTarget { get; set; }
+
+        /// <summary>How far through its attack this monster is, 0 at the blow to 1 at rest.</summary>
+        public float AttackPhase =>
+            AttackInterval <= 0f ? 1f : Mathf.Clamp01(1f - (AttackCooldown / AttackInterval));
+
         /// <summary>Whether this mob is still alive.</summary>
         public bool IsAlive => _health > 0f;
 

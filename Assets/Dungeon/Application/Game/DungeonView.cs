@@ -33,6 +33,13 @@ namespace Dungeon.Game
         private readonly List<SpriteRenderer> _mobViews = new();
         private readonly Dictionary<string, Sprite> _cache = new();
 
+        // Facing is view state, not simulation state -- which way a sprite is turned changes nothing
+        // about the fight, and a seeded run must replay identically whether or not anyone is looking.
+        private readonly List<float> _partyFacing = new();
+        private readonly List<float> _partyLastX = new();
+        private readonly List<float> _mobFacing = new();
+        private readonly List<float> _mobLastX = new();
+
         /// <summary>Creates a view and parents everything it makes under one object.</summary>
         /// <param name="root">Transform to build under.</param>
         public DungeonView(Transform root)
@@ -692,10 +699,46 @@ namespace Dungeon.Game
                 // needed to make four sprites look like four people.
                 (float lift, float tilt) = SpriteMotion.ForAdventurer(
                     party.Goal, member.Wounds, _time, i * 1.7f, member.IsPanicking);
-                view.transform.position =
-                    new Vector3(member.Position.x * CellSize, (member.Position.y * CellSize) + lift, -1f);
+
+                // An attack throws the sprite on top of whatever it was already doing, so a tank can
+                // limp and lunge at once.
+                Vector2 shove = Vector2.zero;
+                if (member.LastAttackTarget.HasValue && member.AttackPhase < 1f)
+                {
+                    Vector2 toTarget =
+                        (member.LastAttackTarget.Value - member.Position).normalized;
+                    (Vector2 lunge, float swing) = SpriteMotion.ForAttack(
+                        member.Role, member.AttackPhase, toTarget);
+                    shove = lunge;
+                    tilt += swing;
+                }
+
+                view.transform.position = new Vector3(
+                    (member.Position.x + shove.x) * CellSize,
+                    ((member.Position.y + shove.y) * CellSize) + lift, -1f);
                 view.transform.rotation = Quaternion.Euler(0f, 0f, tilt);
                 view.sprite = Load($"party/{RoleName(member.Role)}-{StateName(member.Wounds)}");
+
+                // Squash on the footfall so the walk has weight. Left at scale 1 the bob alone reads
+                // as hovering.
+                Vector2 squash = SpriteMotion.WalkSquash(
+                    party.Goal, member.Wounds, _time, i * 1.7f);
+                view.transform.localScale = new Vector3(squash.x, squash.y, 1f);
+
+                // Face the way you are going -- or, while swinging, face what you are hitting, which
+                // outranks it: an archer recoils backwards but must still be aiming at the monster.
+                while (_partyFacing.Count <= i)
+                {
+                    _partyFacing.Add(1f);
+                    _partyLastX.Add(member.Position.x);
+                }
+
+                float step = member.LastAttackTarget.HasValue && member.AttackPhase < 1f
+                    ? member.LastAttackTarget.Value.x - member.Position.x
+                    : member.Position.x - _partyLastX[i];
+                _partyFacing[i] = SpriteMotion.Facing(_partyFacing[i], step);
+                _partyLastX[i] = member.Position.x;
+                view.flipX = _partyFacing[i] < 0f;
 
                 // Whoever is lower on screen draws in front, so the party overlaps believably as it
                 // rounds a corner instead of the back rank punching through the front.
@@ -835,12 +878,33 @@ namespace Dungeon.Game
 
                 bool engaged = grid.RoomAt(mob.Cell) == partyRoom;
                 float lift = SpriteMotion.ForMob(engaged, _time, i * 0.9f);
+
+                Vector2 shove = Vector2.zero;
+                if (mob.LastAttackTarget.HasValue && mob.AttackPhase < 1f)
+                {
+                    shove = SpriteMotion.ForMobAttack(
+                        mob.AttackPhase, (mob.LastAttackTarget.Value - mob.Position).normalized);
+                }
+
                 view.transform.position = new Vector3(
-                    mob.Position.x * CellSize,
-                    (mob.Position.y * CellSize) + 0.1f + lift,
+                    (mob.Position.x + shove.x) * CellSize,
+                    ((mob.Position.y + shove.y) * CellSize) + 0.1f + lift,
                     -1f);
                 view.sprite = Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
                 view.sortingOrder = 15 - Mathf.RoundToInt(mob.Position.y * 4f);
+
+                while (_mobFacing.Count <= i)
+                {
+                    _mobFacing.Add(1f);
+                    _mobLastX.Add(mob.Position.x);
+                }
+
+                float step = mob.LastAttackTarget.HasValue && mob.AttackPhase < 1f
+                    ? mob.LastAttackTarget.Value.x - mob.Position.x
+                    : mob.Position.x - _mobLastX[i];
+                _mobFacing[i] = SpriteMotion.Facing(_mobFacing[i], step);
+                _mobLastX[i] = mob.Position.x;
+                view.flipX = _mobFacing[i] < 0f;
 
                 // How long a mob will hold the party is the single fact the player needs to plan the
                 // next twenty seconds around -- and it is their own asset, bought with energy, so

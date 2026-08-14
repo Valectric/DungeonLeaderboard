@@ -136,6 +136,144 @@ namespace Dungeon.Game
         }
 
         /// <summary>
+        /// How an attack throws a sprite about, on top of whatever it was already doing.
+        /// </summary>
+        /// <remarks>
+        /// A swing was previously invisible: combat was two health bars changing length and a number
+        /// popping, with the sprites standing perfectly still throughout. This gives every role a
+        /// distinct action, driven from the same cooldown that produced the damage, so the picture
+        /// cannot disagree with the fight.
+        /// <para>
+        /// The shapes differ on purpose, because the roles do. A tank lunges bodily at what it is
+        /// hitting and recovers slowly. An archer snaps <i>backwards</i> — a bow's recoil pushes the
+        /// shooter, not the target. A mage rises and leans back as it casts, hands up rather than
+        /// weight forward. A healer barely moves.
+        /// </para>
+        /// </remarks>
+        /// <param name="role">Which role is attacking.</param>
+        /// <param name="phase">0 at the instant of the blow, 1 once recovered.</param>
+        /// <param name="toTarget">Direction of whatever is being struck, normalised.</param>
+        /// <returns>A positional offset in world units and an extra roll in degrees.</returns>
+        public static (Vector2 shove, float tilt) ForAttack(
+            AdventurerRole role, float phase, Vector2 toTarget)
+        {
+            // A hard strike out and a soft settle back is the difference between a punch and a sway.
+            float strike = phase < 0.25f
+                ? phase / 0.25f
+                : 1f - ((phase - 0.25f) / 0.75f);
+            strike = Mathf.Clamp01(strike);
+
+            switch (role)
+            {
+                case AdventurerRole.Tank:
+                    return (toTarget * 0.26f * strike, -9f * strike);
+
+                case AdventurerRole.Ranged:
+                    // Recoil: the archer is shoved away from the shot, not toward it.
+                    return (-toTarget * 0.13f * strike, 5f * strike);
+
+                case AdventurerRole.Mage:
+                    // Rises and leans back, hands up. Nothing lunges when it casts.
+                    return (new Vector2(-toTarget.x * 0.05f, 0.16f) * strike, 11f * strike);
+
+                default:
+                    return (toTarget * 0.06f * strike, -3f * strike);
+            }
+        }
+
+        /// <summary>
+        /// How a monster's attack throws it about.
+        /// </summary>
+        /// <remarks>
+        /// A single hard lunge. Monsters have no ranged options in this game, so there is only the
+        /// one shape to express, and it should look heavier than an adventurer's.
+        /// </remarks>
+        /// <param name="phase">0 at the instant of the blow, 1 once recovered.</param>
+        /// <param name="toTarget">Direction of the party, normalised.</param>
+        /// <returns>A positional offset in world units.</returns>
+        public static Vector2 ForMobAttack(float phase, Vector2 toTarget)
+        {
+            float strike = phase < 0.2f ? phase / 0.2f : 1f - ((phase - 0.2f) / 0.8f);
+            return toTarget * 0.3f * Mathf.Clamp01(strike);
+        }
+
+        /// <summary>
+        /// Squash and stretch for a walking sprite, so footfalls land instead of the figure floating.
+        /// </summary>
+        /// <remarks>
+        /// A bob on its own reads as hovering: the sprite rises and falls with no weight behind it.
+        /// Compressing on the way down and stretching on the way up is the oldest trick there is for
+        /// making a static drawing walk, and it costs one multiply per sprite.
+        /// <para>
+        /// The scale is deliberately volume-preserving — wider exactly as much as it is shorter — so a
+        /// squashing sprite never appears to change size, only shape.
+        /// </para>
+        /// </remarks>
+        /// <param name="goal">What the party is doing.</param>
+        /// <param name="wounds">How hurt this member is.</param>
+        /// <param name="time">Seconds since the raid began.</param>
+        /// <param name="phase">Per-member offset.</param>
+        /// <returns>A non-uniform scale to multiply the sprite's own scale by.</returns>
+        public static Vector2 WalkSquash(
+            PartyGoal goal, WoundState wounds, float time, float phase)
+        {
+            if (goal is not (PartyGoal.Advancing or PartyGoal.Retreating))
+            {
+                return Vector2.one;
+            }
+
+            // A wounded walker drags rather than bounces, so the effect fades exactly as the bob does
+            // -- the two have to agree or the sprite squashes without rising.
+            float vigour = wounds switch
+            {
+                WoundState.Healthy => 1f,
+                WoundState.Hurt => 0.62f,
+                _ => 0.34f
+            };
+
+            float rate = WalkRate * vigour * (goal == PartyGoal.Retreating ? 1.35f : 1f);
+
+            // Twice the bob's frequency: a stride has two footfalls, and squashing once per cycle
+            // reads as a limp even on a healthy member.
+            float beat = Mathf.Sin(((time * rate * 2f) + phase) - (Mathf.PI * 0.5f));
+            float amount = 0.055f * vigour * beat;
+            return new Vector2(1f + amount, 1f - amount);
+        }
+
+        /// <summary>
+        /// Which way a sprite should face, given how far it just moved sideways.
+        /// </summary>
+        /// <remarks>
+        /// Sprites previously faced one fixed direction for the whole raid, so a party that turned
+        /// around and ran for a door still walked backwards the entire way — the retreat, which is
+        /// the single most important thing the player can cause, looked identical to the advance.
+        /// <para>
+        /// The deadzone is why this needs to be a function rather than a comparison at the call site.
+        /// A member drifting a hundredth of a cell as it jostles for a formation slot would otherwise
+        /// flip every frame and strobe. Below the threshold the previous facing is kept, so a sprite
+        /// standing still holds whichever way it was last going.
+        /// </para>
+        /// </remarks>
+        /// <param name="previous">Facing from the last frame, 1 for right and -1 for left.</param>
+        /// <param name="deltaX">Sideways movement since the last frame, in cells.</param>
+        /// <returns>1 to face right, -1 to face left.</returns>
+        public static float Facing(float previous, float deltaX)
+        {
+            const float deadzone = 0.004f;
+            if (deltaX > deadzone)
+            {
+                return 1f;
+            }
+
+            if (deltaX < -deadzone)
+            {
+                return -1f;
+            }
+
+            return previous == 0f ? 1f : previous;
+        }
+
+        /// <summary>
         /// Vertical offset for a monster, which breathes in place rather than walking.
         /// </summary>
         /// <param name="engaged">Whether it is in contact with the party.</param>
