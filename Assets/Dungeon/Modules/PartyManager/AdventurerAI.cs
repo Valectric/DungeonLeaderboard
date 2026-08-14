@@ -62,7 +62,18 @@ namespace Dungeon.PartyManager
     public static class AdventurerAI
     {
         /// <summary>How close a healer lets an enemy get before it runs.</summary>
-        public const float HealerFleeRange = 1f;
+        /// <remarks>
+        /// Raised from 1.0 on the author's instruction that <i>"a healer should always back off"</i>.
+        /// At 1.0 the healer only reacted once something was already swinging at it, which is not
+        /// backing off, it is being caught -- and a dead healer costs the player fifty points and
+        /// every heal the rest of the raid would have had.
+        /// <para>
+        /// 2.6 sits just outside a monster's melee reach plus its closing speed for a tick, so the
+        /// healer keeps a working distance rather than a panic one. It is bounded by
+        /// <c>StandOff</c>'s room clamp, so it cannot back out of the room and stop healing.
+        /// </para>
+        /// </remarks>
+        public const float HealerFleeRange = 2.6f;
 
         /// <summary>Distance the ranged attacker tries to keep from its target.</summary>
         public const float RangedRange = 3f;
@@ -72,6 +83,42 @@ namespace Dungeon.PartyManager
 
         /// <summary>How close the tank closes before it stops and swings.</summary>
         public const float TankReach = 0.85f;
+
+        /// <summary>
+        /// Health below which a tank stops holding the line and gives ground.
+        /// </summary>
+        /// <remarks>
+        /// The author's rule: <i>"the tank should always move forward. If a tank gets low, it should
+        /// move backwards as soon as it starts to get too much damage — so if there are two tanks
+        /// and one takes all the damage, it should move back once it gets below thirty percent."</i>
+        /// <para>
+        /// Per <b>member</b>, not per party, which is what makes the two-tank case work: the one
+        /// that has been soaking gives ground while its partner, still healthy, steps up and takes
+        /// over. That falls out of reading each tank's own health rather than the party's.
+        /// </para>
+        /// </remarks>
+        public const float TankHoldsUntil = 0.3f;
+
+        /// <summary>
+        /// Health below which anyone starts backing away from what is hitting them.
+        /// </summary>
+        /// <remarks>
+        /// Applies to every role including the tank — a body at a sliver of health is worth more
+        /// alive and bleeding than dead, and a corpse earns the player nothing at all while costing
+        /// a fifty-point penalty.
+        /// </remarks>
+        public const float WoundedBacksOffBelow = 0.45f;
+
+        /// <summary>
+        /// How much further a badly wounded member wants to stand from a threat.
+        /// </summary>
+        /// <remarks>
+        /// Added to whatever the role's usual distance is. Deliberately modest: combat is scoped per
+        /// room, so a member that backs out of the room stops fighting, stops healing, and stops
+        /// earning — and <see cref="StandOff"/> clamps to the room anyway, so this asks for space
+        /// and takes whatever the walls allow.
+        /// </remarks>
+        public const float WoundedExtraSpace = 1.6f;
 
         /// <summary>How close a melee attacker has to be before a fragile role panics.</summary>
         /// <remarks>
@@ -185,7 +232,15 @@ namespace Dungeon.PartyManager
 
             if (target.HasValue)
             {
-                return StandOff(self.Position, target.Value, TankReach, view);
+                // A tank holds the line and stands closer than anyone -- until it has taken enough
+                // that dying becomes the likelier outcome, at which point it gives ground. Read off
+                // THIS tank's health, so with two of them the one that has been soaking falls back
+                // while its partner steps up.
+                float reach = self.HealthFraction < TankHoldsUntil
+                    ? RangedRange
+                    : TankReach;
+
+                return StandOff(self.Position, target.Value, Spacing(self, reach), view);
             }
 
             return Advance(self, view);
@@ -241,7 +296,7 @@ namespace Dungeon.PartyManager
             Vector2? closing = Cornering(self, view);
             if (closing.HasValue)
             {
-                return StandOff(self.Position, closing.Value, MageRange, view);
+                return StandOff(self.Position, closing.Value, Spacing(self, MageRange), view);
             }
 
             Vector2? target = view.TankTarget ?? NearestVisible(self.Position, view);
@@ -388,13 +443,13 @@ namespace Dungeon.PartyManager
             Vector2? closing = Cornering(self, view);
             if (closing.HasValue)
             {
-                return StandOff(self.Position, closing.Value, RangedRange, view);
+                return StandOff(self.Position, closing.Value, Spacing(self, RangedRange), view);
             }
 
             Vector2? target = NearestVisible(self.Position, view);
             if (target.HasValue)
             {
-                return StandOff(self.Position, target.Value, RangedRange, view);
+                return StandOff(self.Position, target.Value, Spacing(self, RangedRange), view);
             }
 
             // Only a follower detours to defuse a trap. A leading rogue would walk onto the plate and
@@ -570,6 +625,24 @@ namespace Dungeon.PartyManager
         }
 
         /// <summary>A point the given distance from a target, on the side the mover is already on.</summary>
+        /// <summary>
+        /// How far a member wants to be from what is hitting it, given how hurt it is.
+        /// </summary>
+        /// <remarks>
+        /// One rule for every role, so a wounded body backs off whatever its job is. The tank is
+        /// not exempt: it simply starts from a much shorter distance, and it has its own earlier
+        /// threshold in <see cref="TankGoal"/> for giving ground while still able to fight.
+        /// </remarks>
+        /// <param name="self">Who is standing off.</param>
+        /// <param name="baseRange">The distance the role wants when healthy.</param>
+        /// <returns>The distance to ask for.</returns>
+        private static float Spacing(Adventurer self, float baseRange)
+        {
+            return self.HealthFraction < WoundedBacksOffBelow
+                ? baseRange + WoundedExtraSpace
+                : baseRange;
+        }
+
         private static Vector2 StandOff(
             Vector2 self, Vector2 target, float range, Perception view)
         {

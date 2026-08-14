@@ -25,8 +25,16 @@ namespace Dungeon.Game
     /// </remarks>
     public static class LoadingScreen
     {
-        /// <summary>How long the screen is shown before the standings take over.</summary>
-        public const float Seconds = 2f;
+        /// <summary>
+        /// How long the screen is shown before the standings take over.
+        /// </summary>
+        /// <remarks>
+        /// Six, on the author's instruction, and unskippable. The march is paced off this value
+        /// rather than a fixed speed, so the party still crosses the same span of floor and simply
+        /// walks it more slowly -- lengthening the screen does not leave them standing about at the
+        /// end.
+        /// </remarks>
+        public const float Seconds = 6f;
 
         /// <summary>Frames in a walk cycle, matching the generated art.</summary>
         private const int WalkFrames = 6;
@@ -166,6 +174,24 @@ namespace Dungeon.Game
                 Mathf.Floor(40f * scale));
 
             GUI.Label(rect, "THEY ARE COMING", style);
+
+            // The title, above. Drawn second so it inherits nothing from the line below it, and
+            // given its own fade so the two do not arrive as one block.
+            var titleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(14, Mathf.RoundToInt(40 * scale)),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            float titleAlpha = Mathf.Clamp01(age / 0.9f);
+            titleStyle.normal.textColor = new Color(0.84f, 0.68f, 0.94f, titleAlpha);
+
+            var titleRect = new Rect(
+                0f, Mathf.Floor(Screen.height * 0.07f), Screen.width,
+                Mathf.Floor(52f * scale));
+
+            GUI.Label(titleRect, "DUNGEON LEAGUE", titleStyle);
         }
     }
 }
