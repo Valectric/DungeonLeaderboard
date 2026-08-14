@@ -484,14 +484,16 @@ gave the game a losing ending and never a winning one; `Phase.Won` is that endin
 **Measured:** playing a good raid every round takes the field from 20 to 1 over 19 rounds and wins.
 Harvesting nothing is eliminated immediately.
 
-**Two consequences the author should look at:**
+**Both consequences were raised with the author and both are now settled.**
 
-1. **Round one is sudden death.** Everyone starts on zero, so a single weak opening raid puts the
-   player last and out — there is no banked score to fall back on. Later rounds are far more
-   forgiving. Levers: seed the table with a small opening score, exempt the first round from
-   elimination, or leave it as a sharp lesson.
-2. **A full run is nineteen raids** — about nineteen minutes plus shops. Fine for a campaign, long
-   for a jam voter. The lever is `LeagueTable.Size`.
+1. **Round one is sudden death — intended.** Everyone starts on zero, so a single weak opening raid
+   puts the player last and out with no banked score to absorb it. Later rounds are far more
+   forgiving. The author confirmed this is the design: the first raid is the sharpest lesson the game
+   teaches, and softening it would take the teeth out of a competition that is meant to bite from the
+   first round. **Do not "fix" this.** If a future change makes round one survivable by accident —
+   seeding opening scores, exempting the first elimination — it is a regression, not a kindness.
+2. **Run length — answered by the pacing.** Two dungeons leave each round rather than one, so twenty
+   reach a winner in ten rounds rather than nineteen. See the elimination pacing in `LeagueTable`.
 
 ## 2026-08-14 — D21. A second shut door froze the party for the rest of the raid
 
