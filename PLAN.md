@@ -284,6 +284,25 @@ longest section in the file because every trap in it cost a run:
    twelve pixels tall and unhittable. Whatever is drawn over the art must be laid out in absolute
    pixels and checked at that scale, not just in the editor.
 
+**Already learned, from a `--print-prompt` dry run — do not repeat it.** A backdrop prompt sent with
+`--command sprite` at 480x270 routes to:
+
+```
+routed harness: character
+asset category: characters
+logical canvas: 480x270 pixels
+```
+
+The canvas is right; **the harness is wrong**. That run would have drawn a *character sprite*, filed
+it under `assets/characters/`, and the harness brief would have held it to a character quality gate —
+eye line, shoulders, head size — for a picture that has no face in it. Nothing but the dry run
+reveals this: the flags are all accepted and the composed prompt looks reasonable.
+
+The router infers the harness from the prompt wording, not from `--command`. So the next attempt
+should describe the thing as an **illustrated scene or game object** rather than as art containing a
+core, bones and torches — nouns that read as subjects to draw. Re-run `--print-prompt` and confirm
+the harness before spending a generation. Budget two or three dry runs; they are free.
+
 The leaderboard is the title screen and that does not change — SPEC is explicit, and a loading
 screen is not a menu.
 
