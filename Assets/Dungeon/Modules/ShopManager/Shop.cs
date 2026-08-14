@@ -89,6 +89,28 @@ namespace Dungeon.ShopManager
             _placements.Add(new Placement(item, cell));
         }
 
+        /// <summary>
+        /// Moves every placement by an offset, for when the dungeon's own coordinates shift.
+        /// </summary>
+        /// <remarks>
+        /// Growing the dungeon left or down re-anchors the grid and every carved cell moves with it.
+        /// Purchases are stored as absolute cells, so without this a spawner bought before the
+        /// expansion would end up in a different room, or in the rock where nothing can reach it.
+        /// </remarks>
+        /// <param name="offset">How far every placement should move.</param>
+        public void Translate(Vector2Int offset)
+        {
+            if (offset == Vector2Int.zero)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _placements.Count; i++)
+            {
+                _placements[i] = new Placement(_placements[i].Item, _placements[i].Cell + offset);
+            }
+        }
+
         /// <summary>Whether anything has already been placed on a cell.</summary>
         /// <param name="cell">Cell to test.</param>
         /// <returns>True when the cell is taken.</returns>

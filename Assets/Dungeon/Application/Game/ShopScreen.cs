@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using Dungeon.ShopManager;
 using UnityEngine;
@@ -159,11 +160,11 @@ namespace Dungeon.Game
         /// </summary>
         /// <param name="shop">Shop being shown.</param>
         /// <param name="scale">UI scale.</param>
-        /// <param name="hallAnchor">Where the next hall would begin, in GUI space, or null at the cap.</param>
+        /// <param name="hallAnchors">Every place a new hall could go, in GUI space.</param>
         /// <param name="hallPrice">What that hall costs.</param>
         /// <param name="popupAnchor">Where a tile popup is open, in GUI space, or null for none.</param>
-        public static void Draw(Shop shop, float scale, Vector2? hallAnchor, float hallPrice,
-            Vector2? popupAnchor)
+        public static void Draw(Shop shop, float scale, IReadOnlyList<Vector2> hallAnchors,
+            float hallPrice, Vector2? popupAnchor)
         {
             // Barely a tint. The dungeon underneath is the thing being shopped for, and the old
             // 86%-opaque panel hid it completely -- which was fine when the shop was a list of cards
@@ -175,9 +176,12 @@ namespace Dungeon.Game
 
             DrawHeader(shop, scale);
 
-            if (hallAnchor.HasValue)
+            if (hallAnchors != null)
             {
-                DrawHallMarker(shop, hallAnchor.Value, hallPrice, scale);
+                foreach (Vector2 anchor in hallAnchors)
+                {
+                    DrawHallMarker(shop, anchor, hallPrice, scale);
+                }
             }
 
             if (popupAnchor.HasValue)
@@ -260,7 +264,7 @@ namespace Dungeon.Game
             };
             label.normal.textColor = affordable ? Ink : new Color(0.36f, 0.34f, 0.42f);
             GUI.Label(new Rect(rect.x, rect.y + (7f * scale), rect.width, 22f * scale),
-                "+ NEW HALL", label);
+                "+ HALL", label);
 
             var cost = new GUIStyle(label)
             {

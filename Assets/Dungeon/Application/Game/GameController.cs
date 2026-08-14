@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Dungeon.AudioManager;
@@ -234,9 +235,35 @@ namespace Dungeon.Game
         /// <returns>The layout for the next raid.</returns>
         private DungeonLayout BuildFromLoadout()
         {
-            return DungeonLayout.BuildCorridor(
-                roomCount: Mathf.Min(MaxRooms, 3 + _loadout.Count(ShopItem.Door)),
-                placed: PlacedFurniture());
+            return DungeonLayout.Build(PlannedRooms(), placed: PlacedFurniture());
+        }
+
+        /// <summary>Lattice cells the player has bought a hall on, in the order they bought them.</summary>
+        private readonly List<Vector2Int> _boughtHalls = new();
+
+        /// <summary>
+        /// The shape of the dungeon the player has paid for.
+        /// </summary>
+        /// <remarks>
+        /// Three rooms in a line to start with, as the game has always opened, plus whatever
+        /// directions have been bought since. Capped at <see cref="MaxRooms"/>: a corridor that keeps
+        /// growing eventually cannot be crossed in sixty seconds.
+        /// </remarks>
+        /// <returns>The plan to build.</returns>
+        private RoomPlan PlannedRooms()
+        {
+            RoomPlan plan = RoomPlan.Corridor(3);
+            foreach (Vector2Int lattice in _boughtHalls)
+            {
+                if (plan.Count >= MaxRooms)
+                {
+                    break;
+                }
+
+                plan.Add(lattice);
+            }
+
+            return plan;
         }
 
         /// <summary>
@@ -774,17 +801,24 @@ namespace Dungeon.Game
                 return;
             }
 
-            if (CanBuyHall && ShopScreen.HitHallMarker(
-                    screenPosition, GuiPointOf(_raid.Layout.NextHallCentre), scale))
+            if (CanBuyHall)
             {
-                if (_shop.Buy(ShopItem.Door))
+                foreach (Vector2Int lattice in ExpansionCells())
                 {
-                    _loadout.Add(ShopItem.Door);
-                    AudioFacade.Cue(Sfx.Purchase, 0.7f);
-                    ShowPreview();
-                }
+                    if (!ShopScreen.HitHallMarker(
+                            screenPosition, GuiPointOf(_raid.Layout.CentreOfLattice(lattice)),
+                            scale))
+                    {
+                        continue;
+                    }
 
-                return;
+                    if (_shop.Buy(ShopItem.Door))
+                    {
+                        BuyHallAt(lattice);
+                    }
+
+                    return;
+                }
             }
 
             Vector2Int cell = DungeonView.WorldToCell(_camera.ScreenToWorldPoint(screenPosition));
@@ -795,7 +829,42 @@ namespace Dungeon.Game
         }
 
         /// <summary>Whether the corridor can still take another hall.</summary>
-        private bool CanBuyHall => _loadout.Count(ShopItem.Door) < MaxRooms - 3;
+        private bool CanBuyHall => _boughtHalls.Count < MaxRooms - 3;
+
+        /// <summary>Every lattice cell the player could put a new hall on.</summary>
+        /// <returns>The cells, or an empty list for a layout built without a plan.</returns>
+        private List<Vector2Int> ExpansionCells()
+        {
+            return _raid?.Layout?.Plan?.Expansions() ?? new List<Vector2Int>();
+        }
+
+        /// <summary>
+        /// Buys a hall in a direction and keeps the existing furniture in the right rooms.
+        /// </summary>
+        /// <remarks>
+        /// Growing left or down moves the lattice anchor, and every carved cell moves with it -- so
+        /// a spawner the player placed at an absolute cell would silently end up in a different
+        /// room, or in the rock. Purchases are translated by the same amount the grid moved.
+        /// </remarks>
+        /// <param name="lattice">Lattice cell to build the hall on.</param>
+        private void BuyHallAt(Vector2Int lattice)
+        {
+            Vector2Int before = _raid.Layout.LatticeAnchor;
+            _boughtHalls.Add(lattice);
+            _loadout.Add(ShopItem.Door);
+
+            RoomPlan grown = PlannedRooms();
+            grown.Extent(out Vector2Int after, out _);
+
+            Vector2Int shift = before - after;
+            if (shift != Vector2Int.zero)
+            {
+                _loadout.Translate(new Vector2Int(shift.x * 6, shift.y * 6));
+            }
+
+            AudioFacade.Cue(Sfx.Purchase, 0.7f);
+            ShowPreview();
+        }
 
         /// <summary>Buys an item onto a cell and rebuilds the preview so the player sees it land.</summary>
         /// <param name="item">Item to buy.</param>
@@ -947,11 +1016,16 @@ namespace Dungeon.Game
 
             if (_phase == Phase.Shopping)
             {
-                Vector2? hall = CanBuyHall
-                    ? GuiPointOf(_raid.Layout.NextHallCentre)
-                    : null;
+                var halls = new List<Vector2>();
+                if (CanBuyHall)
+                {
+                    foreach (Vector2Int lattice in ExpansionCells())
+                    {
+                        halls.Add(GuiPointOf(_raid.Layout.CentreOfLattice(lattice)));
+                    }
+                }
                 Vector2? popup = _popupCell.HasValue ? GuiPointOf(_popupCell.Value) : null;
-                ShopScreen.Draw(_shop, scale, hall, _shop.Price(ShopItem.Door), popup);
+                ShopScreen.Draw(_shop, scale, halls, _shop.Price(ShopItem.Door), popup);
                 return;
             }
 

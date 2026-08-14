@@ -83,12 +83,15 @@ namespace Dungeon.Game.Tests
             return Vector2.zero;
         }
 
-        /// <summary>Screen point of the marker that buys another hall.</summary>
-        /// <returns>A screen point inside the marker.</returns>
-        private Vector2 HallMarkerPoint()
+        /// <summary>Screen point of a marker that buys another hall.</summary>
+        /// <param name="index">Which of the offered directions to press.</param>
+        /// <returns>A screen point inside that marker.</returns>
+        private Vector2 HallMarkerPoint(int index = 0)
         {
+            List<Vector2Int> offered = _game.CurrentRaid.Layout.Plan.Expansions();
+            Vector2Int lattice = offered[Mathf.Clamp(index, 0, offered.Count - 1)];
             Rect rect = ShopScreen.HallMarkerRect(
-                GuiPoint(_game.CurrentRaid.Layout.NextHallCentre),
+                GuiPoint(_game.CurrentRaid.Layout.CentreOfLattice(lattice)),
                 Scale, Screen.width, Screen.height);
             return new Vector2(rect.center.x, Screen.height - rect.center.y);
         }
@@ -470,6 +473,83 @@ namespace Dungeon.Game.Tests
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// The dungeon can be grown in more than one direction, not just along the corridor.
+        /// </summary>
+        /// <remarks>
+        /// The shop used to draw a single marker past the right-hand end, because that was the only
+        /// place a room could go. A dungeon is a lattice now, so every room that is not boxed in
+        /// offers its free sides — and pressing one of them has to build a room <i>there</i>.
+        /// </remarks>
+        [Test]
+        public async UniTask TheShop_OffersMoreThanOneDirection(CancellationToken ct)
+        {
+            _game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            List<Vector2Int> offered = _game.CurrentRaid.Layout.Plan.Expansions();
+            MooseRunnerFacade.Log(
+                $"a three-room corridor offers {offered.Count} places to build a hall");
+
+            Assert.Greater(offered.Count, 1,
+                "the shop offered only one direction, so the dungeon still only grows one way");
+
+            bool anyOffScript = false;
+            foreach (Vector2Int lattice in offered)
+            {
+                anyOffScript |= lattice.y != 0;
+            }
+
+            Assert.IsTrue(anyOffScript,
+                "every offer was on the corridor's own row, so nothing can be built above or below");
+        }
+
+        /// <summary>
+        /// Growing the dungeon does not move furniture the player already placed.
+        /// </summary>
+        /// <remarks>
+        /// The hazard the lattice introduced. Building to the left or below re-anchors the grid and
+        /// every carved cell shifts with it — so a spawner bought at an absolute cell would end up in
+        /// a different room, or in the rock where nothing can reach it. Placements are translated by
+        /// the same amount the grid moved.
+        /// </remarks>
+        [Test]
+        public async UniTask GrowingTheDungeon_LeavesPurchasesWhereTheyWere(CancellationToken ct)
+        {
+            _game.OpenShopWith(9000f);
+            await UniTask.Yield(ct);
+
+            Vector2Int cell = BuildableCell();
+            _game.TapShop(TilePoint(cell));
+            _game.TapShop(PopupRowPoint(cell, ShopItem.Skeleton));
+            await UniTask.Yield(ct);
+
+            int spawnersBefore = _game.CurrentRaid.Layout.SpawnerCells.Count;
+
+            // Every offered direction in turn, so whichever one re-anchors the grid is exercised.
+            List<Vector2Int> offered = _game.CurrentRaid.Layout.Plan.Expansions();
+            for (int i = 0; i < offered.Count && _game.CurrentRaid.Layout.Plan.Count < 5; i++)
+            {
+                _game.TapShop(HallMarkerPoint(i));
+                await UniTask.Yield(ct);
+            }
+
+            DungeonLayout layout = _game.CurrentRaid.Layout;
+            MooseRunnerFacade.Log(
+                $"after growing to {layout.Plan.Count} rooms, "
+                + $"{layout.SpawnerCells.Count} spawners stand (was {spawnersBefore})");
+
+            Assert.GreaterOrEqual(layout.SpawnerCells.Count, spawnersBefore,
+                "growing the dungeon lost a spawner the player had paid for");
+
+            foreach (Vector2Int spawner in layout.SpawnerCells)
+            {
+                Assert.AreNotEqual(DungeonManager.DungeonGrid.NoRoom,
+                    layout.Grid.RoomAt(spawner),
+                    $"the spawner at {spawner} ended up outside every room, so nothing can reach it");
+            }
         }
     }
 }

@@ -80,6 +80,25 @@ namespace Dungeon.DungeonManager
         /// <summary>The grid itself.</summary>
         public DungeonGrid Grid { get; }
 
+        /// <summary>
+        /// The shape this dungeon was built from, so the shop can offer somewhere to grow.
+        /// </summary>
+        /// <remarks>
+        /// Null for layouts built the old way, by room count alone.
+        /// </remarks>
+        public RoomPlan Plan { get; private set; }
+
+        /// <summary>
+        /// Lowest lattice coordinate the plan uses, which anchors every cell in the grid.
+        /// </summary>
+        /// <remarks>
+        /// Load-bearing for the shop. Growing the dungeon <i>left or down</i> moves this, and every
+        /// carved cell moves with it — so a spawner the player placed at an absolute cell would
+        /// silently end up in a different room. Anything holding absolute cells has to translate
+        /// them by the change in this value.
+        /// </remarks>
+        public Vector2Int LatticeAnchor { get; private set; }
+
         /// <summary>Where the party enters.</summary>
         public Vector2Int EntranceCell { get; }
 
@@ -362,10 +381,10 @@ namespace Dungeon.DungeonManager
             if (placed != null)
             {
                 placed.ApplyTo(grid, spawners, spawnerTiers, traps, chestCells);
-                return new DungeonLayout(
+                return Tagged(plan, latticeMin, new DungeonLayout(
                     grid, new Vector2Int(margin, midY),
                     new Vector2Int(margin + interiorWidth - 1, midY),
-                    centres, spawners, traps, chestCells, spawnerTiers);
+                    centres, spawners, traps, chestCells, spawnerTiers));
             }
 
             // Bought equipment goes into the rooms the party walks through. Placed on the rows above
@@ -411,8 +430,38 @@ namespace Dungeon.DungeonManager
 
             var entrance = new Vector2Int(margin, midY);
             var boss = new Vector2Int(margin + interiorWidth - 1, midY);
-            return new DungeonLayout(
-                grid, entrance, boss, centres, spawners, traps, chestCells, spawnerTiers);
+            return Tagged(plan, latticeMin, new DungeonLayout(
+                grid, entrance, boss, centres, spawners, traps, chestCells, spawnerTiers));
+        }
+
+        /// <summary>Records which plan a layout came from, and where its lattice is anchored.</summary>
+        /// <param name="plan">Shape the layout was built from.</param>
+        /// <param name="anchor">Lowest lattice coordinate the plan uses.</param>
+        /// <param name="layout">Layout to tag.</param>
+        /// <returns>The same layout.</returns>
+        private static DungeonLayout Tagged(RoomPlan plan, Vector2Int anchor, DungeonLayout layout)
+        {
+            layout.Plan = plan;
+            layout.LatticeAnchor = anchor;
+            return layout;
+        }
+
+        /// <summary>
+        /// Where a room would be centred if one were built at a lattice coordinate.
+        /// </summary>
+        /// <remarks>
+        /// What the shop draws its expansion markers on. Computed from this layout's own anchor and
+        /// room size, so a marker cannot drift from the geometry it is offering to extend.
+        /// </remarks>
+        /// <param name="lattice">Lattice coordinate to locate.</param>
+        /// <param name="roomWidth">Interior width of a room.</param>
+        /// <param name="roomHeight">Interior height of a room.</param>
+        /// <returns>The centre cell that room would have.</returns>
+        public Vector2Int CentreOfLattice(Vector2Int lattice, int roomWidth = 5, int roomHeight = 5)
+        {
+            Vector2Int origin = PlanBuilder.OriginOf(
+                lattice, LatticeAnchor, roomWidth, roomHeight);
+            return new Vector2Int(origin.x + (roomWidth / 2), origin.y + (roomHeight / 2));
         }
     }
 }
