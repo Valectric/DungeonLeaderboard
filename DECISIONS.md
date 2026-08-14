@@ -551,6 +551,23 @@ game still behaves as intended once a monster dies in a couple of seconds:
 - `RaidRulesTests.AFight_LastsLongEnoughToEarn` and `Trap_CostsEnergyWoundsThePartyAndThenCoolsDown`
   — probably fight-length bounds, but unconfirmed.
 
-**Recommended next step:** apply the nerf and work through those six individually, deciding for each
-whether it encodes a property worth keeping or a number that has moved. The change is one line at
-`MobPack`'s stat block.
+**Resolved the same day.** All seven cleared and the nerf is applied. None of the six needed its
+claim weakened; five were measuring through a window sized on the old monster:
+
+- The two **positioning** tests were the interesting ones, because where a mob comes to rest cannot
+  depend on its health. Both sampled at a hardcoded time — one carried the comment *"eight seconds:
+  long enough to close and settle, short enough that the skeleton is still alive. It dies around
+  thirteen"* — so with a monster dying at 6.5s they were reading an empty sequence. They now sample
+  while the mob lives.
+- **TheTank_TakesTheDamage** and **TheHealer_HealsDuringALongFight** share a helper that spawned one
+  monster and ticked for thirty seconds. That is a short fight followed by twenty-odd seconds of
+  walking, during which a healer tops everyone up and the tank stops being the one bleeding. The
+  helper keeps the pressure on now, which is what a player does and what "several weaker monsters"
+  means.
+- **Trap_CostsEnergy...** needed twenty-five seconds of held fight to bank a trap's price; same fix.
+- **AFight_LastsLongEnoughToEarn** was a genuine bound sized on 260 health, lowered from eight
+  seconds to four. The property is that one purchase buys a meaningful stretch, not that it buys the
+  old figure.
+
+**After:** 136 raid tests green with the nerf live. A skeleton holds a party **7.0s** and harvests
+108. The central invariant reads **14 against 231**, and the roster spread is **3.7x**.

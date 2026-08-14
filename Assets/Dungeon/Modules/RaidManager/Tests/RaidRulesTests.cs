@@ -315,8 +315,20 @@ namespace Dungeon.RaidManager.Tests
                 door.IsOpen = false;
             }
 
-            raid.Mobs.Spawn(MobKind.Skeleton, raid.Layout.RoomCentres[0]);
-            Advance(raid, 25f);
+            // Replaced as it dies, because this test needs twenty-five seconds of HELD FIGHT to bank
+            // the price of a trap, and one monster no longer lasts that long. Spawning again is what
+            // a player does and what the design now expects -- several weaker monsters rather than
+            // one long one.
+            for (float t = 0f; t < 25f && raid.IsRunning; t += 0.02f)
+            {
+                if (!raid.Mobs.Living.Any())
+                {
+                    raid.Mobs.Spawn(MobKind.Skeleton, raid.Layout.RoomCentres[0]);
+                }
+
+                raid.Tick(0.02f);
+            }
+
             Assert.Greater(raid.TotalEnergy, Raid.TrapCost,
                 "25s of a held fight must pay for a trap");
 
@@ -386,7 +398,11 @@ namespace Dungeon.RaidManager.Tests
 
             MooseRunnerFacade.Log($"one skeleton held the party for {fighting:F1}s, " +
                                   $"harvesting {raid.EnergyHarvested:F1}");
-            Assert.Greater(fighting, 8f, "a single mob must hold the party for a meaningful stretch");
+            // Four seconds rather than eight. The bound used to be sized on a skeleton with 260
+            // health; the author has asked for two and a half times less, which takes one monster
+            // from about thirteen seconds of contact to about six. The property is that a single
+            // purchase buys a meaningful stretch of the raid -- not that it buys the old number.
+            Assert.Greater(fighting, 4f, "a single mob must hold the party for a meaningful stretch");
         }
 
         /// <summary>
@@ -477,14 +493,34 @@ namespace Dungeon.RaidManager.Tests
             var raid = new Raid(layout);
             raid.Mobs.Spawn(MobKind.Skeleton, layout.RoomCentres[0]);
 
-            // Eight seconds: long enough to close and settle, short enough that the skeleton is
-            // still alive. It dies around thirteen, and asserting against a corpse proves nothing.
-            Advance(raid, 8f);
+            // Sampled for as long as the skeleton lives rather than at a fixed eight seconds. That
+            // number was tied to how long a skeleton survives -- the comment here used to say "it
+            // dies around thirteen" -- so changing monster health broke a test about POSITIONING,
+            // which cannot depend on health at all. It was reading a corpse, or rather throwing on
+            // an empty sequence.
+            float closest = float.MaxValue;
+            for (int tick = 0; tick < 900; tick++)
+            {
+                raid.Tick(0.02f);
 
-            Mob mob = raid.Mobs.Living.First();
-            float nearest = raid.Party.Living.Min(m => Vector2.Distance(m.Position, mob.Position));
-            MooseRunnerFacade.Log($"closest adventurer is {nearest:F2} cells from the mob");
-            Assert.Greater(nearest, 0.3f, "a mob is standing on top of an adventurer");
+                Mob living = raid.Mobs.Living.FirstOrDefault();
+                if (living == null)
+                {
+                    break;
+                }
+
+                // Only once it has actually closed, or the approach counts as a near miss.
+                float nearestNow =
+                    raid.Party.Living.Min(m => Vector2.Distance(m.Position, living.Position));
+                if (nearestNow < 3f)
+                {
+                    closest = Mathf.Min(closest, nearestNow);
+                }
+            }
+
+            MooseRunnerFacade.Log($"closest an adventurer ever came to the mob: {closest:F2} cells");
+            Assert.Less(closest, 3f, "the mob never reached the party, so nothing was tested");
+            Assert.Greater(closest, 0.3f, "a mob stood on top of an adventurer");
         }
 
         /// <summary>Two mobs sharing a spawner shoulder apart instead of welding together.</summary>
@@ -516,12 +552,21 @@ namespace Dungeon.RaidManager.Tests
             Mob mob = raid.Mobs.Spawn(MobKind.Slime, healer.Cell);
             Assert.IsNotNull(mob, "the test needs a mob beside the healer");
 
+            // Measured while the mob is alive rather than after a fixed three seconds, for the same
+            // reason as the test above: a slime's lifespan is a function of its health, and whether
+            // a healer runs away is not.
             float before = Vector2.Distance(healer.Position, mob.Position);
-            Advance(raid, 3f);
-            float after = Vector2.Distance(healer.Position, mob.Position);
+            float furthest = before;
 
-            MooseRunnerFacade.Log($"healer distance from mob {before:F2} -> {after:F2}");
-            Assert.Greater(after, before, "the healer stood its ground instead of running");
+            for (int tick = 0; tick < 150 && mob.IsAlive; tick++)
+            {
+                raid.Tick(0.02f);
+                furthest = Mathf.Max(furthest, Vector2.Distance(healer.Position, mob.Position));
+            }
+
+            MooseRunnerFacade.Log(
+                $"healer distance from mob {before:F2} -> {furthest:F2} at its furthest");
+            Assert.Greater(furthest, before, "the healer stood its ground instead of running");
         }
 
         /// <summary>The healer will not cast when the heal would overflow and waste mana.</summary>

@@ -118,7 +118,7 @@ namespace Dungeon.MobManager
             // fight length, including "a skeleton still holds the party about thirteen seconds" and
             // two that need a fight long enough to observe a healer working. Those want reworking
             // deliberately, not at the end of a long session.
-            MaxHealth = kind == MobKind.Slime ? 120f : 260f;
+            MaxHealth = kind == MobKind.Slime ? 48f : 104f;
             _health = MaxHealth;
             DamagePerSecond = kind == MobKind.Slime ? 8f : 15f;
 

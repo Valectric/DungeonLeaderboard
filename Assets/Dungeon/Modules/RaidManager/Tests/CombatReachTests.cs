@@ -1,3 +1,4 @@
+using System.Linq;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
 using Dungeon.PartyManager;
@@ -50,8 +51,18 @@ namespace Dungeon.RaidManager.Tests
 
             Assert.IsTrue(InContact(raid), "the monster never reached the party, so nothing is proven");
 
+            // Kept under pressure rather than left with the one monster. A skeleton dies in a few
+            // seconds, so "a thirty-second fight" spawned once is really a short fight followed by
+            // twenty-odd seconds of walking -- during which a healer tops everyone up and the tank
+            // stops being the one bleeding. Every test built on this helper is about what happens
+            // DURING sustained combat, and a player producing sustained combat replaces what dies.
             for (float t = 0f; t < seconds && raid.IsRunning; t += 0.02f)
             {
+                if (!raid.Mobs.Living.Any())
+                {
+                    raid.Mobs.Spawn(MobKind.Skeleton, layout.SpawnerCells[0]);
+                }
+
                 raid.Tick(0.02f);
             }
 
