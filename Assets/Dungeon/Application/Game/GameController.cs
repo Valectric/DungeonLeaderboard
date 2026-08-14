@@ -544,10 +544,12 @@ namespace Dungeon.Game
             {
                 _loadingAge += Time.deltaTime;
 
-                // A tap or a key skips it. Two seconds is short, but it is two seconds a returning
-                // player has already seen, and the first click on the itch embed is the one that
-                // gives the page focus -- so it should do something rather than be swallowed.
-                if (_loadingAge >= LoadingScreen.Seconds || TryReadTap(out _) || AnyKeyPressed())
+                // NOT skippable, by the author's instruction. Two seconds of the party marching in
+                // is the game introducing itself, and a returning player mashing a key to reach the
+                // standings would skip past the one moment that says what this is. It also removes
+                // an accident: on the itch embed the first click is the one that gives the page
+                // focus, so a skippable screen would vanish before most players had seen it at all.
+                if (_loadingAge >= LoadingScreen.Seconds)
                 {
                     _phase = Phase.Standings;
                 }
