@@ -163,7 +163,13 @@ namespace Dungeon.Game
             // A raid exists even on the title screen, so the dungeon is drawn behind the standings
             // rather than the player opening on an empty void.
             StartRaid();
-            _phase = Phase.Standings;
+
+            // Loading, not Standings. StartRaid leaves the phase on Raiding, so this line is what
+            // the game actually opens on -- and setting it to Standings here is why the loading
+            // screen never appeared at all: the field initialiser was overwritten within the same
+            // frame. Compiled clean, suite green, feature absent, and only a photograph caught it.
+            _phase = Phase.Loading;
+            _loadingAge = 0f;
 
             // That raid is scenery and is thrown away the moment the player presses a key -- but it
             // consumed the opening party on its way past, so the first party the player actually

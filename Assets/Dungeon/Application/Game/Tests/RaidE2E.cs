@@ -100,6 +100,12 @@ namespace Dungeon.Game.Tests
             await MooseRunnerFacade.InstanceQuiet.LoadSceneFromNameAsync("Raid", forceReload: true);
             await UniTask.WaitForSeconds(0.5f, cancellationToken: ct);
 
+            // Half a second in, the loading screen is still up and its party is mid-stride. This is
+            // the only chance to photograph it -- it hands over to the standings at two seconds --
+            // and photographing it is the point: the walk frames are loaded by NAME, and a wrong
+            // name draws nothing at all rather than failing, so a green test proves very little.
+            await CaptureScreen("00-loading", ct);
+
             Assert.IsNotNull(Controller, "the play scene must contain a GameController");
             Assert.IsNotNull(Controller.League, "the game must open on a league");
             Assert.IsNotNull(Controller.CurrentRaid, "the dungeon is built behind the standings");
