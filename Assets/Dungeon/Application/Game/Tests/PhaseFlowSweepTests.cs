@@ -273,5 +273,111 @@ namespace Dungeon.Game.Tests
                 }
             }
         }
+
+        /// <summary>
+        /// Ten complete rounds through every phase leave the game in the same shape it started.
+        /// </summary>
+        /// <remarks>
+        /// The other sweeps each exercise one transition. This walks the loop a player actually
+        /// walks — raid, review, bank, standings, shop, buy something, next raid — ten times over,
+        /// which is a whole season. Anything that survives a phase change rather than a single
+        /// screen only shows up here: a view rebuilt but never torn down, a popup that outlives the
+        /// shop that opened it, a purse that ratchets.
+        /// <para>
+        /// The raid is fast-forwarded by ticking it directly rather than waiting sixty real seconds
+        /// a round. That is a white-box shortcut and legitimate in a Play Mode test; every
+        /// transition around it still goes through the controller's own handlers.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public async UniTask TenWholeRounds_LeaveTheGameIntact(CancellationToken ct)
+        {
+            _game.Advance();
+            await UniTask.Yield(ct);
+
+            int baseline = 0;
+            int rounds = 0;
+
+            for (int round = 0; round < 10; round++)
+            {
+                // Pressed repeatedly, because that is what a player does. Banking a raid resets
+                // the standings shift, and the first press only finishes that animation -- a single
+                // Advance() after a bank looks like a dead button and left an earlier version of
+                // this sweep restarting round zero forever.
+                for (int press = 0; press < 4 && !_game.IsRaiding && !_game.IsShopping; press++)
+                {
+                    _game.Advance();
+                    await UniTask.Yield(ct);
+                }
+
+                if (_game.IsShopping)
+                {
+                    BuyOntoAnEmptyTile(ShopManager.ShopItem.Chest);
+                    _game.TapShop(ReadyPoint());
+                    await UniTask.Yield(ct);
+                    await UniTask.Yield(ct);
+                }
+
+                Assert.IsTrue(_game.IsRaiding, $"round {round}: the raid never started");
+
+                // Run the raid out.
+                int guard = 0;
+                while (_game.CurrentRaid.IsRunning && guard++ < 400)
+                {
+                    _game.CurrentRaid.Tick(0.25f);
+                }
+
+                Assert.Less(guard, 400, $"round {round}: the raid never ended");
+                await UniTask.Yield(ct);
+                await UniTask.Yield(ct);
+
+                // The review, then bank it through the same handler a tap uses.
+                Assert.IsTrue(_game.IsReviewing, $"round {round}: no review after the raid");
+                await UniTask.WaitForSeconds(
+                    GameController.ReviewLockoutSeconds + 0.2f, cancellationToken: ct);
+                Assert.IsTrue(_game.DismissReview(),
+                    $"round {round}: the review refused to be dismissed");
+                await UniTask.Yield(ct);
+
+                Assert.AreEqual(round + 1, _game.League.Round,
+                    $"round {round}: the raid was not banked into the league");
+
+                if (round == 0)
+                {
+                    baseline = _game.transform.childCount;
+                }
+
+                rounds++;
+
+                if (_game.League.PlayerRelegated)
+                {
+                    // Relegation ends the run. Starting a fresh one is the legitimate continuation,
+                    // and the loop has to survive it -- a season that ends mid-sweep is a state
+                    // transition like any other, not a reason to stop looking.
+                    MooseRunnerFacade.Log($"relegated after round {round}; starting a fresh run");
+                    _game.Advance();
+                    await UniTask.Yield(ct);
+                }
+            }
+
+            int finalCount = _game.transform.childCount;
+            MooseRunnerFacade.Log(
+                $"{rounds} whole rounds: {baseline} view objects after the first, {finalCount} at "
+                + $"the end; league round {_game.League.Round}, loadout {_game.Loadout.Total}");
+
+            Assert.AreEqual(10, rounds, "the loop did not complete ten rounds");
+            Assert.Less(finalCount, baseline * 2,
+                $"ten rounds grew the scene from {baseline} to {finalCount} objects, so something "
+                + "survives a phase change that should not");
+        }
+
+        /// <summary>Centre of the Ready button, in input space.</summary>
+        /// <returns>A screen point inside the Ready button.</returns>
+        private static Vector2 ReadyPoint()
+        {
+            Rect ready = ShopScreen.ReadyRect(
+                Screen.height / 720f, Screen.width, Screen.height);
+            return new Vector2(ready.center.x, Screen.height - ready.center.y);
+        }
     }
 }

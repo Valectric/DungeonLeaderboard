@@ -493,12 +493,9 @@ namespace Dungeon.Game
             if (_phase == Phase.Reviewing)
             {
                 _reviewAge += Time.deltaTime;
-
-                // A short lockout so the stars have time to land before a keen player can skip past
-                // them. The review is the one screen that explains why the score is what it is.
-                if (_reviewAge > 1.4f && (TryReadTap(out _) || AnyKeyPressed()))
+                if (TryReadTap(out _) || AnyKeyPressed())
                 {
-                    BankRaid();
+                    DismissReview();
                 }
 
                 return;
@@ -536,6 +533,43 @@ namespace Dungeon.Game
             {
                 ClickAt(tapPosition);
             }
+        }
+
+        /// <summary>
+        /// How long the review holds before it will accept a dismissal.
+        /// </summary>
+        /// <remarks>
+        /// The stars land over about a second. Without a lockout a player already tapping to spawn
+        /// mobs skips straight past the one screen that explains why the score is what it is.
+        /// </remarks>
+        public const float ReviewLockoutSeconds = 1.4f;
+
+        /// <summary>
+        /// Dismisses the review and banks the raid, exactly as tapping the screen does.
+        /// </summary>
+        /// <remarks>
+        /// Public for the same reason <see cref="StartRaid"/>, <see cref="TapShop"/> and
+        /// <see cref="ClickAt"/> are: every other transition in this game has an entry point a test
+        /// can press, and this one did not — so a sweep that walked the whole loop silently skipped
+        /// the review, never banked a raid, and reported ten rounds in which the league stayed on
+        /// round zero. It looked like a passing test of the player's loop and was a slow way of
+        /// restarting the same raid.
+        /// <para>
+        /// Dismissing the review is a real player action, so this is the handler rather than a test
+        /// seam: the frame loop calls it when it reads a tap, and nothing here is reachable that a
+        /// player could not do.
+        /// </para>
+        /// </remarks>
+        /// <returns>True when the review was showing, had held long enough, and was banked.</returns>
+        public bool DismissReview()
+        {
+            if (_phase != Phase.Reviewing || _reviewAge <= ReviewLockoutSeconds)
+            {
+                return false;
+            }
+
+            BankRaid();
+            return true;
         }
 
         /// <summary>Whether any key was pressed this frame.</summary>
