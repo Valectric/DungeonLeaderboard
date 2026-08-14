@@ -57,8 +57,16 @@ times its own health. A corpse earns nothing and costs **50 points**.
 
 **Two changes the author asked for had to wait for that curve.** Faster archers and weaker monsters
 both *inverted the game* under the old one, because anything keeping the party healthier made killing
-it relatively more attractive. Archers are live now (4 vs 190). The monster nerf measures fine too
-(14 vs 231) but is parked behind seven tests that encode the current fight length.
+it relatively more attractive. **Both are live now**: archers measure 4 vs 190, and monsters with two
+and a half times less health measure 14 vs 231. A skeleton holds a party 7 seconds rather than 13, so
+it is something you field several of.
+
+Clearing the seven tests that blocked the nerf is worth reading (D22). **Not one needed its claim
+weakened.** Five were measuring through a window sized on the old monster — including two about
+*positioning*, which cannot depend on health at all, and which sampled at a hardcoded eight seconds
+against a monster that now dies at six and a half. The tank and healer tests shared a helper that
+spawned one monster and ticked thirty seconds, which is a short fight followed by twenty seconds of
+walking. Only one was a genuine bound.
 
 **The standoff is gone.** A player reported a skeleton "wagging back and forth" beside the glass
 cannons without landing a blow. Reproduced exactly: every fragile role runs at anything within 1.7

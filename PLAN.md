@@ -131,11 +131,11 @@ Directed by the author after playing M5. The pieces interlock, which is why they
   cannot be beaten by luck. See D20.
 - **The dungeon is a lattice.** Rooms grow in four directions; the shop offers every free side.
 - **The party explores** toward the nearest unseen room, then leaves the way it came in.
-- **Tank defence 50%, walk speed x1.5, archers outrun a single monster.**
+- **Tank defence 50%, walk speed x1.5, archers outrun a single monster, monsters two and a half
+  times less health.** The last two had to wait for the curve, which is what made them safe.
 
-Parked, both recorded at their constants with measurements: the monster health nerf (viable at
-14 against 231, but seven tests encode the current fight length) and the two balance questions in
-D20.
+Everything the author asked for in the session is in. What remains is theirs to decide: the two
+balance questions in D20 — round one is sudden death, and a full run is nineteen raids.
 
 ---
 
