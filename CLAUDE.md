@@ -184,6 +184,10 @@ agent's prose summary.** Enumerate PNGs by mtime and check the manifest.
 
 Then copy approved PNGs into `Assets/Art/` as a deliberate second step.
 
+`--command` accepts exactly **`sprite | animate | character | effect | pack`**. There is no
+`creature` — that is a *harness* the router infers from the prompt, not a command, and passing it
+fails the whole run with `unsupported --command "creature"` after the batch has already started.
+
 Other flags: `--command animate --frames 6 --fps 12` for animation, `--command pack` for a
 coordinated multi-item set, `--print-prompt` for a **dry run** that composes the prompt and launches
 nothing. Ranges: width/height 8–512, frames 1–32, fps 1–60.

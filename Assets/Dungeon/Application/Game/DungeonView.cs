@@ -553,7 +553,7 @@ namespace Dungeon.Game
                     (mob.Position.x + shove.x) * CellSize,
                     ((mob.Position.y + shove.y) * CellSize) + 0.1f + lift,
                     -1f);
-                view.sprite = _sprites.Load(mob.Kind == MobKind.Slime ? "mobs/slime" : "mobs/skeleton");
+                view.sprite = FrameForMob(mob, i);
                 view.sortingOrder = MobSortingBase - Mathf.RoundToInt(mob.Position.y * 4f);
 
                 while (_mobFacing.Count <= i)
@@ -591,6 +591,39 @@ namespace Dungeon.Game
                 // bar is whose. The player wants their monster's bar to stay long.
                 fill.color = new Color(0.72f, 0.35f, 0.9f);
             }
+        }
+
+        /// <summary>
+        /// The sprite a monster should be showing this instant.
+        /// </summary>
+        /// <remarks>
+        /// The same shape as the party's: an attack takes precedence and plays once off its own
+        /// phase, a walk cycle loops while it is closing, and everything falls back to the single
+        /// static sprite. A monster with no drawn frames keeps working exactly as before.
+        /// </remarks>
+        /// <param name="mob">Monster being drawn.</param>
+        /// <param name="index">Its spawn index, so a room of them does not move in lockstep.</param>
+        /// <returns>The sprite to show.</returns>
+        private Sprite FrameForMob(Mob mob, int index)
+        {
+            string kind = mob.Kind == MobKind.Slime ? "slime" : "skeleton";
+
+            if (mob.LastAttackTarget.HasValue && mob.AttackPhase < 1f)
+            {
+                int swing = Mathf.Clamp(
+                    Mathf.FloorToInt(mob.AttackPhase * WalkFrames), 0, WalkFrames - 1);
+                Sprite struck = _sprites.Load($"mobs/attack/{kind}-attack-{swing + 1}", quiet: true);
+                if (struck != null)
+                {
+                    return struck;
+                }
+            }
+
+            int frame = Mathf.FloorToInt((_time / WalkFrameSeconds) + (index * 1.7f));
+            Sprite drawn = _sprites.Load(
+                $"mobs/walk/{kind}-walk-{(frame % WalkFrames) + 1}", quiet: true);
+
+            return drawn != null ? drawn : _sprites.Load($"mobs/{kind}");
         }
 
         /// <summary>Frames a drawn walk cycle holds.</summary>
