@@ -618,12 +618,32 @@ namespace Dungeon.Game
         /// one animation playing on four puppets rather than four people walking.
         /// </para>
         /// </remarks>
+        /// <para>
+        /// An attack takes precedence and plays once rather than looping, driven off the same
+        /// <c>AttackPhase</c> the procedural lunge uses — so the drawn swing and the sprite's throw
+        /// toward its target are the same event and cannot disagree about when the blow landed.
+        /// </para>
         /// <param name="member">Who is being drawn.</param>
         /// <param name="slot">Their place in the party, for the phase offset.</param>
         /// <returns>The sprite to show.</returns>
         private Sprite FrameFor(Adventurer member, int slot)
         {
             string role = RoleName(member.Role);
+
+            // An attack outranks a walk cycle, and plays once through rather than looping: the
+            // phase runs 0 to 1 between blows, so the frame is read straight off it and the last
+            // frame holds while the weapon is recovering.
+            if (member.LastAttackTarget.HasValue && member.AttackPhase < 1f)
+            {
+                int swing = Mathf.Clamp(
+                    Mathf.FloorToInt(member.AttackPhase * WalkFrames), 0, WalkFrames - 1);
+                Sprite struck = _sprites.Load(
+                    $"party/attack/{role}-attack-{swing + 1}", quiet: true);
+                if (struck != null)
+                {
+                    return struck;
+                }
+            }
 
             if (member.Action == AdventurerAction.Walking && member.Wounds == WoundState.Healthy)
             {
