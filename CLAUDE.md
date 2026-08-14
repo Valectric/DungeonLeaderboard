@@ -247,6 +247,20 @@ Check provenance by measurement, never by filename or prose: compare the generat
 colour and opaque pixel count against the source sprite. They should match within a few pixels,
 because a rigged animation *is* the source art articulated.
 
+### Do not paste the palette string when rigging an existing sprite
+
+The palette guidance is for **new** art. When the harness rigs a sprite you already have, the source
+master *is* the palette, and pasting the violet palette string on top drags it off.
+
+Measured on the archer: the game's is green-hooded at average colour (87,77,43); the run with the
+palette string attached came back **purple-hooded with a pink face** at (93,45,73). Same pose, same
+bow, same silhouette — recoloured. Green is the colour furthest from that palette and got pulled
+hardest, which is why the tank and healer came through unscathed and only this one showed it.
+
+Re-running with no palette string and no palette reference, and the instruction *"preserve its exact
+existing colours… do not recolour, retint or restyle any pixel; only articulate the legs and arms"*,
+returned (87,77,42) — the source, articulated.
+
 ### Review every batch before import — mandatory
 
 Nothing in the pipeline verifies output. After **every** generation run:
