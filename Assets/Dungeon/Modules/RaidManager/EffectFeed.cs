@@ -26,7 +26,16 @@ namespace Dungeon.RaidManager
         /// the party chose to do. A chest costs the party seconds and now pays the whole team a
         /// bonus for five of them, and a reward nobody sees arrive is a reward nobody learns to buy.
         /// </remarks>
-        ChestOpened = 4
+        ChestOpened = 4,
+
+        /// <summary>
+        /// The stake on a spawned monster came back because the party killed it.
+        /// </summary>
+        /// <remarks>
+        /// Shown so the loan is legible. A player who never sees the twenty-five return will go on
+        /// treating spawning as a purchase and hoard against a cost that is not really there.
+        /// </remarks>
+        SpawnRefunded = 5
     }
 
     /// <summary>One effect waiting to be drawn.</summary>

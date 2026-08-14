@@ -309,15 +309,22 @@ namespace Dungeon.DungeonManager
         /// parameters above entirely — the counts scatter things by a formula, which is the wrong
         /// answer once the player has pointed at a tile.
         /// </param>
+        /// <param name="furnishedRooms">
+        /// How many of the plan's rooms arrive with a spawner and a trap already in them. Defaults to
+        /// all of them, which is what tests and the opening corridor want; the game passes the size
+        /// of the starting corridor so that halls bought later arrive empty for the player to fit
+        /// out themselves.
+        /// </param>
         /// <returns>The built layout.</returns>
         public static DungeonLayout BuildCorridor(
             int roomCount = 3, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true,
             int extraSlimeSpawners = 0, int extraSkeletonSpawners = 0, int extraTraps = 0,
-            int chests = 0, Furnishings placed = null)
+            int chests = 0, Furnishings placed = null, int furnishedRooms = int.MaxValue)
         {
             roomCount = Mathf.Max(2, roomCount);
             return Build(RoomPlan.Corridor(roomCount), roomWidth, roomHeight, doorsStartOpen,
-                extraSlimeSpawners, extraSkeletonSpawners, extraTraps, chests, placed);
+                extraSlimeSpawners, extraSkeletonSpawners, extraTraps, chests, placed,
+                furnishedRooms);
         }
 
         /// <summary>
@@ -336,11 +343,17 @@ namespace Dungeon.DungeonManager
         /// <param name="extraTraps">Extra traps bought in the shop.</param>
         /// <param name="chests">Chests bought in the shop.</param>
         /// <param name="placed">Exactly where the player put each purchase.</param>
+        /// <param name="furnishedRooms">
+        /// How many of the plan's rooms arrive with a spawner and a trap already in them. Defaults to
+        /// all of them, which is what tests and the opening corridor want; the game passes the size
+        /// of the starting corridor so that halls bought later arrive empty for the player to fit
+        /// out themselves.
+        /// </param>
         /// <returns>The built layout.</returns>
         public static DungeonLayout Build(
             RoomPlan plan, int roomWidth = 5, int roomHeight = 5, bool doorsStartOpen = true,
             int extraSlimeSpawners = 0, int extraSkeletonSpawners = 0, int extraTraps = 0,
-            int chests = 0, Furnishings placed = null)
+            int chests = 0, Furnishings placed = null, int furnishedRooms = int.MaxValue)
         {
             roomWidth = Mathf.Max(2, roomWidth);
             roomHeight = Mathf.Max(2, roomHeight);
@@ -356,10 +369,17 @@ namespace Dungeon.DungeonManager
             var spawnerTiers = new List<int>();
             var traps = new List<Vector2Int>();
 
-            // Every room past the first earns its keep: somewhere to spawn from and something to
-            // stand on. The first room is left clear so the party is never ambushed before the
-            // player has had a moment to read the board.
-            for (int room = 1; room < roomCount; room++)
+            // Only the rooms the dungeon STARTS with come furnished. A hall bought in the shop
+            // arrives empty and the player fits it out by clicking its floor, because a bought hall
+            // that already contained a spawner and a trap silently bundled two fittings the player
+            // did not choose and could not place -- and a room they had furnished deliberately
+            // looked no different from one the builder had stocked.
+            //
+            // The opening corridor is still stocked. A dungeon with nothing in it has no verbs to
+            // press and earns nothing, so an unfurnished round one would be a game over screen with
+            // extra steps. Room 0 is left clear regardless, so the party is never ambushed before
+            // the player has had a moment to read the board.
+            for (int room = 1; room < Mathf.Min(roomCount, furnishedRooms); room++)
             {
                 Vector2Int origin = PlanBuilder.OriginOf(
                     plan.Rooms[room], latticeMin, roomWidth, roomHeight);

@@ -231,11 +231,24 @@ namespace Dungeon.Game
         /// </remarks>
         private const int MaxRooms = 5;
 
+        /// <summary>
+        /// Rooms the dungeon opens with, and the only ones that come furnished.
+        /// </summary>
+        /// <remarks>
+        /// Everything beyond this is a hall the player bought, and a bought hall is bare floor until
+        /// they put something in it.
+        /// </remarks>
+        private const int StartingRooms = 3;
+
         /// <summary>Builds the dungeon the player has paid for.</summary>
         /// <returns>The layout for the next raid.</returns>
         private DungeonLayout BuildFromLoadout()
         {
-            return DungeonLayout.Build(PlannedRooms(), placed: PlacedFurniture());
+            // furnishedRooms: the opening corridor comes stocked so round one is playable at all.
+            // Halls bought after that arrive EMPTY -- the player picks a floor tile and fits them
+            // out, which is what buying a room is now for.
+            return DungeonLayout.Build(
+                PlannedRooms(), placed: PlacedFurniture(), furnishedRooms: StartingRooms);
         }
 
         /// <summary>Lattice cells the player has bought a hall on, in the order they bought them.</summary>

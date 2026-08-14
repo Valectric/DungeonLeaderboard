@@ -169,11 +169,60 @@ namespace Dungeon.LeagueManager
         /// </remarks>
         public const float RivalHandicap = 0.9f;
 
-        /// <summary>Least a rival earns in a round.</summary>
+        /// <summary>Least a rival earns in the opening round, when the whole field is still in.</summary>
         public const float RivalFloor = BadRun * RivalHandicap;
 
-        /// <summary>How much a rival's round-to-round earnings vary above the floor.</summary>
-        public const float RivalSpread = (GoodRun - BadRun) * RivalHandicap;
+        /// <summary>Most a rival can ever earn in a round, in any round of the competition.</summary>
+        public const float RivalCeiling = GoodRun * RivalHandicap;
+
+        /// <summary>How much a rival's earnings vary in the opening round.</summary>
+        public const float RivalSpread = RivalCeiling - RivalFloor;
+
+        /// <summary>
+        /// How far the surviving rivals close on their own ceiling by the final.
+        /// </summary>
+        /// <remarks>
+        /// Short of 1 on purpose: at 1 the last rival would score exactly the same number every
+        /// round and the final would be an arithmetic check rather than a race. At 0.9 they roll
+        /// roughly 407 to 450, so the final is winnable but only with a genuinely good raid.
+        /// </remarks>
+        public const float FinalistPressure = 0.9f;
+
+        /// <summary>
+        /// How strong the surviving rivals are right now, from 0 in the opening round to
+        /// <see cref="FinalistPressure"/> in the final.
+        /// </summary>
+        /// <remarks>
+        /// The dungeons knocked out each round are the ones that earned least, so the field that
+        /// remains is the field that was already doing well — a competition where the survivors go
+        /// on rolling from the same range as the twenty that started is a competition that gets
+        /// <i>easier</i> as it goes, which is backwards.
+        /// <para>
+        /// Only the floor moves. The ceiling stays at <see cref="RivalCeiling"/> in every round, so
+        /// the handicap promise survives intact: play a genuinely good raid and no rival can have
+        /// beaten it, in the first round or the last. What a shrinking field takes away is their bad
+        /// rounds — late on, a rival never has an off day, so the player cannot coast in on one good
+        /// raid and a rival's stumble.
+        /// </para>
+        /// </remarks>
+        public float FieldStrength
+        {
+            get
+            {
+                const int finalists = 2;
+                int startingRivals = Size - finalists;
+                if (startingRivals <= 0)
+                {
+                    return 0f;
+                }
+
+                // System.MathF, not UnityEngine.Mathf: this module has no engine reference and is
+                // worth keeping that way -- the league is arithmetic and a table, not a scene.
+                float knockedOut = Math.Clamp(
+                    (Size - _entries.Count) / (float)startingRivals, 0f, 1f);
+                return knockedOut * FinalistPressure;
+            }
+        }
 
         /// <summary>
         /// Banks the player's raid and moves every rival, then re-ranks.
@@ -190,7 +239,8 @@ namespace Dungeon.LeagueManager
 
             foreach (LeagueEntry rival in _entries.Where(e => !e.IsPlayer))
             {
-                float earned = RivalFloor + (float)(_random.NextDouble() * RivalSpread);
+                float floor = RivalFloor + ((RivalCeiling - RivalFloor) * FieldStrength);
+                float earned = floor + (float)(_random.NextDouble() * (RivalCeiling - floor));
                 rival.Score += MathF.Round(earned);
             }
 

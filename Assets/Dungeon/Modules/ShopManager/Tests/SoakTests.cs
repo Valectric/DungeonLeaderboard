@@ -241,5 +241,85 @@ namespace Dungeon.ShopManager.Tests
             Assert.AreEqual(results[0], results[1], 0.001f, "replay 2 differed");
             Assert.AreEqual(results[0], results[2], 0.001f, "replay 3 differed");
         }
+
+        /// <summary>
+        /// Every competition resolves to exactly one winner, over many seeds.
+        /// </summary>
+        /// <remarks>
+        /// The format is new and it is a loop with an exit condition, which is the shape most likely
+        /// to fail to terminate: two dungeons leave each round until two remain, then one, and the
+        /// survivor wins. If a seed ever left the field stuck — two dungeons tied forever, or an
+        /// elimination that refused to fire because the player was bottom — the game would hang on
+        /// the standings with no way forward.
+        /// <para>
+        /// Played end to end through the same bot the balance sweeps use, so the dungeons branch,
+        /// the purchases are placed, and the raids are actually played rather than ticked.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void EveryCompetition_ResolvesToOneWinner()
+        {
+            int won = 0;
+            int knockedOut = 0;
+            var rounds = new List<int>();
+
+            for (int seed = 1; seed <= 12; seed++)
+            {
+                var league = new LeagueTable(seed);
+                var loadout = new Loadout();
+                float bonus = 0f;
+                int guard = 0;
+
+                while (league.Remaining > 1 && !league.PlayerRelegated && guard++ < 40)
+                {
+                    DungeonLayout layout = ShopBot.Build(loadout);
+                    var raid = new Raid(layout, bonus, null, seed + guard);
+                    bonus = 0f;
+
+                    Assert.Greater(ShopBot.Play(raid, layout), 0f,
+                        $"seed {seed} round {guard}: the raid never ended");
+
+                    league.SubmitRaid(raid.EnergyHarvested);
+                    if (league.PlayerRelegated)
+                    {
+                        break;
+                    }
+
+                    league.CollapseRelegated();
+
+                    var shop = new Shop(raid.TotalEnergy);
+                    foreach (ShopItem item in System.Enum.GetValues(typeof(ShopItem)))
+                    {
+                        while (shop.CanAfford(item) && loadout.Total < 60 &&
+                               ShopBot.TryBuy(shop, loadout, item))
+                        {
+                        }
+                    }
+
+                    bonus = shop.Ready();
+                }
+
+                Assert.Less(guard, 40, $"seed {seed} never resolved");
+                rounds.Add(league.Round);
+
+                if (league.PlayerWon)
+                {
+                    won++;
+                }
+                else
+                {
+                    knockedOut++;
+                    Assert.IsTrue(league.PlayerRelegated,
+                        $"seed {seed} ended with the player neither winning nor knocked out, "
+                        + $"{league.Remaining} dungeons left");
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"12 competitions: {won} won, {knockedOut} knocked out; "
+                + $"rounds {string.Join(",", rounds)}");
+
+            Assert.AreEqual(12, won + knockedOut, "a competition ended in neither state");
+        }
     }
 }

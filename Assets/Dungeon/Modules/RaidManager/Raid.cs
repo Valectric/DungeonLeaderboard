@@ -243,6 +243,7 @@ namespace Dungeon.RaidManager
                 if (wasAlive && !mob.IsAlive)
                 {
                     Effects.Raise(EffectKind.MobDied, mob.Position);
+                    RefundSpawn(mob);
                 }
             }
         }
@@ -324,8 +325,48 @@ namespace Dungeon.RaidManager
             }
 
             TotalEnergy -= SpawnCost;
+            _paidFor.Add(Mobs.Mobs[Mobs.Mobs.Count - 1]);
             Effects.Raise(EffectKind.MobSpawned, cell);
             return true;
+        }
+
+        /// <summary>
+        /// Monsters the player paid to spawn, and so is owed the stake back for.
+        /// </summary>
+        /// <remarks>
+        /// Only these. A monster a test dropped straight into the pack was never paid for, and
+        /// refunding it would mint energy out of nothing.
+        /// </remarks>
+        private readonly HashSet<MobManager.Mob> _paidFor = new();
+
+        /// <summary>
+        /// Returns the stake on a monster the party has just killed.
+        /// </summary>
+        /// <remarks>
+        /// Spawning is a <b>loan against the room</b>, not a purchase. The energy leaves the core
+        /// while the monster is alive and comes back when it dies, so a spawn the party fights and
+        /// kills is free — the player only ever pays for monsters that are still standing when the
+        /// clock stops.
+        /// <para>
+        /// This is what makes the spawn verb pressable. At a flat 25 a spawn had to earn its cost
+        /// back before it was worth anything, so the arithmetic said hoard, while the design says
+        /// the dungeon should be full of monsters the party is grinding through. Now the cost is a
+        /// float, not a fee: what it really buys is the risk that the party wins the fight and walks
+        /// on with the player's energy still tied up in a corpse that never appeared.
+        /// </para>
+        /// </remarks>
+        /// <param name="mob">The monster that just died.</param>
+        private void RefundSpawn(MobManager.Mob mob)
+        {
+            if (!_paidFor.Remove(mob))
+            {
+                return;
+            }
+
+            // Only the purse. EnergyHarvested is the score and spawning never docked it, so adding
+            // the refund there would pay the player twice for one monster.
+            TotalEnergy += SpawnCost;
+            Effects.Raise(EffectKind.SpawnRefunded, mob.Position);
         }
 
         /// <summary>

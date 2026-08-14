@@ -249,16 +249,33 @@ namespace Dungeon.MobManager
                 // seconds beside THE GLASS CANNONS, reversed direction 46 times and dealt no damage
                 // at all -- the "wagging" a player reported, and the reason those rosters earned a
                 // ninth of the rest.
-                Vector2 quarry = partyPosition;
+                // Only members standing in the mob's OWN room are quarry. The room check above is on
+                // the party LEADER, so a straggler left behind in the previous room could be the
+                // nearest body -- and the mob would charge straight through the doorway after them,
+                // which is the one thing room-bounded pursuit exists to prevent. Found by the soak:
+                // "a Skeleton left room 1 for room 0".
+                Vector2 quarry = Vector2.zero;
                 float best = float.MaxValue;
                 foreach (Vector2 candidate in partyPositions)
                 {
+                    var candidateCell = new Vector2Int(
+                        Mathf.RoundToInt(candidate.x), Mathf.RoundToInt(candidate.y));
+                    if (_grid.RoomAt(candidateCell) != mob.HomeRoom)
+                    {
+                        continue;
+                    }
+
                     float distance = Vector2.Distance(mob.Position, candidate);
                     if (distance < best)
                     {
                         best = distance;
                         quarry = candidate;
                     }
+                }
+
+                if (best == float.MaxValue)
+                {
+                    continue;
                 }
 
                 // Stop at arm's length. Walking onto the party's own square is what made a skeleton
@@ -285,8 +302,22 @@ namespace Dungeon.MobManager
                     waypoint = quarry;
                 }
 
-                mob.Position = Vector2.MoveTowards(
+                Vector2 next = Vector2.MoveTowards(
                     mob.Position, waypoint, ChaseSpeed * deltaTime);
+
+                // Last line of defence. Charging straight at a quarry skips the cell-by-cell path,
+                // so nothing else checks where the mob actually lands -- a diagonal across a corner
+                // can cross into the next room even when the quarry is a legal one. A doorway is
+                // allowed through: it belongs to no room, and a mob straddling the threshold of its
+                // own room has not escaped it.
+                var nextCell = new Vector2Int(Mathf.RoundToInt(next.x), Mathf.RoundToInt(next.y));
+                int nextRoom = _grid.RoomAt(nextCell);
+                if (nextRoom != mob.HomeRoom && nextRoom != DungeonGrid.NoRoom)
+                {
+                    continue;
+                }
+
+                mob.Position = next;
             }
         }
 

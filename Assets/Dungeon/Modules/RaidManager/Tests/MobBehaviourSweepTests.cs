@@ -24,7 +24,11 @@ namespace Dungeon.RaidManager.Tests
         [Test]
         public void NoMonster_EverLeavesItsRoom()
         {
-            DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: 4);
+            // Rooms arrive empty now -- everything in a dungeon is placed by the player -- so this
+            // has to furnish its own spawners or it ticks a raid that never sees a monster and
+            // proves containment zero times.
+            DungeonLayout layout = DungeonLayout.BuildCorridor(
+                roomCount: 4, extraSkeletonSpawners: 4, extraSlimeSpawners: 4);
             var raid = new Raid(layout);
             var homes = new Dictionary<Mob, int>();
             int checks = 0;
@@ -64,6 +68,71 @@ namespace Dungeon.RaidManager.Tests
 
             MooseRunnerFacade.Log($"checked mob containment {checks} times across a raid");
             Assert.Greater(checks, 1000, "not enough mobs lived long enough to prove anything");
+        }
+
+        /// <summary>
+        /// A monster ignores a straggler standing in the next room, however close they are.
+        /// </summary>
+        /// <remarks>
+        /// The soak found this one: <i>"a Skeleton left room 1 for room 0"</i>. Monsters chase the
+        /// NEAREST party member, but the room check was on the party <i>leader</i> — so a member left
+        /// behind across the threshold could be the nearest body, and the mob would charge straight
+        /// out of its room after them. That is the retreat valve failing: the player opens a door
+        /// behind a losing party, the party falls back, and the monsters follow them through it.
+        /// <para>
+        /// Two cells away and one room over is the exact case. It is inside the range where a mob
+        /// abandons cell-by-cell pathing and charges directly, which is the code path that had no
+        /// room check at all.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void AStragglerInTheNextRoom_IsNotWorthLeavingTheRoomFor()
+        {
+            DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: 3);
+            var pack = new MobPack(layout.Grid);
+
+            Vector2Int spawner = layout.SpawnerCells[0];
+            Mob mob = pack.Spawn(MobKind.Skeleton, spawner);
+            Assert.IsNotNull(mob, "the test needs a monster");
+            int home = mob.HomeRoom;
+
+            // A straggler just over the threshold, and the leader standing on the monster's own
+            // square so the leader's room is never the thing that stops the chase.
+            Vector2 straggler = FirstCellOfAnotherRoom(layout, home);
+            var positions = new List<Vector2> { straggler, mob.Position };
+
+            for (int step = 0; step < 400; step++)
+            {
+                pack.Tick(0.02f, positions);
+
+                int room = layout.Grid.RoomAt(mob.Cell);
+                Assert.IsTrue(room == home || room == DungeonGrid.NoRoom,
+                    $"the monster left room {home} for room {room} chasing a straggler at "
+                    + $"{straggler}");
+            }
+
+            MooseRunnerFacade.Log(
+                $"monster held room {home} for four seconds with a straggler at {straggler}");
+        }
+
+        /// <summary>Finds a walkable cell belonging to some room other than the one given.</summary>
+        /// <param name="layout">Dungeon to search.</param>
+        /// <param name="notThisRoom">Room to avoid.</param>
+        /// <returns>A cell in a different room.</returns>
+        private static Vector2 FirstCellOfAnotherRoom(DungeonLayout layout, int notThisRoom)
+        {
+            foreach (Vector2 centre in layout.RoomCentres)
+            {
+                var cell = new Vector2Int(Mathf.RoundToInt(centre.x), Mathf.RoundToInt(centre.y));
+                if (layout.Grid.RoomAt(cell) != notThisRoom &&
+                    layout.Grid.RoomAt(cell) != DungeonGrid.NoRoom)
+                {
+                    return centre;
+                }
+            }
+
+            Assert.Fail("the dungeon has only one room, so this test cannot mean anything");
+            return Vector2.zero;
         }
 
         /// <summary>

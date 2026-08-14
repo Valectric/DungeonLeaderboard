@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Dungeon.DungeonManager;
 using Dungeon.RaidManager;
 using UnityEngine;
@@ -29,9 +30,44 @@ namespace Dungeon.ShopManager.Tests
         /// <returns>The layout for the next raid.</returns>
         public static DungeonLayout Build(Loadout loadout)
         {
-            return DungeonLayout.BuildCorridor(
-                roomCount: Mathf.Min(MaxRooms, 3 + loadout.Count(ShopItem.Door)),
-                placed: Furniture(loadout));
+            return DungeonLayout.Build(Plan(loadout), placed: Furniture(loadout));
+        }
+
+        /// <summary>
+        /// The shape a loadout's halls make, branching rather than only running east.
+        /// </summary>
+        /// <remarks>
+        /// The bot used to build a straight corridor however many halls it had bought, because that
+        /// was the only shape the game could make. The player can now grow in four directions from
+        /// any room, so a bot that only ever extends the line is measuring a dungeon nobody is
+        /// handed — the same mistake the sweeps made when the shop became spatial.
+        /// <para>
+        /// Direction is chosen by hall index rather than randomly, so a seeded season still replays
+        /// identically. It cycles through the offered cells, which gives an L or a T rather than a
+        /// line without needing any randomness at all.
+        /// </para>
+        /// </remarks>
+        /// <param name="loadout">What the bot has bought so far.</param>
+        /// <returns>The plan to build.</returns>
+        public static RoomPlan Plan(Loadout loadout)
+        {
+            RoomPlan plan = RoomPlan.Corridor(3);
+            int halls = Mathf.Min(loadout.Count(ShopItem.Door), MaxRooms - 3);
+
+            for (int i = 0; i < halls; i++)
+            {
+                List<Vector2Int> offered = plan.Expansions();
+                if (offered.Count == 0)
+                {
+                    break;
+                }
+
+                // Spread across the offered cells rather than always taking the first, which would
+                // rebuild the same corridor.
+                plan.Add(offered[(i * 3) % offered.Count]);
+            }
+
+            return plan;
         }
 
         /// <summary>Turns purchases into the cells the dungeon should be furnished with.</summary>

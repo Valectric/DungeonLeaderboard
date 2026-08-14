@@ -532,10 +532,21 @@ namespace Dungeon.RaidManager.Tests
             raid.Mobs.Spawn(MobKind.Slime, layout.RoomCentres[1]);
             raid.Mobs.Spawn(MobKind.Slime, layout.RoomCentres[1]);
 
-            Advance(raid, 8f);
+            // Sampled while both are alive rather than after a fixed eight seconds. Rooms arrive
+            // empty now, so the party is not delayed on its way through and can reach these two and
+            // kill one inside the old window -- at which point the measurement was reading a single
+            // survivor and throwing on the second index.
+            float gap = 0f;
+            for (int tick = 0; tick < 400 && raid.Mobs.Living.Count() >= 2; tick++)
+            {
+                raid.Tick(0.02f);
+                var alive = raid.Mobs.Living.ToList();
+                if (alive.Count >= 2)
+                {
+                    gap = Mathf.Max(gap, Vector2.Distance(alive[0].Position, alive[1].Position));
+                }
+            }
 
-            var mobs = raid.Mobs.Living.ToList();
-            float gap = Vector2.Distance(mobs[0].Position, mobs[1].Position);
             MooseRunnerFacade.Log($"two mobs settled {gap:F2} cells apart");
             Assert.Greater(gap, 0.25f, "mobs spawned together never separated");
         }

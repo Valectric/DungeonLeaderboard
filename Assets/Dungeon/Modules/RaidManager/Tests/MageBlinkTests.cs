@@ -110,32 +110,65 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
-        /// A mage with a monster on top of it blinks clear, and pays for it.
+        /// A mage pressed by a monster blinks clear, and pays for it.
         /// </summary>
+        /// <remarks>
+        /// Observed rather than staged. This used to drop a skeleton on the mage and pin it there,
+        /// which stopped working when monsters began chasing the <i>nearest</i> party member: the
+        /// bully promptly left for the tank and the mage was never cornered, so it walked instead.
+        /// Holding the bully in place by hand did not help either — a mage cornered where it happens
+        /// to be standing often has nowhere legal to land, because a five-cell jump from near a wall
+        /// leaves the dungeon and the "never blink somewhere no better" guard correctly refuses.
+        /// <para>
+        /// So this spawns pressure and watches for the blink the mage chooses on its own, which is
+        /// the behaviour that matters and the one a player sees.
+        /// </para>
+        /// </remarks>
         [Test]
-        public void ACorneredMage_BlinksClearAndPaysForIt()
+        public void APressedMage_BlinksClearAndPaysForIt()
         {
             Raid raid = AdvancedRaid();
-            Adventurer mage = MageIn(raid);
+            float manaBefore = MageIn(raid).ManaFraction;
 
-            Mob bully = raid.Mobs.Spawn(MobKind.Skeleton, mage.Cell);
-            Assert.IsNotNull(bully, "the test needs a monster beside the mage");
-            bully.Position = mage.Position;
+            bool blinked = false;
+            float furthestJump = 0f;
+            float manaAfter = manaBefore;
 
-            float manaBefore = mage.ManaFraction;
-            Vector2 startedAt = mage.Position;
-
-            for (int step = 0; step < 40 && raid.IsRunning; step++)
+            while (raid.IsRunning && !blinked)
             {
+                Adventurer mage = MageIn(raid);
+                if (mage == null)
+                {
+                    break;
+                }
+
+                // Press a monster onto the mage itself. Spawning at the spawners does not corner it:
+                // monsters chase the NEAREST member, so they meet the tank and the mage never has to
+                // blink -- which is the tank doing its job, not a bug.
+                if (raid.Mobs.CountInRoom(raid.Layout.Grid.RoomAt(mage.Cell)) == 0)
+                {
+                    Mob bully = raid.Mobs.Spawn(MobKind.Skeleton, mage.Cell);
+                    if (bully != null)
+                    {
+                        bully.Position = mage.Position;
+                    }
+                }
+
+                Vector2 before = mage.Position;
                 raid.Tick(0.02f);
+
+                furthestJump = Mathf.Max(furthestJump, Vector2.Distance(before, mage.Position));
+                blinked = raid.Party.BlinkedTo.HasValue;
+                manaAfter = mage.ManaFraction;
             }
 
-            float jumped = Vector2.Distance(startedAt, mage.Position);
             MooseRunnerFacade.Log(
-                $"mage moved {jumped:F1} cells, mana {manaBefore:P0} -> {mage.ManaFraction:P0}");
+                $"mage blinked={blinked}, largest single step {furthestJump:F2} cells, "
+                + $"mana {manaBefore:P0} -> {manaAfter:P0}");
 
-            Assert.Greater(jumped, 2f, "the mage should have blinked, not walked");
-            Assert.Less(mage.ManaFraction, manaBefore, "the blink should have cost mana");
+            Assert.IsTrue(blinked, "the mage never blinked despite a monster standing on it");
+            Assert.Greater(furthestJump, 2f, "a blink should move the mage further than a walk can");
+            Assert.Less(manaAfter, manaBefore, "the blink should have cost mana");
         }
 
         /// <summary>A blink always lands somewhere walkable inside the dungeon.</summary>
