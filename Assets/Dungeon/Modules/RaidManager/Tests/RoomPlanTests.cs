@@ -160,5 +160,96 @@ namespace Dungeon.RaidManager.Tests
                 corridor.SpawnerCells, planned.SpawnerCells, "a spawner moved");
             CollectionAssert.AreEqual(corridor.TrapCells, planned.TrapCells, "a trap moved");
         }
+
+        /// <summary>
+        /// A party explores a branching dungeon without dithering at the junction.
+        /// </summary>
+        /// <remarks>
+        /// The risk the lattice introduces. <c>NearestUnvisitedRoomCentre</c> recomputes the closest
+        /// unseen room every tick, and in a corridor that is stable because there is only one way to
+        /// go. In a plus shape the arms are equidistant from the centre, so the choice can flip
+        /// between them as the party shuffles — and a party that re-aims every frame walks nowhere.
+        /// <para>
+        /// Asserted as progress rather than as a particular route: whichever arm it picks is its own
+        /// business, but it has to keep <i>arriving</i> somewhere.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void APartyInABranchingDungeon_KeepsMakingProgress()
+        {
+            var plan = new RoomPlan();
+            foreach (Vector2Int direction in RoomPlan.Directions)
+            {
+                plan.Add(direction);
+            }
+
+            DungeonLayout layout = DungeonLayout.Build(plan);
+            var raid = new Raid(layout, 0f, PartyManager.PartyComposition.Opening, 909);
+
+            int lastVisited = 0;
+            float stalledFor = 0f;
+            float worstStall = 0f;
+
+            while (raid.IsRunning)
+            {
+                raid.Tick(0.02f);
+
+                if (raid.Party.VisitedRooms > lastVisited)
+                {
+                    lastVisited = raid.Party.VisitedRooms;
+                    stalledFor = 0f;
+                }
+                else
+                {
+                    stalledFor += 0.02f;
+                    worstStall = Mathf.Max(worstStall, stalledFor);
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"plus-shaped dungeon: saw {raid.Party.VisitedRooms} of {plan.Count} rooms, "
+                + $"longest gap between new rooms {worstStall:F1}s, ended {raid.Outcome}");
+
+            Assert.Greater(raid.Party.VisitedRooms, 1,
+                "the party never left the room it started in, so exploration is not working at all");
+
+            // Generous: a room can legitimately take a while when the party stops to fight or loot.
+            // What this catches is the pathological case -- a party stuck at the junction re-aiming
+            // between two equidistant arms and never committing to either.
+            Assert.Less(worstStall, 40f,
+                $"the party went {worstStall:F1}s without reaching a new room, which is long enough "
+                + "to be dithering at the junction rather than exploring");
+        }
+
+        /// <summary>
+        /// A party in a looping dungeon still finishes exploring rather than going round forever.
+        /// </summary>
+        /// <remarks>
+        /// The other shape a corridor could never make. A loop means every room has two routes to it,
+        /// so a party that always walks toward the nearest unseen room could in principle circle.
+        /// </remarks>
+        [Test]
+        public void APartyInALoopingDungeon_SeesEveryRoom()
+        {
+            var plan = new RoomPlan();
+            plan.Add(new Vector2Int(1, 0));
+            plan.Add(new Vector2Int(1, 1));
+            plan.Add(new Vector2Int(0, 1));
+
+            DungeonLayout layout = DungeonLayout.Build(plan);
+            var raid = new Raid(layout, 0f, PartyManager.PartyComposition.Opening, 4242);
+
+            while (raid.IsRunning)
+            {
+                raid.Tick(0.02f);
+            }
+
+            MooseRunnerFacade.Log(
+                $"square dungeon: saw {raid.Party.VisitedRooms} of {plan.Count} rooms, "
+                + $"explored={raid.Party.HasExploredEverything}, ended {raid.Outcome}");
+
+            Assert.AreEqual(plan.Count, raid.Party.VisitedRooms,
+                "the party did not manage to walk into every room of a four-room loop in a minute");
+        }
     }
 }
