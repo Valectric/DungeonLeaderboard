@@ -521,3 +521,36 @@ full minute (D19).
 
 **Wrong if:** a player wants a door to hold a party indefinitely. It never did — it froze them, which
 looked identical from the outside and paid the player almost nothing.
+
+## 2026-08-14 — D22. The monster health nerf: measured, viable, and what still blocks it
+
+**Status:** the author asked for monsters with two and a half times less health, damage untouched.
+It is **not applied**, and the reason has changed twice.
+
+**First blocker (gone).** Under the old energy curve it inverted the design's one rule — a wipe
+earned 215 against 213 for a raid the party survived, and at a gentler 2x it was worse still, 322
+against 170. The per-action curve removed that cause: measured at 48/104 the same test now reads
+**14 against 231**, comfortably the right way round.
+
+**Second blocker (current).** It invalidates seven tests. One is a stale figure and has been dealt
+with: `ASkeleton_StillHoldsThePartyAboutThirteenSeconds` was named for a number, and a skeleton now
+holds a party for **6.5 seconds** rather than 13. It is renamed and bounded on the property — worth
+more than four seconds, less than twenty-two — so it holds either side of the change and will not
+need rewriting when the nerf lands.
+
+The other six are not bounds to widen, and at least three look like real questions about whether the
+game still behaves as intended once a monster dies in a couple of seconds:
+
+- `CombatReachTests.TheTank_TakesTheDamage` — a monster that dies quickly may never land enough
+  blows for the tank to be clearly the one bleeding. If so, the tank stops being a tank in any
+  observable sense.
+- `CombatReachTests.TheHealer_HealsDuringALongFight` — there may no longer be a long fight to heal
+  during.
+- `RaidRulesTests.Mobs_StopBesideTheParty_NotOnTopOfIt` and `Healer_RunsFromAnythingThatGetsClose` —
+  positioning, which should not depend on health at all. Worth understanding before touching.
+- `RaidRulesTests.AFight_LastsLongEnoughToEarn` and `Trap_CostsEnergyWoundsThePartyAndThenCoolsDown`
+  — probably fight-length bounds, but unconfirmed.
+
+**Recommended next step:** apply the nerf and work through those six individually, deciding for each
+whether it encodes a property worth keeping or a number that has moved. The change is one line at
+`MobPack`'s stat block.

@@ -74,14 +74,20 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
-        /// A skeleton still holds a party for about as long as it used to.
+        /// A skeleton still buys the player a worthwhile handful of seconds.
         /// </summary>
         /// <remarks>
-        /// The end-to-end version of the same claim, and the one that actually matters: the whole
+        /// The end-to-end version of the stat block, and the one that actually matters: the whole
         /// point of a skeleton is the seconds it buys, and those seconds are the player's income.
+        /// <para>
+        /// Bounded on the property rather than on a particular figure, because the author has asked
+        /// for monsters with two and a half times less health. Measured, that takes a skeleton from
+        /// about thirteen seconds to about six and a half — still worth its energy. The band below
+        /// holds for both, so this test does not have to be rewritten when the nerf lands.
+        /// </para>
         /// </remarks>
         [Test]
-        public void ASkeleton_StillHoldsThePartyAboutThirteenSeconds()
+        public void ASkeleton_BuysAWorthwhileHandfulOfSeconds()
         {
             DungeonLayout layout = DungeonLayout.BuildCorridor();
             var raid = new Raid(layout);
@@ -98,8 +104,9 @@ namespace Dungeon.RaidManager.Tests
             }
 
             MooseRunnerFacade.Log($"one skeleton held the party for {engagedFor:F1}s");
-            Assert.Greater(engagedFor, 9f, "the skeleton died too fast to be worth its energy");
-            Assert.Less(engagedFor, 22f, "the skeleton is holding them far longer than it used to");
+            Assert.Greater(engagedFor, 4f, "the skeleton died too fast to be worth its energy");
+            Assert.Less(engagedFor, 22f,
+                "the skeleton is holding them far longer than the stat block intends");
         }
 
         /// <summary>
