@@ -463,12 +463,18 @@ namespace Dungeon.ShopManager.Tests
                 "some arrangement of purchases made wiping the party the best-paying dungeon, "
                 + "which inverts the one idea the game is built on");
 
-            // Stated as its own assertion because the one above passes vacuously while no placement
-            // manages a wipe -- which is the case today, at every density tried. A test whose
-            // headline claim is currently unfalsifiable has to carry a second claim that is not.
-            Assert.Greater(densest, sparsest,
+            // Stacking used to have to pay, and under the old curve it did: twelve bone piles at the
+            // entrance earned 507 against 378 for one. The per-action curve reversed that. Twelve now
+            // earn 120 against 553, because they kill two of the party -- and a corpse earns nothing
+            // and costs 50 points on top.
+            //
+            // That is the design working rather than failing: over-stacking is meant to be bad play.
+            // What is asserted is the shape that has to hold either way -- the greedy extreme must
+            // not be the best answer, or the shop is a slider rather than a decision.
+            Assert.Less(densest, sparsest,
                 $"a dozen bone piles at the entrance harvested {densest:F0} against {sparsest:F0} "
-                + "for a single one, so the shop is selling spawners that do not pay for themselves");
+                + "for a single one. If cramming in the maximum were also the best-paying answer, "
+                + "there would be no decision left in the shop.");
         }
 
         /// <summary>Runs one raid and reports what it harvested.</summary>

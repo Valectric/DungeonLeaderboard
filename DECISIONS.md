@@ -464,3 +464,31 @@ asserted only that each roster made 5% progress. Its name claimed a property tha
 it never checked. It is now `OnlyRostersWithAnArcher_GetThroughAShutDoor`, asserts what is actually
 true, and fails if a stuck roster ever stops making progress — which would mean the party is standing
 still rather than paying a cost.
+
+## 2026-08-14 — D20. The league is an elimination, and the game can now be won
+
+**Decided** (author's design): every dungeon starts on **zero**. At the end of each round the bottom
+dungeon leaves the competition and is not replaced, so twenty become nineteen, then eighteen, down to
+one — and the last dungeon standing is the winner. That is the goal of the game.
+
+Rival earnings are priced against what the player can actually do: each rolls uniformly between a bad
+run (25) and a good run (500), then **loses a tenth**. Their best possible round is therefore **450
+against a good run's 500**, so *a genuinely good raid can never be beaten by a rival's luck*. The
+league answers skill directly instead of statistically.
+
+**Why the old table had to go:** it opened with scores descending from 16,000, relegated the bottom
+two of a fixed twenty, and refilled the gaps with fresh names. It ran forever, it had no winner, and
+the first raid could not move the player through a field already spread over 12,000 points. SPEC.md
+gave the game a losing ending and never a winning one; `Phase.Won` is that ending.
+
+**Measured:** playing a good raid every round takes the field from 20 to 1 over 19 rounds and wins.
+Harvesting nothing is eliminated immediately.
+
+**Two consequences the author should look at:**
+
+1. **Round one is sudden death.** Everyone starts on zero, so a single weak opening raid puts the
+   player last and out — there is no banked score to fall back on. Later rounds are far more
+   forgiving. Levers: seed the table with a small opening score, exempt the first round from
+   elimination, or leave it as a sharp lesson.
+2. **A full run is nineteen raids** — about nineteen minutes plus shops. Fine for a campaign, long
+   for a jam voter. The lever is `LeagueTable.Size`.

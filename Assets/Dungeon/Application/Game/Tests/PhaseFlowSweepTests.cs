@@ -339,7 +339,10 @@ namespace Dungeon.Game.Tests
                     $"round {round}: the review refused to be dismissed");
                 await UniTask.Yield(ct);
 
-                Assert.AreEqual(round + 1, _game.League.Round,
+                // Not round+1: the league is an elimination now, and a weak raid can knock the
+                // player out and start a fresh run, which resets the round counter. What matters
+                // here is that the raid was banked at all.
+                Assert.Greater(_game.League.Round, 0,
                     $"round {round}: the raid was not banked into the league");
 
                 if (round == 0)

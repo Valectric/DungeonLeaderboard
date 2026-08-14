@@ -172,5 +172,110 @@ namespace Dungeon.LeagueManager.Tests
                 a.Entries.Select(e => e.Name).ToList(),
                 b.Entries.Select(e => e.Name).ToList());
         }
+
+        /// <summary>
+        /// Everyone opens on nothing, so the first raid is the whole story.
+        /// </summary>
+        [Test]
+        public void EveryDungeon_StartsAtZero()
+        {
+            var league = new LeagueTable(11);
+
+            foreach (LeagueEntry entry in league.Entries)
+            {
+                Assert.AreEqual(0f, entry.Score, 0.001f,
+                    $"{entry.Name} started on {entry.Score}, so the opening table is already decided");
+            }
+
+            Assert.AreEqual(LeagueTable.PlayerStartPosition, league.PlayerPosition,
+                "the player should still open around fourteenth");
+        }
+
+        /// <summary>
+        /// One dungeon leaves every round, and the field shrinks to a single winner.
+        /// </summary>
+        /// <remarks>
+        /// The competition's whole shape. The old table relegated the bottom two of a fixed twenty
+        /// and refilled the gaps, so it ran forever and the player could only avoid losing — there
+        /// was no way to <i>win</i>, which is now the goal of the game.
+        /// </remarks>
+        [Test]
+        public void TheFieldShrinks_UntilOneDungeonIsLeft()
+        {
+            var league = new LeagueTable(7);
+            int before = league.Remaining;
+
+            // A good raid every round: the player should never be the one eliminated.
+            for (int round = 0; round < LeagueTable.Size + 2 && league.Remaining > 1; round++)
+            {
+                league.SubmitRaid(LeagueTable.GoodRun);
+                Assert.IsFalse(league.PlayerRelegated,
+                    $"round {round}: a good raid put the player bottom, which should be impossible "
+                    + "while rivals are handicapped below what a good run earns");
+                league.CollapseRelegated();
+            }
+
+            MooseRunnerFacade.Log(
+                $"field went from {before} to {league.Remaining} over "
+                + $"{league.Round} rounds; player won={league.PlayerWon}");
+
+            Assert.AreEqual(1, league.Remaining, "the competition never resolved to one dungeon");
+            Assert.IsTrue(league.PlayerWon,
+                "playing a good raid every round did not win the competition");
+        }
+
+        /// <summary>
+        /// A really good raid always beats every rival's best possible round.
+        /// </summary>
+        /// <remarks>
+        /// The point of the handicap. A rival rolls between a bad run and a good one and then loses a
+        /// tenth, so its ceiling sits below the player's — the league answers skill directly instead
+        /// of statistically, and a well-played round can never be undone by an unlucky roll.
+        /// </remarks>
+        [Test]
+        public void AGoodRaid_OutscoresEveryRivalsBestRound()
+        {
+            float rivalCeiling = LeagueTable.RivalFloor + LeagueTable.RivalSpread;
+
+            MooseRunnerFacade.Log(
+                $"a good run is {LeagueTable.GoodRun:F0}; a rival's best possible round is "
+                + $"{rivalCeiling:F0}");
+
+            Assert.Less(rivalCeiling, LeagueTable.GoodRun,
+                "a rival can out-earn a genuinely good raid, so skill does not decide the table");
+
+            // And the floor stays below a bad run, so a bad raid is punished rather than carried.
+            Assert.Less(LeagueTable.RivalFloor, LeagueTable.BadRun,
+                "every rival earns more than a bad raid, so a bad round cannot be survived at all");
+        }
+
+        /// <summary>
+        /// Playing badly every round gets the player eliminated.
+        /// </summary>
+        /// <remarks>
+        /// The other half of the contract. If a bad run could not lose, the elimination would be
+        /// theatre.
+        /// </remarks>
+        [Test]
+        public void ABadRaidEveryRound_GetsThePlayerKnockedOut()
+        {
+            var league = new LeagueTable(3);
+
+            for (int round = 0; round < LeagueTable.Size + 2; round++)
+            {
+                league.SubmitRaid(0f);
+                if (league.PlayerRelegated)
+                {
+                    MooseRunnerFacade.Log(
+                        $"harvesting nothing, the player went out in round {round} with "
+                        + $"{league.Remaining} dungeons left");
+                    Assert.Pass("a player who never scores is eliminated");
+                }
+
+                league.CollapseRelegated();
+            }
+
+            Assert.Fail("harvesting nothing every round never got the player eliminated");
+        }
     }
 }

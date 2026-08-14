@@ -51,8 +51,14 @@ namespace Dungeon.LeagueManager
         /// <summary>How many dungeons compete.</summary>
         public const int Size = 20;
 
-        /// <summary>How many are relegated -- the bottom 10%.</summary>
-        public const int RelegationCount = 2;
+        /// <summary>How many leave at the end of each round.</summary>
+        /// <remarks>
+        /// One. The field shrinks every round until a single dungeon is left, and that one wins --
+        /// which is the goal of the game. The old table knocked out the bottom two of a fixed twenty
+        /// and refilled the gaps, so the competition had no end and the player could only avoid
+        /// losing.
+        /// </remarks>
+        public const int RelegationCount = 1;
 
         /// <summary>Where the player starts, one-based, per the spec's "around 14th".</summary>
         public const int PlayerStartPosition = 14;
@@ -71,8 +77,26 @@ namespace Dungeon.LeagueManager
         /// <summary>The player's current position, one-based.</summary>
         public int PlayerPosition => _entries.FindIndex(e => e.IsPlayer) + 1;
 
-        /// <summary>Whether the player is currently inside the relegation zone.</summary>
-        public bool PlayerRelegated => PlayerPosition > Size - RelegationCount;
+        /// <summary>
+        /// Whether the player is bottom of the table and therefore out.
+        /// </summary>
+        /// <remarks>
+        /// One dungeon leaves each round, so last place is the only dangerous one — and with the
+        /// field shrinking, last place gets easier to reach every round.
+        /// </remarks>
+        public bool PlayerRelegated => _entries.Count > 1 && PlayerPosition >= _entries.Count;
+
+        /// <summary>How many dungeons are still in the competition.</summary>
+        public int Remaining => _entries.Count;
+
+        /// <summary>
+        /// Whether the player is the last dungeon standing, which is how the game is won.
+        /// </summary>
+        /// <remarks>
+        /// SPEC.md gives the game a losing ending and never a winning one. This is it: survive every
+        /// elimination and the leaderboard has one name left on it.
+        /// </remarks>
+        public bool PlayerWon => _entries.Count == 1 && _entries[0].IsPlayer;
 
         /// <summary>How many rounds have been played.</summary>
         public int Round { get; private set; }
@@ -85,14 +109,15 @@ namespace Dungeon.LeagueManager
             List<string> names = DungeonNames.Generate(Size + 8, seed);
             _spareNames = names.Skip(Size).ToList();
 
-            // Scores descend from the top so the player lands on the spec's fourteenth place with
-            // rivals plausibly spread either side, rather than everyone bunched on one number.
+            // Everyone starts on nothing. The old table opened with scores descending from 16,000 so
+            // the player sat fourteenth on arrival, which made the first raid a gesture -- no single
+            // round could move them through a field already spread over 12,000 points. From zero,
+            // every round is the whole story.
             for (int i = 0; i < Size; i++)
             {
                 bool isPlayer = i == PlayerStartPosition - 1;
-                float score = 16000f - (i * 620f) + (float)((_random.NextDouble() - 0.5) * 260.0);
                 _entries.Add(new LeagueEntry(
-                    isPlayer ? "Your Dungeon" : names[i], MathF.Round(score), isPlayer)
+                    isPlayer ? "Your Dungeon" : names[i], 0f, isPlayer)
                 {
                     PreviousPosition = i + 1
                 });
@@ -102,31 +127,38 @@ namespace Dungeon.LeagueManager
         }
 
         /// <summary>
-        /// Least a rival dungeon earns in a round.
+        /// What a really bad raid harvests, and the bottom of a rival's range.
         /// </summary>
         /// <remarks>
-        /// Sized against what the player can <i>actually</i> harvest, which is the only scale that
-        /// makes the table a contest. It was 380 to 1280, averaging 830, against a well-played raid
-        /// of about 292 -- so the player shed roughly 540 points of ground every single round and
-        /// sank regardless of skill. Measured over ten seasons with ten different seeds, every one
-        /// finished in <b>exactly 18th place</b>: the league was decorative, and SPEC.md's whole hook
-        /// -- "I am 14th, 16th is death, I need to climb" -- was unwinnable by construction.
+        /// Rivals are priced against what the player can actually do, because that is the only scale
+        /// on which the table is a contest. Measured over the season sweeps, a raid the player barely
+        /// plays banks around 25 and a strong one around 500.
+        /// </remarks>
+        public const float BadRun = 25f;
+
+        /// <summary>What a really good raid harvests, and the top of a rival's range.</summary>
+        public const float GoodRun = 500f;
+
+        /// <summary>
+        /// How far short of the player's own range a rival is held.
+        /// </summary>
+        /// <remarks>
+        /// A rival rolls somewhere between a bad run and a good one, then loses a tenth. That tenth
+        /// is the whole design of the contest: <b>play a genuinely good raid and no rival can have
+        /// beaten it</b>, because the best roll available to them is 450 against the player's 500.
+        /// Play badly and the floor is still above them, but almost every rival clears it.
         /// <para>
-        /// At 140 to 460 a bad raid still sinks toward relegation, a competent one holds station, and
-        /// a good one climbs. Those three outcomes existing is the point; the exact figures are the
-        /// author's to tune against real play.
+        /// So the league answers skill directly rather than statistically. The player is never
+        /// eliminated by an unlucky round they played well.
         /// </para>
         /// </remarks>
-        public const float RivalFloor = 90f;
+        public const float RivalHandicap = 0.9f;
+
+        /// <summary>Least a rival earns in a round.</summary>
+        public const float RivalFloor = BadRun * RivalHandicap;
 
         /// <summary>How much a rival's round-to-round earnings vary above the floor.</summary>
-        /// <remarks>
-        /// Rivals average about 200 a round against a well-played 292 and a strong 380. That gap is
-        /// deliberately wider than "fair": adjacent places in the opening table are 500 to 800 points
-        /// apart, so a player who only edges ahead by eighty a round would need the whole season to
-        /// pass one dungeon, and climbing would not be something they could feel.
-        /// </remarks>
-        public const float RivalSpread = 220f;
+        public const float RivalSpread = (GoodRun - BadRun) * RivalHandicap;
 
         /// <summary>
         /// Banks the player's raid and moves every rival, then re-ranks.
@@ -152,25 +184,32 @@ namespace Dungeon.LeagueManager
         }
 
         /// <summary>
-        /// Replaces the relegated dungeons with new ones, as happens after the player survives.
+        /// Knocks the bottom dungeon out of the competition.
         /// </summary>
         /// <remarks>
-        /// The bottom two collapse and fresh names take their slots, so the league keeps its shape
-        /// and the relegation line never becomes a comfortable place to sit.
+        /// Called after the player survives a round. The field shrinks by one every time, so twenty
+        /// dungeons become nineteen, then eighteen, and the last one left is the winner. Nothing
+        /// refills the gap -- that is the difference between a league that runs forever and a
+        /// competition that ends.
+        /// <para>
+        /// Refuses to remove the player. Being bottom is what <see cref="PlayerRelegated"/> reports,
+        /// and the run ends there rather than here; this only ever clears a rival out of the way.
+        /// </para>
         /// </remarks>
         public void CollapseRelegated()
         {
-            for (int i = Size - RelegationCount; i < Size; i++)
+            if (_entries.Count <= 1)
             {
-                if (_entries[i].IsPlayer)
-                {
-                    continue;
-                }
-
-                _entries[i].Name = NextSpareName();
-                _entries[i].Score = MathF.Round(_entries[Size - RelegationCount - 1].Score * 0.82f);
+                return;
             }
 
+            LeagueEntry doomed = _entries[_entries.Count - 1];
+            if (doomed.IsPlayer)
+            {
+                return;
+            }
+
+            _entries.Remove(doomed);
             Sort();
         }
 
@@ -188,7 +227,16 @@ namespace Dungeon.LeagueManager
         /// <summary>Re-ranks by score, best first.</summary>
         private void Sort()
         {
-            _entries.Sort((a, b) => b.Score.CompareTo(a.Score));
+            // Ties break on the previous standing, which matters now that every dungeon starts on
+            // zero: without it List.Sort's unstable ordering scattered a table of twenty identical
+            // scores arbitrarily, and the player -- who is meant to open around fourteenth, per
+            // SPEC.md -- landed anywhere. It also means a round nobody scored in leaves the table
+            // exactly as it was, rather than reshuffling for no reason the player can see.
+            _entries.Sort((a, b) =>
+            {
+                int byScore = b.Score.CompareTo(a.Score);
+                return byScore != 0 ? byScore : a.PreviousPosition.CompareTo(b.PreviousPosition);
+            });
         }
     }
 }

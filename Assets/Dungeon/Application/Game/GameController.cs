@@ -42,7 +42,15 @@ namespace Dungeon.Game
             Shopping = 3,
 
             /// <summary>The adventurers' verdict on the raid that just finished.</summary>
-            Reviewing = 4
+            Reviewing = 4,
+
+            /// <summary>
+            /// Every rival has been eliminated and the player's dungeon is the last one standing.
+            /// </summary>
+            /// <remarks>
+            /// The game had only a losing ending until now. This is the one it is played for.
+            /// </remarks>
+            Won = 5
         }
 
         /// <summary>Seconds the standings take to slide into their new order.</summary>
@@ -602,7 +610,16 @@ namespace Dungeon.Game
                 return;
             }
 
+            // One rival leaves every round, so the field shrinks toward a single winner.
             _league.CollapseRelegated();
+
+            if (_league.PlayerWon)
+            {
+                _finalPosition = 1;
+                _phase = Phase.Won;
+                return;
+            }
+
             _phase = Phase.Standings;
         }
 
@@ -624,7 +641,7 @@ namespace Dungeon.Game
                 return;
             }
 
-            if (_phase == Phase.Destroyed)
+            if (_phase is Phase.Destroyed or Phase.Won)
             {
                 NewRun();
                 return;
@@ -946,14 +963,16 @@ namespace Dungeon.Game
 
             if (_phase != Phase.Raiding)
             {
-                string prompt = _phase == Phase.Destroyed
+                string prompt = _phase == Phase.Won
+                    ? "EVERY RIVAL HAS COLLAPSED.  YOURS IS THE LAST DUNGEON STANDING."
+                    : _phase == Phase.Destroyed
                     ? $"YOUR DUNGEON COLLAPSED IN {Ordinal(_finalPosition)}.  PRESS ANY KEY TO BEGIN AGAIN"
                     : _league.Round == 0
                         ? "PRESS ANY KEY  -  THE FIRST PARTY ENTERS"
                         : "PRESS ANY KEY  -  SPEND WHAT YOU HAVE LEFT";
 
                 LeagueScreen.Draw(_league, scale, _shift, prompt,
-                    _phase == Phase.Destroyed ? null : _nextParty);
+                    _phase is Phase.Destroyed or Phase.Won ? null : _nextParty);
                 return;
             }
 
