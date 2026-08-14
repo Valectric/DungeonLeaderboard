@@ -247,6 +247,48 @@ in the **view**; the simulation stays plain C#, fixed-step, seeded and scene-fre
 
 ---
 
+## M10 — The end screen and the loading screen ▸ *requested, not started*
+
+Asked for by the author on 2026-08-14, after M9 Phase 5:
+
+> *"Create a great end screen. Ask codex CLI for image creation. Also do the same for loading scene
+> but still keep a short two sec made with Unity."*
+
+Read as: both screens get **generated key art** as a backdrop, produced through the sprite-maker's
+Codex-backed pipeline rather than drawn by hand or fetched. The loading screen keeps a **short
+Unity-rendered animation of about two seconds** on top of that art — so the art is the backdrop and
+the motion is still real, not a video.
+
+**Before touching this, read the sprite generation section of `CLAUDE.md` in full.** It is the
+longest section in the file because every trap in it cost a run:
+
+- Run the **preflight** once per session. `codex` must be on the PATH of the shell that launches the
+  binary, set in the *same* command — the lookup is cached per process and cannot be fixed
+  afterwards.
+- **Always `--print-prompt` first.** It is free and prints the routed harness, the asset category and
+  the logical canvas. Any `NxN` token in prose silently overrides `--width/--height`; the word
+  "platform" flips the preset to a side-view platformer.
+- **Never generate into `Assets/Art/`.** Stage outside the repo and copy in as a deliberate second
+  step. `Assets/Art/` is untracked, so a mistake there is unrecoverable.
+- **Paste the palette string verbatim** and attach the cropped references — but *not* when rigging
+  art that already exists, where the source master is the palette.
+- **Review every batch** with `python Tools/sprite-contact-sheet.py` before importing, and report the
+  warnings. Nothing else in the pipeline checks the output.
+
+**Two things specific to this request**, neither of which the existing pipeline has done before:
+
+1. Everything generated so far is a **sprite** at 32–64px. A full-screen backdrop is a different
+   ask, and `--command pack` ignores `--width/--height` entirely. Establish the canvas with
+   `--print-prompt` before spending a run.
+2. The end screen has to work at the **itch embed's 0.4 UI scale**, where a menu row once rendered
+   twelve pixels tall and unhittable. Whatever is drawn over the art must be laid out in absolute
+   pixels and checked at that scale, not just in the editor.
+
+The leaderboard is the title screen and that does not change — SPEC is explicit, and a loading
+screen is not a menu.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate

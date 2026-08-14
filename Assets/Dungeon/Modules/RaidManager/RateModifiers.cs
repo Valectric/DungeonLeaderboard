@@ -107,6 +107,25 @@ namespace Dungeon.RaidManager
         /// <summary>Extra monsters beyond the first that the party is facing.</summary>
         private int _extraEnemies;
 
+        /// <summary>The eased total, which is what the rate actually reads.</summary>
+        private float _smoothed;
+
+        /// <summary>
+        /// Seconds a change in the modifiers takes to be felt.
+        /// </summary>
+        /// <remarks>
+        /// The crowd bonus steps by a whole <see cref="Bonus"/> the instant a monster dies or
+        /// spawns, and the rate is a large pulsing number the player is meant to read at a glance.
+        /// Stepped, it flickers: measured, it crossed its own average far more often than the
+        /// stability tests allow, which is the HUD becoming noise rather than a signal.
+        /// <para>
+        /// Slower than the rate's own easing on purpose, so the bonus fades in and out rather than
+        /// arriving with the kill. It costs nothing in total energy -- what is smoothed is when it
+        /// is paid, not how much.
+        /// </para>
+        /// </remarks>
+        public const float EaseSeconds = 2.2f;
+
         /// <summary>Seconds the party has been fighting without a break.</summary>
         public float FightingFor => _fightingFor;
 
@@ -143,6 +162,7 @@ namespace Dungeon.RaidManager
             {
                 _fightingFor += deltaTime;
                 _clearFor = 0f;
+                Ease(deltaTime);
                 return;
             }
 
@@ -154,6 +174,16 @@ namespace Dungeon.RaidManager
             {
                 _fightingFor = 0f;
             }
+
+            Ease(deltaTime);
+        }
+
+        /// <summary>Eases the felt total toward the raw one. Call once per tick, last.</summary>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        private void Ease(float deltaTime)
+        {
+            _smoothed = Mathf.Lerp(
+                _smoothed, RawTotal(), Mathf.Clamp01(deltaTime / EaseSeconds));
         }
 
         /// <summary>
@@ -161,6 +191,15 @@ namespace Dungeon.RaidManager
         /// </summary>
         /// <returns>The total, which may be negative during a long grind.</returns>
         public float Total()
+        {
+            return _smoothed;
+        }
+
+        /// <summary>
+        /// What every modifier adds up to before easing, in energy per second.
+        /// </summary>
+        /// <returns>The raw total, which may be negative during a long grind.</returns>
+        public float RawTotal()
         {
             float total = 0f;
 
