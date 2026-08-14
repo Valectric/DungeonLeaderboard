@@ -185,7 +185,7 @@ namespace Dungeon.PartyManager
 
             if (target.HasValue)
             {
-                return StandOff(self.Position, target.Value, TankReach);
+                return StandOff(self.Position, target.Value, TankReach, view);
             }
 
             return Advance(self, view);
@@ -241,12 +241,12 @@ namespace Dungeon.PartyManager
             Vector2? closing = Cornering(self, view);
             if (closing.HasValue)
             {
-                return StandOff(self.Position, closing.Value, MageRange);
+                return StandOff(self.Position, closing.Value, MageRange, view);
             }
 
             Vector2? target = view.TankTarget ?? NearestVisible(self.Position, view);
             return target.HasValue
-                ? StandOff(self.Position, target.Value, MageRange)
+                ? StandOff(self.Position, target.Value, MageRange, view)
                 : Idle(self, view);
         }
 
@@ -298,15 +298,49 @@ namespace Dungeon.PartyManager
                 // 0, +30, -30, +60, -60 ... degrees off the escape line.
                 float degrees = ((step + 1) / 2) * 30f * (step % 2 == 0 ? 1f : -1f);
                 Vector2 direction = Quaternion.Euler(0f, 0f, degrees) * away;
-                Vector2 candidate = self.Position + (direction * BlinkDistance);
 
-                var cell = new Vector2Int(
-                    Mathf.RoundToInt(candidate.x), Mathf.RoundToInt(candidate.y));
-                if (!view.Grid.IsWalkable(cell) ||
-                    view.Grid.RoomAt(cell) == DungeonGrid.NoRoom)
+                // Take the longest jump this direction allows INSIDE the room, rather than one
+                // fixed length that the room usually cannot contain. BlinkDistance is 5 against 5x5
+                // rooms, so demanding the full length and rejecting anything else left a cornered
+                // mage with no escape at all -- clamped standoff on one side, refused blink on the
+                // other. The escape valve has to survive the confinement, not be closed by it.
+                Vector2 candidate = self.Position;
+                var cell = self.Cell;
+                bool reachable = false;
+
+                for (float hop = BlinkDistance; hop >= 2f; hop -= 0.5f)
+                {
+                    Vector2 tried = self.Position + (direction * hop);
+                    var triedCell = new Vector2Int(
+                        Mathf.RoundToInt(tried.x), Mathf.RoundToInt(tried.y));
+
+                    if (view.Grid.IsWalkable(triedCell) &&
+                        view.Grid.RoomAt(triedCell) == view.Grid.RoomAt(self.Cell))
+                    {
+                        candidate = tried;
+                        cell = triedCell;
+                        reachable = true;
+                        break;
+                    }
+                }
+
+                if (!reachable)
                 {
                     continue;
                 }
+                // The search above already guarantees walkable, in-room and non-doorway.
+                //
+                // A blink must stay inside the room the mage is already in. Only the LANDING cell
+                // was ever checked, never the line travelled -- and BlinkDistance is 5 against 5x5
+                // rooms, so a legal-looking landing routinely sat one or two rooms away with walls
+                // in between. Every blink also draws a bolt from origin to destination
+                // (Raid.cs, ShotKind.Bolt), which is the longest line the view ever draws: this is
+                // the likeliest thing the author saw as "shooting through three or four walls".
+                //
+                // It also stopped the mage fighting. Landing outside the party's room dropped it
+                // from the engaged set entirely, so it teleported out of the battle it was paid to
+                // be in.
+
 
                 float score = float.MaxValue;
                 foreach (Vector2 other in view.Threats)
@@ -354,13 +388,13 @@ namespace Dungeon.PartyManager
             Vector2? closing = Cornering(self, view);
             if (closing.HasValue)
             {
-                return StandOff(self.Position, closing.Value, RangedRange);
+                return StandOff(self.Position, closing.Value, RangedRange, view);
             }
 
             Vector2? target = NearestVisible(self.Position, view);
             if (target.HasValue)
             {
-                return StandOff(self.Position, target.Value, RangedRange);
+                return StandOff(self.Position, target.Value, RangedRange, view);
             }
 
             // Only a follower detours to defuse a trap. A leading rogue would walk onto the plate and
@@ -536,7 +570,8 @@ namespace Dungeon.PartyManager
         }
 
         /// <summary>A point the given distance from a target, on the side the mover is already on.</summary>
-        private static Vector2 StandOff(Vector2 self, Vector2 target, float range)
+        private static Vector2 StandOff(
+            Vector2 self, Vector2 target, float range, Perception view)
         {
             Vector2 offset = self - target;
             if (offset.sqrMagnitude < 0.0001f)
@@ -544,7 +579,34 @@ namespace Dungeon.PartyManager
                 offset = Vector2.left;
             }
 
-            return target + (offset.normalized * range);
+            offset = offset.normalized;
+
+            // Keeping your distance must not mean leaving the room. Combat is scoped per room, so a
+            // mage that backs five cells away from a monster in a 5x5 room backs out of the fight
+            // entirely -- measured, it fired NOT ONE BOLT in a whole raid, while the archer at a
+            // shorter range kept shooting. Standing off into uselessness is worse than standing
+            // close.
+            //
+            // So the ideal distance is an opening bid: back off as far as the room allows, and no
+            // further. Walked in from the requested range rather than out from the target, so the
+            // usual case costs one grid lookup.
+            int targetRoom = view.Grid.RoomAt(
+                new Vector2Int(Mathf.RoundToInt(target.x), Mathf.RoundToInt(target.y)));
+
+            for (float distance = range; distance >= 1.2f; distance -= 0.4f)
+            {
+                Vector2 candidate = target + (offset * distance);
+                var cell = new Vector2Int(
+                    Mathf.RoundToInt(candidate.x), Mathf.RoundToInt(candidate.y));
+
+                if (view.Grid.IsWalkable(cell) && view.Grid.RoomAt(cell) == targetRoom)
+                {
+                    return candidate;
+                }
+            }
+
+            // Nowhere in the room is far enough away. Hold position rather than walk into rock.
+            return self;
         }
     }
 }

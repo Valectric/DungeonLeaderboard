@@ -40,6 +40,15 @@ namespace Dungeon.RaidManager
         /// <summary>Hard cap on a raid, in seconds.</summary>
         public const float RaidSeconds = 60f;
 
+        /// <summary>
+        /// How close a combatant must be to reach someone standing in a doorway.
+        /// </summary>
+        /// <remarks>
+        /// Sized to "the next cell over, diagonally" rather than to any weapon's reach, because it
+        /// exists to stop a threshold making somebody un-hittable, not to grant range.
+        /// </remarks>
+        public const float DoorwayReach = 1.6f;
+
         /// <summary>Energy a spawn costs.</summary>
         public const float SpawnCost = 25f;
 
@@ -429,18 +438,64 @@ namespace Dungeon.RaidManager
         /// </remarks>
         private void ResolveCombat(float deltaTime, int threats)
         {
-            int room = Layout.Grid.RoomAt(Party.Cell);
+            // Every living monster is a CANDIDATE; who may actually hit whom is decided per
+            // combatant below. This list used to be scoped to the party LEADER's room, which is the
+            // same defect as D26 -- a room test taken from the leader rather than from the actor --
+            // and it produced the author's "shooting through three or four walls": a member who has
+            // lagged into the previous room was still handed the leader's monsters and fired at
+            // them through the wall between.
             var engaged = new List<Mob>();
             foreach (Mob mob in Mobs.Living)
             {
-                if (Layout.Grid.RoomAt(mob.Cell) == room)
-                {
-                    engaged.Add(mob);
-                }
+                engaged.Add(mob);
             }
 
             SwingParty(deltaTime, engaged);
             SwingMobs(deltaTime, engaged);
+        }
+
+        /// <summary>
+        /// Whether one combatant may strike another, judged from where each of them stands.
+        /// </summary>
+        /// <remarks>
+        /// A room is carved as a rectangle and is therefore convex, so two bodies in the same room
+        /// always have clear sight of each other. That makes the room check the whole rule: it is
+        /// the line-of-sight test AND the range limit at once, since a 5x5 room is 5.7 cells corner
+        /// to corner. No new constant, and nothing for a later change to forget.
+        /// <para>
+        /// The doorway clause is load-bearing rather than a nicety. <c>AddDoor</c> gives every
+        /// threshold cell <see cref="DungeonGrid.NoRoom"/>, and the marching column takes roughly
+        /// two seconds to cross one -- longer for a fleeing healer or a panicking archer, which can
+        /// park there. Without the exemption those members would be simultaneously un-hittable and
+        /// unable to swing, which is a worse bug than the one being fixed.
+        /// </para>
+        /// </remarks>
+        /// <param name="actor">Cell of whoever is striking.</param>
+        /// <param name="subject">Cell of whoever is being struck.</param>
+        /// <returns>True when the two share a room, or either is standing in a doorway.</returns>
+        private bool CanEngage(Vector2Int actor, Vector2Int subject)
+        {
+            int actorRoom = Layout.Grid.RoomAt(actor);
+            int subjectRoom = Layout.Grid.RoomAt(subject);
+
+            if (actorRoom == subjectRoom && actorRoom != DungeonGrid.NoRoom)
+            {
+                return true;
+            }
+
+            // The doorway clause is a PROXIMITY exemption, not a blanket one. Written as "either of
+            // them is on a threshold", it made anyone standing in a doorway able to strike anything
+            // anywhere in the dungeon -- measured, that TRIPLED shots through walls (13.7% -> 37.4%)
+            // and doubled bodies inside walls, because everybody took far more damage, fled far
+            // more, and fleeing is the unchecked movement path.
+            //
+            // What it is actually for is the body physically standing in the gap next to you.
+            if (actorRoom == DungeonGrid.NoRoom || subjectRoom == DungeonGrid.NoRoom)
+            {
+                return Vector2.Distance(actor, subject) <= DoorwayReach;
+            }
+
+            return false;
         }
 
         /// <summary>Lets every adventurer who can reach something take its swing.</summary>
@@ -460,7 +515,14 @@ namespace Dungeon.RaidManager
                 bool shoots = member.Role is PartyManager.AdventurerRole.Ranged
                     or PartyManager.AdventurerRole.Mage;
 
-                Mob target = Nearest(engaged, member.Position);
+                // Scoped to THIS member's room, not the leader's. An archer who has lagged a room
+                // behind now has no target at all rather than a target through a wall.
+                Mob target = NearestReachable(engaged, member);
+                if (target == null)
+                {
+                    continue;
+                }
+
                 float distance = Vector2.Distance(member.Position, target.Position);
                 if (!shoots && distance > PartyManager.Party.MeleeReach)
                 {
@@ -510,6 +572,15 @@ namespace Dungeon.RaidManager
                 float best = PartyManager.Party.MeleeReach;
                 foreach (PartyManager.Adventurer member in Party.Living)
                 {
+                    // The author's B3, delivered by construction: any monster sharing a room with a
+                    // member attacks that member -- and, just as importantly, cannot reach one it
+                    // does not share a room with. The old rule read only distance, so a monster
+                    // could swing across a threshold at somebody in the next room.
+                    if (!CanEngage(mob.Cell, member.Cell))
+                    {
+                        continue;
+                    }
+
                     float distance = Vector2.Distance(member.Position, mob.Position);
                     if (distance <= best)
                     {
@@ -528,6 +599,35 @@ namespace Dungeon.RaidManager
                 target.TakeDamage(CombatMath.Roll(
                     mob.WeaponDamage, mob.Might, target.Armour, _random));
             }
+        }
+
+        /// <summary>
+        /// The nearest mob a given adventurer is actually allowed to strike.
+        /// </summary>
+        /// <param name="mobs">Candidate mobs.</param>
+        /// <param name="member">Who is looking for a target.</param>
+        /// <returns>The nearest reachable mob, or null when none shares the member's room.</returns>
+        private Mob NearestReachable(List<Mob> mobs, PartyManager.Adventurer member)
+        {
+            Mob best = null;
+            float bestDistance = float.MaxValue;
+
+            foreach (Mob mob in mobs)
+            {
+                if (!CanEngage(member.Cell, mob.Cell))
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(member.Position, mob.Position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = mob;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>The living mob nearest a point.</summary>

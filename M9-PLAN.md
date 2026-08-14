@@ -330,6 +330,50 @@ Three prefabs — `Adventurer`, `Mob`, `Shot` — each a `SpriteRenderer` with i
 
 ---
 
+## ANSWERED BY THE AUTHOR — 2026-08-14
+
+These override the open questions below. Recorded verbatim in substance.
+
+**Q1 — score or purse? SCORE.** *"the whole point is to make them traverse the dungeon. So it
+should pay the score for the first."* So A2 (entering a new room) credits `EnergyHarvested`, not the
+purse. The reviewers' worry — that this pays for *advancing*, which the door verb exists to prevent —
+is noted and overruled by the author, who wants traversal rewarded. Their instinct is defensible:
+the room bonus is small (+2/s for 3s = 6 energy) against a fight's ~8/s, and A5's decay is the
+counterweight that stops a party being parked in one room forever.
+
+**He also asked what the difference is** — *"I thought they were one and the same."* They are not,
+and it is worth keeping straight: `EnergyHarvested` is the **score**, only ever rises (bar the -50
+death penalty), and is what the league ranks. `TotalEnergy` is the **purse**: the same income lands
+there but spending on spawns and traps removes it, and what survives funds the shop. A raid can
+harvest 400 and end holding 90. Same income, different accounting. D24's spawn refund credits the
+purse only, for exactly this reason.
+
+**Q4 — what resets the combat decay? TEN SECONDS OUT OF COMBAT.**
+
+**NEW, and not in the original request — COMBAT FATIGUE.** The author added a movement rule that
+pairs with A5:
+
+> *"the team moves slower when they are in the thirty second counting... when they have passed ten
+> seconds, and then they have ten seconds more, they move slower. If they are in combat for
+> seventeen seconds, then for ten seconds they would just move slower. In combat for five seconds,
+> they move the same speed. It's not much — like eighty percent of normal speed — but you'll see the
+> speed up after a while, which is a significant twenty percent speed up."*
+
+Read as: after **10 seconds of continuous combat** the party drops to **80% movement speed**, and
+the fatigue persists for **10 seconds after combat ends** before lifting. Under 10 seconds of combat
+costs nothing. He said "thirty percent slower" first and then settled on "eighty percent of normal
+speed"; the later, more specific figure wins — **80%, a 20% reduction**.
+
+The "significant twenty percent speed up" is the fatigue *lifting* — returning to full speed reads
+as a speed-up. Not a separate bonus above 100%.
+
+This is the same idea as A5 expressed in movement rather than money, and it is the better half: a
+grinding party visibly slows down, so the player *sees* the boredom the decay is pricing, instead of
+only watching a number shrink. Both should share one timer — continuous-combat seconds, reset by ten
+seconds clear.
+
+---
+
 ## Open questions for the author
 
 Only the ones that genuinely change the work.
