@@ -1154,6 +1154,34 @@ namespace Dungeon.Game
             GUI.Label(new Rect(0f, 66f * scale, Screen.width, 30f * scale), "ENERGY RATE",
                 new GUIStyle(caption) { alignment = TextAnchor.UpperCenter });
 
+            // WHY the rate is what it is. Without this the modifiers are invisible: the number
+            // moves and nothing tells the player their party just found a room, or that this fight
+            // has gone on long enough to start costing them. A bonus nobody can see is a bonus
+            // nobody learns to chase.
+            string why = _raid.Modifiers.Summary();
+            if (!string.IsNullOrEmpty(why))
+            {
+                var modifierStyle = new GUIStyle(GUI.skin.label)
+                {
+                    // Floored with a minimum, because the itch embed runs at 0.4 scale and that is
+                    // where a menu row once came out twelve pixels tall and unreadable.
+                    fontSize = Mathf.Max(9, Mathf.RoundToInt(13 * scale)),
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.UpperCenter
+                };
+
+                // Green while anything is being added, warm while the grind is eating it -- so the
+                // colour says which way the rate is going before the words are read.
+                bool losing = why.Contains("- GRINDING");
+                modifierStyle.normal.textColor = losing
+                    ? new Color(0.85f, 0.45f, 0.35f)
+                    : new Color(0.55f, 0.85f, 0.5f);
+
+                GUI.Label(
+                    new Rect(0f, Mathf.Floor(86f * scale), Screen.width, Mathf.Floor(24f * scale)),
+                    why, modifierStyle);
+            }
+
             var total = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.RoundToInt(28 * scale),

@@ -135,6 +135,49 @@ namespace Dungeon.RaidManager
         /// <summary>How fast the party may move right now, as a fraction of its normal pace.</summary>
         public float SpeedMultiplier => IsFatigued ? FatigueSpeed : 1f;
 
+        /// <summary>
+        /// What is currently moving the rate, in words the player can act on.
+        /// </summary>
+        /// <remarks>
+        /// A bonus the player cannot see is a bonus they cannot learn to chase, which would make
+        /// the whole variation system decoration: the rate would simply move and nothing would say
+        /// why. Named causes, not arithmetic -- "+ CROWD" teaches that more monsters pay, where
+        /// "+4.0" teaches nothing.
+        /// <para>
+        /// The grind decay is shown even though it is a penalty, and especially because it is. It
+        /// is the one modifier whose whole purpose is to change what the player does, and they
+        /// cannot respond to a number quietly shrinking for reasons nobody told them.
+        /// </para>
+        /// </remarks>
+        /// <returns>A short line, or empty when nothing is active.</returns>
+        public string Summary()
+        {
+            var parts = new System.Collections.Generic.List<string>();
+
+            if (_disarmLeft > 0f)
+            {
+                parts.Add("+ DISARM");
+            }
+
+            if (_newRoomLeft > 0f)
+            {
+                parts.Add("+ NEW ROOM");
+            }
+
+            if (_extraEnemies > 0)
+            {
+                parts.Add($"+ CROWD x{_extraEnemies}");
+            }
+
+            float decay = Decay();
+            if (decay > 0f)
+            {
+                parts.Add($"- GRINDING {decay:0}");
+            }
+
+            return parts.Count == 0 ? string.Empty : string.Join("   ", parts);
+        }
+
         /// <summary>Records that a trap was disarmed.</summary>
         public void RecordDisarm()
         {
