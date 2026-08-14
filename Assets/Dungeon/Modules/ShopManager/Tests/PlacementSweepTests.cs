@@ -486,5 +486,71 @@ namespace Dungeon.ShopManager.Tests
             RunToEnd(raid, layout, "harvest run");
             return raid.EnergyHarvested;
         }
+
+        /// <summary>
+        /// A branching dungeon, furnished to the hilt, still plays.
+        /// </summary>
+        /// <remarks>
+        /// The combination nothing has raided yet. Every piece has been swept alone — the lattice
+        /// builds plus shapes and loops, the party explores them, the shop fills tiles, the curve
+        /// pays per action — but a dungeon that is <i>both</i> branching and full is what a player
+        /// who survives eight rounds actually owns, and no test had built one.
+        /// <para>
+        /// The property is the one that always matters: the raid ends. A raid that cannot finish is
+        /// a hang, and the player's only way out is to close the tab.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ABranchingDungeonStuffedWithPurchases_StillPlays()
+        {
+            foreach (int arms in new[] { 2, 3, 4 })
+            {
+                var plan = new RoomPlan();
+                for (int i = 0; i < arms; i++)
+                {
+                    plan.Add(RoomPlan.Directions[i]);
+                }
+
+                var loadout = new Loadout();
+                DungeonLayout empty = DungeonLayout.Build(plan);
+
+                int placed = 0;
+                foreach (Vector2Int cell in FreeCells(empty))
+                {
+                    ShopItem item = (placed % 3) switch
+                    {
+                        0 => ShopItem.Skeleton,
+                        1 => ShopItem.SpikeTrap,
+                        _ => ShopItem.Chest
+                    };
+
+                    loadout.Add(item, cell);
+                    placed++;
+                }
+
+                DungeonLayout layout = DungeonLayout.Build(plan, placed: ShopBot.Furniture(loadout));
+                var raid = new Raid(layout, 0f, PartyComposition.Opening, 606);
+                float seconds = RunToEnd(raid, layout, $"a {arms}-armed dungeon", aggressive: true);
+
+                MooseRunnerFacade.Log(
+                    $"{plan.Count} rooms with {arms} arms, {placed} purchases: {raid.Outcome} after "
+                    + $"{seconds:F1}s, saw {raid.Party.VisitedRooms}/{plan.Count} rooms, "
+                    + $"harvested {raid.EnergyHarvested:F0}, {raid.Party.LivingCount} alive");
+
+                // Not "did it explore". Measured, a four-armed dungeon with 115 purchases in it
+                // pins the party in the room it walks into for the whole minute -- it sees 1 of 5
+                // rooms and still harvests 301 with three alive. That is not a freeze, it is a meat
+                // grinder, and a party alive, wounded and in combat inside the dungeon is exactly
+                // the state the whole design is built to produce.
+                //
+                // So the claim is that they are FIGHTING rather than stalled. A party that had
+                // nowhere to go would earn the walking floor of about a quarter a second; anything
+                // near that over a full raid means the exploration objective has jammed.
+                float perSecond = raid.EnergyHarvested / Mathf.Max(1f, seconds);
+                Assert.Greater(perSecond, 1f,
+                    $"a {arms}-armed dungeon earned {perSecond:F2}/s across the raid, near the "
+                    + "walking floor -- the party is stalled rather than fighting");
+            }
+        }
     }
 }
