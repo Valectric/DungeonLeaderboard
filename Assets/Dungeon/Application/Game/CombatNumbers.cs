@@ -62,6 +62,16 @@ namespace Dungeon.Game
         private static readonly Color Healing = new(0.45f, 1f, 0.45f);
 
         /// <summary>
+        /// Colour of the score lost when an adventurer dies.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately not the red used for a wounded adventurer, which the player has learned to
+        /// read as income. This is the one number on screen that means they have lost something, so
+        /// it is the harsh orange nothing else uses.
+        /// </remarks>
+        private static readonly Color PenaltyRed = new(1f, 0.55f, 0.1f);
+
+        /// <summary>
         /// Draws every floating number.
         /// </summary>
         /// <param name="feed">Numbers to draw.</param>
@@ -126,6 +136,7 @@ namespace Dungeon.Game
                 // Fades only at the end, so the number is fully legible for most of its life. Fading
                 // from the first frame makes fast, small hits almost invisible.
                 Color ink = number.IsHeal ? Healing
+                    : number.Target == CombatTarget.Dungeon ? PenaltyRed
                     : number.Target == CombatTarget.Monster ? MonsterHurt
                     : AdventurerHurt;
                 ink.a = 1f - Mathf.Clamp01((life - 0.65f) / 0.35f);

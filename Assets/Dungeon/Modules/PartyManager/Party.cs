@@ -69,12 +69,14 @@ namespace Dungeon.PartyManager
         /// nothing. Every test passed, because they asserted that the party escapes and never asked
         /// how quickly.
         /// <para>
-        /// At 0.6 an unopposed crossing takes about twenty-seven seconds — long enough to read the
-        /// board and act, short enough that doing nothing still throws away half the earning window.
+        /// At 0.6 an unopposed crossing took about twenty-seven seconds. Raised half again to 0.9 at
+        /// the author's direction: the game is called CHARGE! and the party was strolling. A crossing
+        /// is now about eighteen seconds, which leaves less of the clock to spend and makes the
+        /// player's opening move matter more.
         /// Guarded by <c>UnopposedParty_TakesMostOfTheClockToCross</c>.
         /// </para>
         /// </remarks>
-        public const float WalkSpeed = 0.6f;
+        public const float WalkSpeed = 0.9f;
 
         /// <summary>Seconds between the healer's casts.</summary>
         public const float HealInterval = 2.2f;
@@ -197,6 +199,9 @@ namespace Dungeon.PartyManager
         /// <param name="cell">Chest cell to test.</param>
         /// <returns>True when the party has looted it.</returns>
         public bool HasLooted(Vector2Int cell) => _looted.Contains(cell);
+
+        /// <summary>How many chests the party has opened, so the raid can pay for a new one.</summary>
+        public int LootedCount => _looted.Count;
 
         /// <summary>
         /// Aggregate health of the living party, 1 down to 0.
@@ -356,6 +361,7 @@ namespace Dungeon.PartyManager
                     Glide(living[rank], PositionBehind(rank * FollowSpacing), deltaTime);
                 }
 
+                AssignActions(threats);
                 return;
             }
 
@@ -422,6 +428,9 @@ namespace Dungeon.PartyManager
 
             ForceDoors(leader, deltaTime, threats.Count);
             OpenChests(leader, deltaTime);
+
+            // Last, because it reads the door and loot state the two calls above have just settled.
+            AssignActions(threats);
 
             if (Goal != PartyGoal.Fighting && Cell == _bossCell)
             {
@@ -901,6 +910,72 @@ namespace Dungeon.PartyManager
         public float DamageOutput()
         {
             return Living.Sum(m => m.DamagePerSecond);
+        }
+
+
+        /// <summary>
+        /// Records what each living member just did, for the energy curve to price.
+        /// </summary>
+        /// <remarks>
+        /// Read from what actually happened this tick rather than from each member's role, because
+        /// the two disagree exactly when it matters: a healer with a skeleton on it is fleeing, not
+        /// healing, and a tank walking toward a fight across the room is not yet fighting.
+        /// <para>
+        /// Called from both paths through <see cref="Tick"/>. A retreating party is running, whatever
+        /// its members would otherwise be doing -- the retreat overrides every individual decision,
+        /// so the actions have to agree with it or the rate would pay for a fight nobody is having.
+        /// </para>
+        /// </remarks>
+        /// <param name="threats">Living monsters the party can see.</param>
+        private void AssignActions(IReadOnlyList<Vector2> threats)
+        {
+            bool retreating = Goal == PartyGoal.Retreating;
+            bool working = WorkingOnDoor != null || _lootProgress > 0f;
+
+            foreach (Adventurer member in Living)
+            {
+                if (retreating)
+                {
+                    member.Action = AdventurerAction.Fleeing;
+                    continue;
+                }
+
+                if (member.IsPanicking)
+                {
+                    member.Action = AdventurerAction.Fleeing;
+                    continue;
+                }
+
+                if (working)
+                {
+                    member.Action = AdventurerAction.Working;
+                    continue;
+                }
+
+                if (threats.Count == 0)
+                {
+                    member.Action = AdventurerAction.Walking;
+                    continue;
+                }
+
+                float nearest = float.MaxValue;
+                foreach (Vector2 threat in threats)
+                {
+                    nearest = Mathf.Min(nearest, Vector2.Distance(member.Position, threat));
+                }
+
+                if (nearest <= MeleeReach)
+                {
+                    member.Action = AdventurerAction.Fighting;
+                    continue;
+                }
+
+                // Everyone but the tank fights at range, so a monster in the room and none in reach
+                // means they are shooting or casting at it. A tank in that position is closing.
+                member.Action = member.Role == AdventurerRole.Tank
+                    ? AdventurerAction.Walking
+                    : AdventurerAction.Shooting;
+            }
         }
 
         /// <summary>Picks a goal from the party's health and what is in the room with it.</summary>

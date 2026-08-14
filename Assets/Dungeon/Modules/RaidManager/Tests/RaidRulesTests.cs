@@ -192,7 +192,11 @@ namespace Dungeon.RaidManager.Tests
             }
 
             MooseRunnerFacade.Log($"unopposed crossing took {elapsed:F1}s ({raid.Outcome})");
-            Assert.Greater(elapsed, 18f,
+            // Was 18 seconds when the party walked at 0.6. The author raised the pace half again --
+            // the game is called CHARGE! and they were strolling -- so a crossing is now nearer 12.
+            // The floor still has to leave the player time to read the board and act; below about
+            // ten seconds the opening move is a reflex rather than a decision.
+            Assert.Greater(elapsed, 10f,
                 "an unopposed crossing must leave the player time to react");
             Assert.Less(elapsed, Raid.RaidSeconds,
                 "doing nothing must still cost the player the rest of the window");

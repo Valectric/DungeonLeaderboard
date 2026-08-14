@@ -1,4 +1,5 @@
 using System;
+using Dungeon.PartyManager;
 
 namespace Dungeon.RaidManager
 {
@@ -51,6 +52,107 @@ namespace Dungeon.RaidManager
         /// alive and bleeding rather than simply killing it.
         /// </summary>
         public const float WoundExponent = 5f;
+
+
+        /// <summary>
+        /// What one member earns a second for doing something, before its wound multiplier.
+        /// </summary>
+        /// <remarks>
+        /// The rate is summed per living member now rather than gated on a single party-wide "is it
+        /// in combat" flag. Two things forced it. A party that cannot be hurt earned a ninth of one
+        /// that can, because the wound multiplier was the only term that ever moved; and both
+        /// attempts to let fragile parties survive — archers that outrun a monster, monsters with
+        /// less health — <b>inverted the design's one rule</b>, since anything keeping the party
+        /// healthier made killing it relatively more attractive.
+        /// <para>
+        /// Scaled to land on the ceiling the old curve had. The first pass used 1.0 for melee on the
+        /// arithmetic that four members at eight times wound is 32 — but the wound multiplier is per
+        /// member now, so three healthy allies contribute at 1x however badly the fourth is hurt, and
+        /// the measured peak came out at 11.9. These are three times that pass. Four members walking
+        /// is 0.24 a second against a peak near 35, still the "almost nothing" the spec demands of an
+        /// unengaged party crossing a corridor.
+        /// </para>
+        /// <para>
+        /// Shooting pays well short of melee. An archer at range is safe, and the design should keep
+        /// preferring the party that is standing in reach of something and bleeding — it just should
+        /// not pay a kiting archer <i>nothing</i>.
+        /// </para>
+        /// </remarks>
+        /// <param name="action">What the member is doing.</param>
+        /// <returns>Energy per second for that member, before wounds.</returns>
+        public static float ActionRate(AdventurerAction action) => action switch
+        {
+            AdventurerAction.Walking => 0.06f,
+            AdventurerAction.Idle => 0.04f,
+            AdventurerAction.Fleeing => 0.75f,
+            AdventurerAction.Working => 1.05f,
+            AdventurerAction.Shooting => 2.1f,
+            AdventurerAction.Fighting => 3f,
+            _ => 0.04f
+        };
+
+        /// <summary>
+        /// What one living member earns a second, action and wounds together.
+        /// </summary>
+        /// <param name="action">What the member is doing.</param>
+        /// <param name="healthFraction">That member's own health, 1 down to 0.</param>
+        /// <returns>Energy per second from this member.</returns>
+        public static float MemberRate(AdventurerAction action, float healthFraction)
+        {
+            return BaseRate * ActionRate(action) * WoundMultiplier(healthFraction);
+        }
+
+        /// <summary>
+        /// What a death costs the player, in banked score.
+        /// </summary>
+        /// <remarks>
+        /// A corpse stops earning on its own — it contributes no action rate — but that alone only
+        /// makes a wipe <i>less good</i>, and the design needs it to be actively bad. Fifty points is
+        /// roughly a fifth of a decent raid, so losing the party outright wipes out most of what it
+        /// earned on the way down. That is the term that keeps "killing them is bad play" true even
+        /// when the party is healthy enough to be cheap to keep alive.
+        /// </remarks>
+        public const float DeathPenalty = 50f;
+
+        /// <summary>
+        /// Extra energy a second for the whole team after a chest is opened.
+        /// </summary>
+        /// <remarks>
+        /// A chest is a detour, and a detour is time the party is not advancing — but under a
+        /// per-action curve that time is only paid at the "working" rate, which would make looting a
+        /// worse use of the party than walking into a fight. The bonus makes finding treasure a
+        /// genuine moment rather than a slow patch of the raid.
+        /// </remarks>
+        public const float ChestBonus = 6f;
+
+        /// <summary>How long a chest's bonus lasts.</summary>
+        public const float ChestBonusSeconds = 5f;
+
+        /// <summary>
+        /// How long before another chest pays full value again.
+        /// </summary>
+        /// <remarks>
+        /// Without this, a room floored with chests would be a flat rate increase for the whole raid,
+        /// and the shop already lets a player buy as many as they can afford. Chests opened closer
+        /// together than this pay proportionally less, so the second one in quick succession is worth
+        /// a fraction of the first and stacking them stops being the obvious answer.
+        /// </remarks>
+        public const float ChestCooldownSeconds = 15f;
+
+        /// <summary>
+        /// How much of a chest's bonus is paid, given how long since the last one.
+        /// </summary>
+        /// <param name="secondsSinceLastChest">Seconds since the previous chest was opened.</param>
+        /// <returns>A scale from 0 to 1.</returns>
+        public static float ChestValue(float secondsSinceLastChest)
+        {
+            if (secondsSinceLastChest >= ChestCooldownSeconds)
+            {
+                return 1f;
+            }
+
+            return Math.Clamp(secondsSinceLastChest / ChestCooldownSeconds, 0f, 1f);
+        }
 
         /// <summary>
         /// Scales earnings with how much of the party is actually fighting.

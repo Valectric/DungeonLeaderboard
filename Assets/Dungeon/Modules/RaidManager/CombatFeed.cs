@@ -16,7 +16,17 @@ namespace Dungeon.RaidManager
         Adventurer = 0,
 
         /// <summary>A monster. Damage here is the player's purchase being destroyed.</summary>
-        Monster = 1
+        Monster = 1,
+
+        /// <summary>
+        /// The dungeon itself, for the score lost when an adventurer dies.
+        /// </summary>
+        /// <remarks>
+        /// Its own target rather than reusing <see cref="Adventurer"/>, whose colour means "the
+        /// player is earning" -- exactly the opposite of what a death penalty is. A charge the player
+        /// is never shown is a charge they cannot learn from.
+        /// </remarks>
+        Dungeon = 2
     }
 
     /// <summary>One number that should float up off something.</summary>

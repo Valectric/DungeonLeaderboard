@@ -203,8 +203,14 @@ namespace Dungeon.MobManager
         /// </summary>
         /// <param name="deltaTime">Seconds since the last tick.</param>
         /// <param name="partyPosition">Where the party's leader currently stands.</param>
-        public void Tick(float deltaTime, Vector2 partyPosition)
+        public void Tick(float deltaTime, IReadOnlyList<Vector2> partyPositions)
         {
+            if (partyPositions == null || partyPositions.Count == 0)
+            {
+                return;
+            }
+
+            Vector2 partyPosition = partyPositions[0];
             var partyCell = new Vector2Int(
                 Mathf.RoundToInt(partyPosition.x), Mathf.RoundToInt(partyPosition.y));
             int partyRoom = _grid.RoomAt(partyCell);
@@ -227,18 +233,47 @@ namespace Dungeon.MobManager
                     continue;
                 }
 
+                // Chase whoever is NEAREST, not whoever happens to be leading. Following the leader
+                // let a tankless party form a permanent standoff: every fragile role runs at a
+                // monster within 1.7 cells while melee reach is 1.15, so the distance settled at
+                // 1.71 and neither side could touch the other. Measured, one skeleton spent 48
+                // seconds beside THE GLASS CANNONS, reversed direction 46 times and dealt no damage
+                // at all -- the "wagging" a player reported, and the reason those rosters earned a
+                // ninth of the rest.
+                Vector2 quarry = partyPosition;
+                float best = float.MaxValue;
+                foreach (Vector2 candidate in partyPositions)
+                {
+                    float distance = Vector2.Distance(mob.Position, candidate);
+                    if (distance < best)
+                    {
+                        best = distance;
+                        quarry = candidate;
+                    }
+                }
+
                 // Stop at arm's length. Walking onto the party's own square is what made a skeleton
                 // appear to stand on top of the adventurers it was fighting.
-                if (Vector2.Distance(mob.Position, partyPosition) <= ContactRange)
+                if (best <= ContactRange)
                 {
                     continue;
                 }
 
-                List<Vector2Int> path = _grid.FindPath(mob.Cell, partyCell);
-                Vector2 waypoint = path.Count > 0 ? path[0] : partyPosition;
+                var quarryCell = new Vector2Int(
+                    Mathf.RoundToInt(quarry.x), Mathf.RoundToInt(quarry.y));
+                List<Vector2Int> path = _grid.FindPath(mob.Cell, quarryCell);
+                Vector2 waypoint = path.Count > 0 ? path[0] : quarry;
                 if (path.Count > 0 && _grid.RoomAt(path[0]) != mob.HomeRoom)
                 {
                     continue;
+                }
+
+                // Straight at the quarry once it is close, rather than via the next cell centre.
+                // Pathing cell to cell is what let a fleeing target stay ahead: the waypoint is a
+                // corner away, so the chase is slower than the chaser.
+                if (best < 2.5f)
+                {
+                    waypoint = quarry;
                 }
 
                 mob.Position = Vector2.MoveTowards(

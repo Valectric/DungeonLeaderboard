@@ -81,6 +81,17 @@ namespace Dungeon.PartyManager
         public float AttackCooldown { get; set; }
 
         /// <summary>
+        /// What this adventurer is doing right now, which decides what it earns the dungeon.
+        /// </summary>
+        /// <remarks>
+        /// Written by <see cref="Party"/> every tick and read by the energy curve. It is presentation
+        /// of a sort — nothing in the simulation branches on it — but it is the input to the rate, so
+        /// it has to be set from what the member actually did rather than from what its role usually
+        /// does. A healer with a monster on it is fleeing, not healing.
+        /// </remarks>
+        public AdventurerAction Action { get; set; } = AdventurerAction.Idle;
+
+        /// <summary>
         /// Where this adventurer last struck, so the view can throw the sprite at it.
         /// </summary>
         /// <remarks>
@@ -234,7 +245,7 @@ namespace Dungeon.PartyManager
             // changes fight length, and fight length is the rate the whole design rests on.
             (WeaponDamage, Might, Armour, AttackInterval) = role switch
             {
-                AdventurerRole.Tank => (3f, 1.2f, 0.25f, 1.2f),
+                AdventurerRole.Tank => (3f, 1.2f, 0.50f, 1.2f),
                 AdventurerRole.Healer => (2f, 1f, 0.10f, 2.5f),
                 AdventurerRole.Ranged => (6f, 2.2f, 0.05f, 1.0f),
                 AdventurerRole.Mage => (15f, 4f, 0.05f, 1.8f),

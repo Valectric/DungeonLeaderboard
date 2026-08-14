@@ -169,7 +169,16 @@ namespace Dungeon.RaidManager
             int threats = Mobs.CountInRoom(partyRoom);
 
             ResolveCombat(deltaTime, threats);
-            Mobs.Tick(deltaTime, Party.Position);
+            // Every living member's position, so a monster can pick the nearest rather than always
+            // chasing whoever leads. Flattened to plain vectors here because MobManager and
+            // PartyManager are siblings that must never reference each other.
+            _partyPositions.Clear();
+            foreach (PartyManager.Adventurer member in Party.Living)
+            {
+                _partyPositions.Add(member.Position);
+            }
+
+            Mobs.Tick(deltaTime, _partyPositions);
 
             // Flatten the mobs the party can see into bare coordinates. PartyManager and MobManager
             // are siblings that must never reference each other, so the raid is the only place that
@@ -196,6 +205,7 @@ namespace Dungeon.RaidManager
                 Layout.TrapAt(Party.DisarmingCell.Value)?.Disarm(Party.DisarmSeconds);
             }
 
+            ChargeForDeathsAndLoot(deltaTime);
             AccrueEnergy(deltaTime);
             RecordCombatNumbers();
             Feed.Tick(deltaTime);
@@ -509,14 +519,84 @@ namespace Dungeon.RaidManager
         /// </remarks>
         public const float RateEaseSeconds = 0.22f;
 
+        /// <summary>Scratch list of living member positions, reused so the tick allocates nothing.</summary>
+        private readonly System.Collections.Generic.List<Vector2> _partyPositions = new();
+
+        /// <summary>Seconds of chest bonus still owed to the team.</summary>
+        private float _chestBonusLeft;
+
+        /// <summary>How much of a full chest bonus the current one pays.</summary>
+        private float _chestBonusScale = 1f;
+
+        /// <summary>Seconds since a chest was last opened, for the diminishing return.</summary>
+        private float _sinceLastChest = EnergyCurve.ChestCooldownSeconds;
+
+        /// <summary>Living members last tick, so a death can be noticed and charged for.</summary>
+        private int _livingLastTick = -1;
+
+        /// <summary>
+        /// Charges the player for anyone who died, and starts a chest bonus for anything looted.
+        /// </summary>
+        /// <remarks>
+        /// A death costs banked score rather than spendable energy. It is a judgement on the raid,
+        /// and taking it out of the purse would punish the player twice -- once in the score and
+        /// again by removing the means to stop the next death.
+        /// </remarks>
+        /// <param name="deltaTime">Seconds since the last tick.</param>
+        private void ChargeForDeathsAndLoot(float deltaTime)
+        {
+            _sinceLastChest += deltaTime;
+
+            int living = Party.LivingCount;
+            if (_livingLastTick >= 0 && living < _livingLastTick)
+            {
+                float lost = (_livingLastTick - living) * EnergyCurve.DeathPenalty;
+                EnergyHarvested = Mathf.Max(0f, EnergyHarvested - lost);
+
+                // Shown where it happened, as a damage number against the dungeon rather than
+                // against a monster. A penalty the player is charged silently is a penalty they
+                // never learn from.
+                Feed.Damage(this, Party.Position, lost, CombatTarget.Dungeon);
+            }
+
+            _livingLastTick = living;
+
+            int looted = Party.LootedCount;
+            if (looted > _lootedLastTick)
+            {
+                _chestBonusScale = EnergyCurve.ChestValue(_sinceLastChest);
+                _chestBonusLeft = EnergyCurve.ChestBonusSeconds;
+                _sinceLastChest = 0f;
+            }
+
+            _lootedLastTick = looted;
+        }
+
+        /// <summary>Chests looted as of last tick, so a new one can be noticed.</summary>
+        private int _lootedLastTick;
+
         /// <summary>Applies the energy curve for this instant and banks the result.</summary>
         private void AccrueEnergy(float deltaTime)
         {
-            // The curve reads the party's WORST survivor, not its average. See Party.WoundFraction:
-            // no aggregate can reach the steep end of the curve while a tank soaks for everyone, and
-            // measured across every roster the rate never passed 4.1/s in a game built to reach 32.
-            int engaged = Party.Goal == PartyGoal.Fighting ? Party.LivingCount : 0;
-            float target = EnergyCurve.Rate(engaged, Party.WoundFraction);
+            // Summed per living member, each priced by what it is doing and by its own health.
+            // The old curve asked one yes-or-no question of the whole party and multiplied by its
+            // worst survivor, which made being wounded the only thing that paid: a party that could
+            // not be hurt earned a ninth of one that could, and every attempt to let fragile parties
+            // survive inverted the design's one rule. A corpse contributes nothing, which is most of
+            // what keeps a wipe bad.
+            float target = 0f;
+            foreach (PartyManager.Adventurer member in Party.Living)
+            {
+                target += EnergyCurve.MemberRate(member.Action, member.HealthFraction);
+            }
+
+            // A chest pays the whole team for a few seconds, and pays less if another was opened
+            // recently -- otherwise a floor of chests is a flat raise for the raid.
+            if (_chestBonusLeft > 0f)
+            {
+                _chestBonusLeft = Mathf.Max(0f, _chestBonusLeft - deltaTime);
+                target += EnergyCurve.ChestBonus * _chestBonusScale;
+            }
 
             CurrentRate = Mathf.Lerp(
                 CurrentRate, target, Mathf.Clamp01(deltaTime / RateEaseSeconds));
