@@ -1,8 +1,29 @@
 # Handover
 
-**State: M1–M8 built and tested. The whole loop runs: standings, a raid, the adventurers' review,
-standings, a thirty-second spatial shop, the next raid — the league ends in a winner, and every
-entity that moves is drawn animation.**
+**State: M1–M11 built, tested and SHIPPED. `main` is green at 284 tests and itch is serving
+`0.1.2608150051`. Nothing is held on a branch.**
+
+The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
+review over generated key art, a thirty-second spatial shop, the next raid — and the league ends
+in a winner.
+
+Since M8: walls are solid (bodies inside a wall fell from 11.7% of samples to 1.8%, shots through
+one from 13.7% to 0.5%); monsters prefer the tank, which is a rule now rather than a side effect of
+the marching order; the rate pays for variety — a disarm, a new room, a crowd — and decays through
+a long grind, with a HUD line naming which of those is currently moving it; a tired party slows to
+80%; and wounded bodies back off, tanks giving ground below 30% of their own health.
+
+**Two things deliberately left open, both in D30:** the league's rival earnings are downstream of
+measured harvest (D13) and have NOT been retuned for the flatter wound correlation the author
+accepted; and `EarlyEscape`'s threshold must not be lowered a second time — if it needs it, the
+room bonus is too strong and that is what to fix.
+
+**Read first, before diagnosing anything:** the RaidManager and ShopManager suites now need ~1600s,
+not 800s, because raids that used to end early run the full clock. And when a "performance
+regression" or a "hang" appears, check whether the SIMULATION cost changed before believing it —
+three separate toolchain faults wore that disguise in one session (Safe Mode after a compile error
+that `force-recompile` reported as `[PASS]`, a CPU affinity left pinned after a build, and plain
+editor wear). None of them had.
 
 Last updated: 2026-08-14.
 
