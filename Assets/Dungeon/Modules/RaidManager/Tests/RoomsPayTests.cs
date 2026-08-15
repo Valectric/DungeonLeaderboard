@@ -80,16 +80,31 @@ namespace Dungeon.RaidManager.Tests
         {
             var earned = new Dictionary<int, float>();
 
+            // THREE SEEDS, because a single one is how D29 was first measured and D31 is the note
+            // about why that is not enough. The seed picks the party and the combat rolls, and if
+            // the saturation after three rooms were an artefact of one draw it would show here.
+            var seeds = new[] { 20260813, 4242, 99 };
+
             for (int rooms = 2; rooms <= 6; rooms++)
             {
-                DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: rooms);
-                var raid = new Raid(layout);
-                float harvest = Play(raid);
+                float total = 0f;
+                int deepest = 0;
+                RaidOutcome outcome = RaidOutcome.TimeExpired;
+                DungeonLayout layout = null;
 
-                earned[rooms] = harvest;
+                foreach (int seed in seeds)
+                {
+                    layout = DungeonLayout.BuildCorridor(roomCount: rooms);
+                    var raid = new Raid(layout, 0f, null, seed);
+                    total += Play(raid);
+                    deepest = Mathf.Max(deepest, raid.Party.VisitedRooms);
+                    outcome = raid.Outcome;
+                }
+
+                earned[rooms] = total / seeds.Length;
                 MooseRunnerFacade.Log(
-                    $"{rooms} rooms: harvested {harvest:F0}, outcome {raid.Outcome}, "
-                    + $"party reached {raid.Party.VisitedRooms} of {rooms} rooms, "
+                    $"{rooms} rooms: mean harvest {earned[rooms]:F0} over {seeds.Length} seeds, "
+                    + $"last outcome {outcome}, deepest {deepest} of {rooms} rooms, "
                     + $"{layout.SpawnerCells.Count} spawners, {layout.Grid.Doors.Count} doors");
             }
 

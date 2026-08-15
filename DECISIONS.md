@@ -1185,3 +1185,22 @@ hue, saturation and drawn masonry detail our source stone does not carry. Gradin
 So the honest reading is that this points at the **source art**, not at a filter — which is the same
 conclusion §12 of TILESET-SEARCH.md reached from the other direction, and the reason the two bought
 tilesets are worth the $3.20. Do not install this grade expecting it to answer the complaint.
+
+
+### D29 addendum — re-measured across three seeds, and it is structural
+
+D29 was measured on one seed, which is precisely the mistake D31 documents. Re-run with three
+different parties and combat rolls, means over the three:
+
+```
+2 rooms   311    the party ESCAPES
+3 rooms   421    deepest 3 of 3
+4 rooms   421    deepest 3 of 4
+5 rooms   421    deepest 3 of 5
+6 rooms   421    deepest 3 of 6
+```
+
+**Identical to the pound at three, four, five and six rooms, across every seed.** The party reaches
+exactly three rooms in sixty seconds whatever the dungeon's size and whoever walks in, so the
+saturation is not a draw artefact — it is the clock meeting the walk speed. Two of the four halls the
+shop sells remain provably inert, and the finding is now as solid as the instrument can make it.
