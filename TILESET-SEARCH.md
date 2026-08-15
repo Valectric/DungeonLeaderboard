@@ -381,3 +381,28 @@ Rejected: `ShadowCaster2D` from a tilemap collider (selectable but produces no s
 jam when the code-drawn layers cost nothing per frame. And Rule Tile's rotation transform does not
 save us six sprites the way it would elsewhere: a wall with a top face and a front face is
 anisotropic, so only the horizontal mirror is available.
+
+## 13. First attempt at drawing the relief in code — mechanism right, look wrong
+
+Implemented `DungeonScenery.DrawRelief`: for each wall cell, a lit strip along every side facing open
+floor and a cast shadow below a south-facing face, all driven by the same `WallMask` the tile lookup
+uses. Photographed in the running game.
+
+**The mechanism is correct.** Strips appear only on sides that face open floor, they land on the
+pixel grid at any zoom, they cost no asset, and they cannot drift between runs — which is the whole
+argument for moving the cue into code.
+
+**The look is not.** Drawn as continuous full-length bars at 85% alpha they read as a neon frame
+around the room rather than as light catching stone. Reverted from the working tree rather than left
+in, because the game currently ships fine without it and a half-right effect is worse than none.
+
+What the photograph says to change, for whoever picks this up:
+
+- **Much lower alpha and a thinner strip.** The reference rim is a one-pixel line at roughly 90%
+  brighter than the floor, not a 12%-of-a-cell bar at 85% opacity.
+- **Break the bar per cell.** A single unbroken line along a whole wall run is the giveaway; real
+  masonry catches light per block, so the strip wants the same 4px modulation the earlier
+  `shape_wall` pass used.
+- **Only the north-facing rim should be bright.** East and west should be much dimmer and south
+  should carry shadow alone — the light in this dungeon comes from above, and lighting all four
+  sides equally is what makes it read as an outline instead of as relief.
