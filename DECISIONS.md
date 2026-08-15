@@ -1115,3 +1115,44 @@ support a conclusion, and this one printed a tidy list of numbers that looked ex
 could. That is the third time today a measurement rather than the code was at fault — see D28 and the
 closed pale-bands note in HANDOVER.md — and all three shared a shape: the instrument was never asked
 to prove it could tell two known-different cases apart.
+
+## 2026-08-15 — D32. The wall complaint, measured at last, against a target we already had
+
+The author's report has been open all day: *"the walls don't look like walls from slight angle but
+just pattern tiles in different colours."* Three attempts answered it by drawing relief and all three
+failed. D28 then retracted the diagnosis those attempts rested on, leaving it open and unexplained.
+
+`TILESET-NOTES.md` had already recorded the answer, and nothing had ever checked the shipped tiles
+against it:
+
+> the moodboard does **not** separate wall from floor by value — they sit at the same mean.
+> It separates them with the **rim highlight**, which is ~90% brighter than the floor.
+
+Targets from that note, measured off the moodboard: **wall/floor 0.98**, **rim/wall 1.93**. Measured
+on what ships:
+
+```
+wall / floor   1.46     target 0.98
+rim  / wall    3.04     target 1.93
+```
+
+**The wall body is 46% brighter than the floor where the reference has them equal.** Two adjacent
+patterned areas at different values are, precisely and literally, pattern tiles in different colours.
+The wall does not fail to read as a wall for want of relief; it fails because the value structure
+that carries "mass with a lit edge" was replaced by "lighter area beside darker area". The rim being
+over-bright at 3.04 compounds it — the one cue that should be doing the work is loud enough to read
+as an outline instead.
+
+That also explains why relief could never have worked. Relief adds a highlight and a shadow to a
+surface whose *relationship to the floor* is the broken part.
+
+`Tools/grade-walls.py` applies it as a **grade rather than a redraw**, which is the same note's other
+warning — both earlier attempts drew a bright lit slab and neither survived. It scales rather than
+offsets, so the mortar lines and chipped blocks keep their relative contrast, and it ramps the rim
+gain out over six rows so there is no seam where it stops. Dry run reaches wall/floor 0.98 exactly;
+rim/wall lands at 2.56 rather than 1.93, because the rim gain is computed against a peak and applied
+to a mean, and that is worth finishing before anyone installs it.
+
+**Deliberately not installed.** The author reserved approval on this specific question — "I'll
+approve once it looks good as the mood board" — and a measurement agreeing with a target is not the
+same as a person liking a picture. `Screenshots/grade-compare.png` is before-and-after for that call.
