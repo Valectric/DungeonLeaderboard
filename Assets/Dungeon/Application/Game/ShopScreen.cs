@@ -200,7 +200,15 @@ namespace Dungeon.Game
 
             DrawHeader(shop, scale);
 
-            if (hallAnchors != null)
+            // Hall markers are hidden while a tile menu is open, because while it is open they
+            // cannot be pressed: GameController.TapShop gives the menu the tap first and treats
+            // anything outside it as a dismissal, deliberately, so no mis-tap costs energy.
+            //
+            // Drawing them anyway showed a control that does nothing, and the menu clipped the one
+            // below it into reading "HALL 75" with its "+" and its left border underneath the panel.
+            // A player cannot tell a disabled control from a half-drawn one, and the input model here
+            // was already right -- it was only the picture that disagreed with it.
+            if (hallAnchors != null && !popupAnchor.HasValue)
             {
                 foreach (Vector2 anchor in hallAnchors)
                 {
