@@ -424,3 +424,30 @@ band at luminance 100 against a brightest tile pixel of 63 in a renderer already
 
 Capture inside the test that reads the pixels, as `SceneryDumpTests` does, or copy the PNG out under a
 unique name first.
+
+## Photograph every phase, not just the ones with tests
+
+`CLAUDE.md` already said "photograph the game". What it did not say is **which** frames, and the gap
+is where the bugs were. On 2026-08-15, five defects were found by looking at rendered frames and
+**none** was visible to a suite of 331 green tests:
+
+1. Party health bars lying across the **league standings** — the title screen, found by opening itch.
+2. The same bars on the **collapse screen**, which the first fix had named its way past.
+3. Four monster health bars on the **winning ending**, which the widened check could not reach
+   because it lived in the wrong fixture.
+4. A hall marker clipped behind the shop's **build menu**, drawn but not pressable.
+5. The chest's hint tag drawn **through** the third instruction line of the opening raid, both
+   unreadable — in a feature the author asked for by name, with an earlier fix in place that had
+   moved the collision from the first line to the third rather than removing it.
+
+Every one is a *composition* fault: two correct things drawn in the same place. Assertions check that
+each thing happened; only a frame shows them together.
+
+**So: every phase in `GameController.Phase` needs a photographed frame, and a check that runs on it.**
+Loading, Standings, Raiding, Reviewing, Shopping, Won, Destroyed. Adding a phase means adding a
+capture. And put the check in a fixture that actually reaches the phase — #3 above hid for hours
+because `PhaseLookTests` cannot reach the winning ending, which only `RunProgressionTests` does.
+
+**Copy the PNG before analysing it** (see the screenshots-are-overwritten note above), and prefer
+asserting *renderers* over pixels: a pixel threshold on a screen that also draws torchlight passes
+for the wrong reason.
