@@ -56,9 +56,48 @@ def framed(lum):
     return ring(lum, 0) < 0.5 * interior, ring(lum, 0), interior
 
 
-def side_coverage(lum, side, floor_level):
-    """Share of one border that is stone rather than background."""
+def alpha_of(path):
+    """
+    A tile's alpha channel, or None when the image has none at all.
+
+    Returned even when the tile is fully opaque, which is the point: an opaque tile reaches every
+    edge BY DEFINITION, so its coverage is 100% and there is nothing to infer. An earlier version of
+    this returned None for opaque tiles and fell back to luminance, which left the false positive it
+    was written to remove — a dark shadow on an opaque tile still read as missing art.
+    """
+    image = Image.open(path)
+    if image.mode != "RGBA":
+        return None
+
+    return np.asarray(image, dtype=np.float32)[..., 3]
+
+
+def side_coverage(lum, side, floor_level, alpha=None):
+    """
+    Share of one border that is tile rather than nothing.
+
+    MEASURED ON ALPHA WHERE THERE IS ANY. The fault this gate exists for is art that does not reach
+    the canvas edge -- a "32x32" floor whose drawing was only 28x28, leaving grid lines across the
+    dungeon. That is a question about TRANSPARENCY, and it was being asked of luminance.
+
+    Conflating the two produces a false positive that will meet the next bought pack immediately: a
+    tile with a drawn shadow along its bottom edge has border pixels darker than the floor, so a
+    luminance threshold calls them absent. Measured on a synthetic pack with a 2px shadow, the east
+    and west borders reported 88% against a 95% threshold -- 8 rows of 64 after a x4 upscale, which
+    is exactly the shadow and not a defect at all.
+
+    Alpha cannot make that mistake: a drawn shadow is opaque, and missing art is not. The luminance
+    path stays as the fallback for fully-opaque tiles, where alpha carries no information and "darker
+    than the floor" is the only signal available -- which is the case for everything currently
+    installed here.
+    """
     size = lum.shape[0]
+    if alpha is not None:
+        strip = {
+            "N": alpha[0, :], "S": alpha[size - 1, :],
+            "W": alpha[:, 0], "E": alpha[:, size - 1]}[side]
+        return float((strip > 8.0).mean())
+
     strip = {
         "N": lum[0, :], "S": lum[size - 1, :],
         "W": lum[:, 0], "E": lum[:, size - 1]}[side]
@@ -234,9 +273,10 @@ def main():
         required = []
         if stem.isdigit():
             mask = int(stem)
+            alpha = alpha_of(path)
             for bit, side in SIDES.items():
                 if mask & bit:
-                    cover = side_coverage(lum, side, floor_level)
+                    cover = side_coverage(lum, side, floor_level, alpha)
                     required.append(f"{side}={cover:.0%}")
                     if cover < 0.95:
                         failures += 1

@@ -138,16 +138,27 @@ anyone checked. A gate nobody has calibrated is an opinion with a number attache
 The gate that matters here is **shape**: per side, the luminance gap between tiles where that bit is
 SET and tiles where it is CLEAR. A set that ignores the mask scores zero on all four.
 
-**Expect `side_coverage` to complain about a pack with dark base shadows, and check before believing
-it.** That gate asks what share of a border is "stone rather than background", and its threshold is
-the *mean floor luminance*. Any wall pixel darker than the floor therefore counts as absent — so a
-tile with a shadow along its bottom edge reads as unsolid on its east and west borders, at exactly
-the height of the shadow.
+**`side_coverage` measures alpha, not brightness — and it did not always.** That gate exists to catch
+art which does not reach the canvas edge, the fault behind a "32x32" floor whose drawing was only
+28x28 and left grid lines across the dungeon. That is a question about transparency, and it used to
+be asked of luminance.
 
-Measured on a synthetic pack whose shadow is 2px of 16: the E and W borders report **88%** against a
-95% threshold, and 8 rows of 64 after a x4 upscale is 12.5%, which is the 88% precisely. The gate is
-working; the art is fine; the threshold simply cannot tell a drawn shadow from empty space. Confirm
-the arithmetic before treating a coverage failure as a defect.
+The difference is not academic, because **both candidate packs draw base shadows**. Under the old
+test a shadow along a tile's bottom edge was darker than the floor and therefore counted as missing:
+a synthetic pack measured 88% on its east and west borders against a 95% threshold, which was 8 rows
+of 64 after a x4 upscale — exactly the shadow, and not a defect. Good art would have been rejected on
+purchase day.
+
+Calibrated both ways now:
+
+```
+transparent 4px margin (the real fault)   N/E/S/W = 0%     fails
+opaque tile with a drawn shadow (fine)    E/W = 100%       passes
+```
+
+Fixing it also cut this project's own set from 68 gate failures to 36 — nearly half of what the
+validator had been reporting was that one false positive. Luminance survives only as the fallback for
+images with no alpha channel at all.
 
 ### The whole chain, verified end to end
 
