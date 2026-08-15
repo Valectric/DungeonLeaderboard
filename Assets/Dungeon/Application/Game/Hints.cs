@@ -63,27 +63,38 @@ namespace Dungeon.Game
 
             DungeonLayout layout = raid.Layout;
 
+            // A tag under the instruction block is suppressed while the block is up, and returns
+            // when it fades. Photographed: the chest's gold "THEY STOP TO LOOT" landed exactly on the
+            // third instruction line and interleaved with it, leaving both unreadable -- the chest in
+            // the starter room sits at the room centre plus two rows, which is where that line goes.
+            //
+            // Suppressed rather than moved, because the block is transient and the tags are not: a
+            // tag nudged aside would stay nudged for the whole raid to dodge something that is gone
+            // in a few seconds.
+            bool headlineUp = (Raid.RaidSeconds - raid.TimeRemaining) < HeadlineSeconds;
+            Rect block = headlineUp ? HeadlineBlock(camera, scale, layout) : new Rect();
+
             foreach (Vector2Int cell in layout.SpawnerCells)
             {
                 Tag(camera, scale, cell,
                     layout.SpawnerTierAt(cell) == 0 ? "SLIME PIT - TAP TO SPAWN" : "TAP TO SPAWN",
-                    new Color(0.6f, 0.95f, 0.55f));
+                    new Color(0.6f, 0.95f, 0.55f), block);
             }
 
             foreach (Vector2Int cell in layout.ChestCells)
             {
-                Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f));
+                Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f), block);
             }
 
             foreach (Vector2Int cell in layout.TrapCells)
             {
-                Tag(camera, scale, cell, "TAP TO WOUND", new Color(0.95f, 0.55f, 0.45f));
+                Tag(camera, scale, cell, "TAP TO WOUND", new Color(0.95f, 0.55f, 0.45f), block);
             }
 
             foreach (Door door in layout.Grid.Doors)
             {
                 Tag(camera, scale, door.Cell, door.IsOpen ? "TAP TO SHUT" : "TAP TO OPEN",
-                    new Color(0.7f, 0.75f, 1f));
+                    new Color(0.7f, 0.75f, 1f), block);
             }
 
             DrawHeadline(raid, camera, scale, layout);
@@ -114,6 +125,44 @@ namespace Dungeon.Game
             return Mathf.Clamp(560f * scale, Mathf.Min(420f, room), room);
         }
 
+        /// <summary>
+        /// Where the three-line instruction block sits, so a tag can avoid landing on it.
+        /// </summary>
+        /// <remarks>
+        /// Shared with <c>DrawHeadline</c> rather than recomputed, because two copies of this
+        /// arithmetic drifting apart is exactly how a label ends up half a line off the thing it is
+        /// meant to be avoiding.
+        /// </remarks>
+        /// <param name="camera">Camera the dungeon is drawn with.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="layout">The dungeon being raided.</param>
+        /// <returns>The block's rectangle in GUI space.</returns>
+        public static Rect HeadlineBlock(Camera camera, float scale, DungeonLayout layout)
+        {
+            Vector2Int anchor = layout.RoomCentres.Count > 0
+                ? layout.RoomCentres[0]
+                : layout.EntranceCell;
+
+            Vector2 point = GuiPointOf(camera, anchor);
+
+            float width = BlockWidth(scale, Screen.width);
+            float lineHeight = Mathf.Max(16f, 30f * scale);
+            float blockHeight = lineHeight * 3f;
+
+            // Above the room, unless that is off the top of the screen or under the HUD, in which
+            // case below it. The HUD's own rows end around a fifth of the way down.
+            float top = point.y - (86f * scale) - blockHeight;
+            if (top < Screen.height * 0.2f)
+            {
+                top = Mathf.Min(point.y + (70f * scale), Screen.height - blockHeight - (8f * scale));
+            }
+
+            float left = Mathf.Clamp(
+                point.x - (width * 0.5f), 8f * scale, Mathf.Max(8f * scale, Screen.width - width));
+
+            return new Rect(left, top, width, blockHeight);
+        }
+
         /// <summary>Draws the one big instruction, over the room the party walks into.</summary>
         /// <param name="raid">The raid in progress.</param>
         /// <param name="camera">Camera the dungeon is drawn with.</param>
@@ -135,26 +184,11 @@ namespace Dungeon.Game
             // party's health bars, because the opening dungeon is one small room and the camera puts
             // it wherever the world allows. The three lines are laid out as one block so they cannot
             // drift apart from each other while being pushed back on screen.
-            Vector2Int anchor = layout.RoomCentres.Count > 0
-                ? layout.RoomCentres[0]
-                : layout.EntranceCell;
-
-            Vector2 point = GuiPointOf(camera, anchor);
-
-            float width = BlockWidth(scale, Screen.width);
-            float lineHeight = Mathf.Max(16f, 30f * scale);
-            float blockHeight = lineHeight * 3f;
-
-            // Above the room, unless that is off the top of the screen or under the HUD, in which
-            // case below it. The HUD's own rows end around a fifth of the way down.
-            float top = point.y - (86f * scale) - blockHeight;
-            if (top < Screen.height * 0.2f)
-            {
-                top = Mathf.Min(point.y + (70f * scale), Screen.height - blockHeight - (8f * scale));
-            }
-
-            float left = Mathf.Clamp(
-                point.x - (width * 0.5f), 8f * scale, Mathf.Max(8f * scale, Screen.width - width));
+            Rect block = HeadlineBlock(camera, scale, layout);
+            float width = block.width;
+            float lineHeight = block.height / 3f;
+            float top = block.y;
+            float left = block.x;
 
             var headline = new GUIStyle(GUI.skin.label)
             {
@@ -189,14 +223,15 @@ namespace Dungeon.Game
                 new Color(0.72f, 0.7f, 0.82f, alpha), alpha, scale);
         }
 
-        /// <summary>Draws a small label above a dungeon cell.</summary>
+        /// <summary>Draws a small label above a dungeon cell, unless the instruction is there.</summary>
         /// <param name="camera">Camera the dungeon is drawn with.</param>
         /// <param name="scale">UI scale.</param>
         /// <param name="cell">Cell to label.</param>
         /// <param name="text">What to say.</param>
         /// <param name="colour">Colour to say it in.</param>
+        /// <param name="avoid">Rectangle not to draw into; pass an empty rect to draw regardless.</param>
         private static void Tag(
-            Camera camera, float scale, Vector2Int cell, string text, Color colour)
+            Camera camera, float scale, Vector2Int cell, string text, Color colour, Rect avoid)
         {
             Vector2 point = GuiPointOf(camera, cell);
 
@@ -219,7 +254,19 @@ namespace Dungeon.Game
             float lift = point.y < Screen.height * 0.36f ? -30f * scale : 34f * scale;
             float top = Mathf.Clamp(point.y - lift, 0f, Screen.height - (20f * scale));
 
-            Write(new Rect(left, top, width, 20f * scale), text, style, colour, 1f, scale);
+            var rect = new Rect(left, top, width, 20f * scale);
+
+            // And that flip was not enough on its own: it moved the chest's label off the first
+            // instruction line and onto the THIRD, where the two interleaved character by character
+            // and left both unreadable. Photographed, not reasoned about. So the block is tested
+            // rather than dodged by arithmetic, and a label that would land on it simply waits the
+            // few seconds until it fades.
+            if (avoid.width > 0f && rect.Overlaps(avoid))
+            {
+                return;
+            }
+
+            Write(rect, text, style, colour, 1f, scale);
         }
 
         /// <summary>
