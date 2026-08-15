@@ -690,7 +690,7 @@ namespace Dungeon.Game
             // collapse screen, where the bars lay across standings rows 10 to 12.
             if (_phase != Phase.Raiding)
             {
-                _view.HidePartyBars();
+                _view.HideRaidOverlays();
             }
 
             if (_phase == Phase.Shopping)

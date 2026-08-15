@@ -533,6 +533,37 @@ namespace Dungeon.Game.Tests
                 UnityEngine.Application.logMessageReceived -= Watch;
             }
 
+            // Every world-space overlay a raid draws, named on the one screen that had never been
+            // checked for them. The party's bars are hidden outside a raid; a MONSTER's are not, and
+            // two flat violet quads were visible beside the tank in this very screenshot.
+            var raidOnly = new[]
+            {
+                "hpfill", "hpback", "manafill", "manaback", "mobhpfill", "mobhpback",
+                "disarmfill", "disarmback", "doorworkfill", "doorworkback", "shot_"
+            };
+            var lit = new List<string>();
+            foreach (SpriteRenderer quad in Object.FindObjectsByType<SpriteRenderer>(
+                FindObjectsSortMode.None))
+            {
+                if (!quad.enabled)
+                {
+                    continue;
+                }
+
+                foreach (string prefix in raidOnly)
+                {
+                    if (quad.name.StartsWith(prefix))
+                    {
+                        lit.Add(quad.name);
+                        break;
+                    }
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"winning ending: {lit.Count} raid-only overlays still drawn "
+                + (lit.Count > 0 ? string.Join(", ", lit) : "(none)"));
+
             MooseRunnerFacade.Log(
                 $"after the final: won={_game.HasWon} relegated={_game.League.PlayerRelegated} "
                 + $"field={_game.League.Entries.Count} errors={sawError}");

@@ -79,15 +79,46 @@ namespace Dungeon.Game
         public void BuildStatic(DungeonLayout layout) => _scenery.Build(layout);
 
         /// <summary>
-        /// Hides the party's health and mana bars, for screens that are not a raid.
+        /// Hides every overlay a raid draws, for screens that are not a raid.
         /// </summary>
         /// <remarks>
         /// The dungeon keeps being drawn behind the standings on purpose — it is the player's own
-        /// dungeon and that is the joke — but the bars are the one part of it that survives the
+        /// dungeon and that is the joke — but these overlays are the part of it that survives the
         /// screen's darkening, because they are saturated where the masonry is not. See
         /// <see cref="PartyBars.HideAll"/> for the measured reason.
+        /// <para>
+        /// <b>This covers every overlay, and the first two attempts did not.</b> Hiding only the
+        /// party's bars left the identical fault on the winning ending, where four monster health
+        /// bars — <c>mobhpfill_25/26</c> and <c>mobhpback_25/26</c> — were still drawn as flat violet
+        /// quads beside the tank. Fixing the instance in front of me rather than the class is a
+        /// mistake this file has now made twice, so the loop below takes every collection there is.
+        /// </para>
         /// </remarks>
-        public void HidePartyBars() => _bars.HideAll();
+        public void HideRaidOverlays()
+        {
+            _bars.HideAll();
+
+            foreach (List<SpriteRenderer> quads in new[]
+                     {
+                         _disarmBacks, _disarmFills, _mobHealthBacks, _mobHealthFills, _shotViews
+                     })
+            {
+                foreach (SpriteRenderer quad in quads)
+                {
+                    quad.enabled = false;
+                }
+            }
+
+            if (_doorWorkBack != null)
+            {
+                _doorWorkBack.enabled = false;
+            }
+
+            if (_doorWorkFill != null)
+            {
+                _doorWorkFill.enabled = false;
+            }
+        }
 
         /// <summary>Marks every tile the player may build on, for the shop.</summary>
         /// <param name="layout">Dungeon to mark up.</param>
