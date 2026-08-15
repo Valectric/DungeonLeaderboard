@@ -110,10 +110,23 @@ def unique_colours(path):
 
     The cheapest gate of the four and it catches a whole class at once. Pixel art drawn at this size
     carries a handful of colours -- the reference dungeon set uses THREE per material. Ours measured
-    1,016 to 2,136, which is 52% of a 64x64 tile's pixels holding a colour of their own. These are
-    resampled images OF pixel art rather than pixel art, and edges built from two thousand
-    interpolated colours cannot align even in principle. CLAUDE.md already records this failure at
-    610-746 colours on an earlier run; it came back three times worse.
+    1,016 to 2,136 once, and 187 to 272 now. CLAUDE.md records 610-746 on an earlier run.
+
+    THIS IS A STYLE CHECK, NOT AN ALIGNMENT ONE, and the docstring used to claim otherwise -- that
+    "edges built from two thousand interpolated colours cannot align even in principle". That claim is
+    disproven by the gate next door: `native_block` measures these same tiles at **2px, 100% flat**,
+    so they align perfectly while carrying 272 colours. Alignment is measured directly now and this
+    gate should not be quoted as evidence for it.
+
+    What it does measure is real and worth keeping: a small palette is what makes art read AS pixel
+    art rather than as a photograph of some. That bears on the author's standing complaint about the
+    walls, which is a question about how the art reads.
+
+    **Quantising to fix it is not free.** Measured on wall-14 at 24 colours: mean luminance moves 27.4
+    to 27.3 and the mean pixel changes by 0.89 of 255 -- which says harmless -- while the rim peak
+    falls from 85.0 to 70.9. The rim is the cue TILESET-NOTES identifies as carrying the wall reading,
+    so a 17% loss there is the opposite of harmless. The averages and the feature that matters
+    disagree, which is D32's lesson in miniature.
     """
     a = np.asarray(Image.open(path).convert("RGB")).reshape(-1, 3)
     return len(set(map(tuple, a.tolist())))
