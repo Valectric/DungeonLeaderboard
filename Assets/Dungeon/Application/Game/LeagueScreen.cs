@@ -79,8 +79,13 @@ namespace Dungeon.Game
             return new Rect(0f, listTop + (rowHeight * promptRow), width, rowHeight * 1.4f);
         }
 
+        /// <param name="promptColour">
+        /// Colour for the closing line, or null for the player's green. Passed in rather than
+        /// inferred, because only the caller knows whether this screen is announcing a win, a
+        /// collapse, or an ordinary round about to start.
+        /// </param>
         public static void Draw(LeagueTable league, float scale, float shift, string prompt,
-            PartyManager.PartyComposition nextParty = null)
+            PartyManager.PartyComposition nextParty = null, Color? promptColour = null)
         {
             float width = Mathf.Min(Screen.width * 0.9f, 620f * scale);
             float left = (Screen.width - width) * 0.5f;
@@ -221,7 +226,12 @@ namespace Dungeon.Game
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            promptStyle.normal.textColor = PlayerGreen;
+
+            // Green is the player's colour on this screen -- their row, their score, the line that
+            // says they won. Drawing "YOUR DUNGEON COLLAPSED IN 20th" in it too made the one line
+            // announcing the run is over read as congratulation, which is what the photograph of the
+            // collapse screen showed.
+            promptStyle.normal.textColor = promptColour ?? PlayerGreen;
             GUI.Label(PromptRect(scale, nextParty != null), prompt, promptStyle);
         }
 

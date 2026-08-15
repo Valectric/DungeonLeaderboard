@@ -75,6 +75,19 @@ namespace Dungeon.Game
         /// <param name="width">Canvas width in pixels.</param>
         /// <param name="height">Canvas height in pixels.</param>
         /// <returns>Where Ready is drawn and clicked.</returns>
+        /// <summary>
+        /// The first row below the shop's own header, in GUI space.
+        /// </summary>
+        /// <remarks>
+        /// The header is the purse, the countdown and the one-line instruction, drawn from 8 to
+        /// about 102 scaled pixels. Anything anchored to the dungeon has to stay under it: the
+        /// dungeon moves with the camera and the header does not, so without a floor here a control
+        /// lands on the number telling the player how much they have to spend.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>The lowest safe top edge for anything drawn over the board.</returns>
+        public static float HeaderBottom(float scale) => Mathf.Max(24f, 106f * scale);
+
         public static Rect ReadyRect(float scale, float width, float height)
         {
             float buttonWidth = Mathf.Min(width * 0.9f, 620f * scale);
@@ -120,7 +133,10 @@ namespace Dungeon.Game
             float floor = Mathf.Min(
                 height - popupHeight - 4f,
                 ReadyRect(scale, width, height).y - popupHeight - (6f * scale));
-            float top = Mathf.Clamp(anchor.y + (14f * scale), 4f, Mathf.Max(4f, floor));
+            // Under the header for the same reason the hall markers are: a tile near the top of the
+            // board would otherwise open its menu across the purse and the countdown.
+            float ceiling = HeaderBottom(scale);
+            float top = Mathf.Clamp(anchor.y + (14f * scale), ceiling, Mathf.Max(ceiling, floor));
 
             var rows = new Rect[Items.Length];
             for (int i = 0; i < Items.Length; i++)
@@ -149,9 +165,17 @@ namespace Dungeon.Game
             float floor = Mathf.Min(
                 height - markerHeight - 2f,
                 ReadyRect(scale, width, height).y - markerHeight - (6f * scale));
+
+            // And held clear of the header, which was not a problem while the dungeon was three
+            // rooms wide: a marker offered ABOVE the dungeon clamped to the top of the canvas and
+            // sat across the purse and the countdown. A single room has a free side in all four
+            // directions, so the upward one is now offered every time a run starts.
+            float ceiling = HeaderBottom(scale);
+
             return new Rect(
                 Mathf.Clamp(anchor.x - (markerWidth * 0.5f), 8f, width - markerWidth - 8f),
-                Mathf.Clamp(anchor.y - (markerHeight * 0.5f), 2f, Mathf.Max(2f, floor)),
+                Mathf.Clamp(anchor.y - (markerHeight * 0.5f), ceiling,
+                    Mathf.Max(ceiling, floor)),
                 markerWidth, markerHeight);
         }
 

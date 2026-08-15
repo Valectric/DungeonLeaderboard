@@ -1180,7 +1180,10 @@ namespace Dungeon.Game
                         : "PRESS ANY KEY  -  SPEND WHAT YOU HAVE LEFT";
 
                 LeagueScreen.Draw(_league, scale, _shift, prompt,
-                    _phase is Phase.Destroyed or Phase.Won ? null : _nextParty);
+                    _phase is Phase.Destroyed or Phase.Won ? null : _nextParty,
+                    _phase == Phase.Destroyed
+                        ? new Color(0.95f, 0.4f, 0.4f)
+                        : (Color?)null);
                 return;
             }
 
