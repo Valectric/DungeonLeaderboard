@@ -138,6 +138,29 @@ anyone checked. A gate nobody has calibrated is an opinion with a number attache
 The gate that matters here is **shape**: per side, the luminance gap between tiles where that bit is
 SET and tiles where it is CLEAR. A set that ignores the mask scores zero on all four.
 
+**Expect `side_coverage` to complain about a pack with dark base shadows, and check before believing
+it.** That gate asks what share of a border is "stone rather than background", and its threshold is
+the *mean floor luminance*. Any wall pixel darker than the floor therefore counts as absent — so a
+tile with a shadow along its bottom edge reads as unsolid on its east and west borders, at exactly
+the height of the shadow.
+
+Measured on a synthetic pack whose shadow is 2px of 16: the E and W borders report **88%** against a
+95% threshold, and 8 rows of 64 after a x4 upscale is 12.5%, which is the 88% precisely. The gate is
+working; the art is fine; the threshold simply cannot tell a drawn shadow from empty space. Confirm
+the arithmetic before treating a coverage failure as a defect.
+
+### The whole chain, verified end to end
+
+Run on a synthetic 16px pack of all {count} names, built to encode boundaries:
+
+```
+python Tools/upscale-pack.py <pack> <scaled> --factor 4   ->  22 scaled, 0 skipped
+python Tools/validate-tileset.py <scaled>                 ->  shape N=103.8, ok
+```
+
+So the three tools chain correctly and the gate passes a set that genuinely encodes shape — the
+second calibration of it, after the sixteen-copies case it fails.
+
 ## Notes on the two candidates
 
 **Neither mapping below is verified** — no pack has been downloaded, and file lists came from store
