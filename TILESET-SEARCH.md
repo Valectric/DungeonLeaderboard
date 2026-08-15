@@ -23,6 +23,10 @@ Three things are wrong, and only the first was ever chased:
    bottom, black post — which reads as a fence rather than as a block of stone seen from above.
    There are **no corners, no edges, no directional pieces at all**.
 
+And the entrance, which the author flagged separately as looking bolted on, is measurably from a
+different picture: `scenes/entrance.png` averages **luminance 13.7** against the wall tiles' 33.6.
+Two and a half times darker than the stone it is set into, so no amount of blending hides the join.
+
 That third point is the real defect, and it is also a *code* fact rather than only an art one:
 
 ```csharp
