@@ -105,6 +105,17 @@ namespace Dungeon.Game.Tests
             await Capture("06-shop-with-menu", ct);
 
             Assert.IsTrue(_game.IsShopping, "the shop closed while being photographed");
+
+            // The shop is not a raid either, and it draws the dungeon the next party walks into --
+            // so the same overlays that lay across the standings would lie across it. Checked rather
+            // than assumed, because the rule this follows was written after three passes at fixing
+            // the screen in front of me instead of the class.
+            System.Collections.Generic.List<string> litInShop = LitBars();
+            MooseRunnerFacade.Log(
+                $"shop: {litInShop.Count} raid overlays still drawn "
+                + (litInShop.Count > 0 ? string.Join(", ", litInShop) : "(none)"));
+            Assert.IsEmpty(litInShop,
+                $"{litInShop.Count} raid overlays are drawn over the shop");
         }
 
         /// <summary>
@@ -159,6 +170,20 @@ namespace Dungeon.Game.Tests
             await UniTask.Yield(ct);
             await UniTask.WaitForSeconds(
                 GameController.ReviewLockoutSeconds + 0.2f, cancellationToken: ct);
+
+            // The review is its own phase and had no check of its own. This test walks through it on
+            // the way to the collapse, so it costs one capture to cover the last screen that had a
+            // photograph and no assertion.
+            Assert.IsTrue(_game.IsReviewing, "expected the adventurers' review before dismissing it");
+            await Capture("12-review-screen", ct);
+
+            System.Collections.Generic.List<string> litInReview = LitBars();
+            MooseRunnerFacade.Log(
+                $"review: {litInReview.Count} raid overlays still drawn "
+                + (litInReview.Count > 0 ? string.Join(", ", litInReview) : "(none)"));
+            Assert.IsEmpty(litInReview,
+                $"{litInReview.Count} raid overlays are drawn over the adventurers' review");
+
             Assert.IsTrue(_game.DismissReview(), "the review refused to be dismissed");
 
             // Long enough for the standings to finish sliding into their new order. Photographed
@@ -328,5 +353,58 @@ namespace Dungeon.Game.Tests
             return lit;
         }
 
+
+        /// <summary>
+        /// A raid in progress DOES draw the party's bars, which is the other half of the rule.
+        /// </summary>
+        /// <remarks>
+        /// Every other check here asserts an overlay is absent. Alone, they are satisfied by a game
+        /// that never draws a health bar at all — and the fix they guard is a single condition,
+        /// <c>_phase != Phase.Raiding</c>, which one edit could invert while leaving all of them
+        /// green.
+        /// <para>
+        /// This is the day's lesson applied to its own tests: three separate times a measurement was
+        /// believed because it had never been asked to tell two known-different cases apart. A suite
+        /// that only proves bars can be hidden is exactly that measurement.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        [Test]
+        public async UniTask ARaidInProgress_DoesDrawThePartysBars(CancellationToken ct)
+        {
+            _game.Advance();
+            await UniTask.Yield(ct);
+
+            for (int press = 0; press < 4 && !_game.IsRaiding && !_game.IsShopping; press++)
+            {
+                _game.Advance();
+                await UniTask.Yield(ct);
+            }
+
+            if (_game.IsShopping)
+            {
+                Rect ready = ShopScreen.ReadyRect(
+                    Mathf.Min(Screen.width / 1280f, Screen.height / 720f),
+                    Screen.width, Screen.height);
+                _game.TapShop(new Vector2(ready.center.x, Screen.height - ready.center.y));
+                await UniTask.Yield(ct);
+                await UniTask.Yield(ct);
+            }
+
+            Assert.IsTrue(_game.IsRaiding, "the raid never started, so this proves nothing");
+
+            // A few ticks, so the party is alive and walking rather than mid-spawn.
+            for (int frame = 0; frame < 4; frame++)
+            {
+                await UniTask.NextFrame(ct);
+            }
+
+            System.Collections.Generic.List<string> lit = LitBars();
+            MooseRunnerFacade.Log($"raiding: {lit.Count} party bars drawn (expected: some)");
+
+            Assert.IsNotEmpty(lit,
+                "no party health bars are drawn during a raid, so the rule that hides them outside "
+                + "one has swallowed the raid as well");
+        }
     }
 }
