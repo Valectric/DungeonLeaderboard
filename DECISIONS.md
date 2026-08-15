@@ -946,3 +946,34 @@ Hitting each member for 80% of its bar left the party at 29% against a retreat t
 it advanced; hitting repeatedly until the pooled figure dropped killed them, because the pool is
 measured over the **living** and each death lifts it. Taking each member *down to* 15% is the version
 that measures what it claims to.
+
+## 2026-08-15 — D34. The opening hint had to carry the restraint, not just the instruction
+
+The first raid is coached now, and the third line said *TAP THE SPAWNER TO KEEP THEM BUSY*. Measured
+what happens when a player does exactly that and nothing else:
+
+| what the player does | slimes spawned | outcome | harvested |
+|---|---|---|---|
+| mashes the pit | 24 | **PartyWiped** | 202 |
+| holds two at a time | 26 | TimeExpired | **345** |
+
+Almost the same number of slimes. Opposite results. It is not how many you spawn, it is how many are
+on the party at once — which is the whole game in one measurement, and the opening caption was
+teaching the half of it that loses.
+
+Three things make this worse than an ordinary mistake, and all three are new:
+
+- The same screen says **DON'T KILL THE CHARGING TEAM** four lines above. Being walked into breaking
+  an instruction by the instruction underneath it is not a lesson, it is a trap.
+- A kill **refunds the spawn** (D24), so mashing is close to free. Nothing in the economy pushes back.
+- The opening dungeon is **one room, so it has no door** — no threshold to put one in. SPEC.md calls
+  the retreat valve the player's only mercy, and in round one it does not exist.
+
+The line now reads *TAP THE SLIME PIT TO HOLD THEM — TOO MANY AND THEY DIE*.
+
+**Deliberately not fixed by capping anything.** A per-room monster limit would remove the mistake,
+and the mistake is the mechanic: SPEC gives the player no way to call monsters off, and the regret
+is the design. It has to be a mistake the player chooses, not one the caption walks them into. If
+playtesting says new players still drown their first party, the next lever is a door on the
+entrance — an actual valve — rather than a cap on the verb.
+
