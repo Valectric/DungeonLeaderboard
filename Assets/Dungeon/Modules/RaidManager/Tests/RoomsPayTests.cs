@@ -139,5 +139,68 @@ namespace Dungeon.RaidManager.Tests
                 "two identical raids harvested different amounts, so nothing measured here is a "
                 + "measurement");
         }
+
+        /// <summary>
+        /// The one-room board every run actually opens on, which nothing here could reach.
+        /// </summary>
+        /// <remarks>
+        /// <c>BuildCorridor</c> floors its room count at two, so the sweep above starts at a board the
+        /// game never begins with — and the two-room case is the one that fails by letting the party
+        /// ESCAPE, which is the outcome the whole design exists to prevent. That made the shipped
+        /// opening the least-measured configuration in the game rather than the most.
+        /// <para>
+        /// Reached through <c>RoomPlan.Corridor(1)</c> and <c>DungeonLayout.Build</c>, which do allow
+        /// it. Three seeds, per D31.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheOpeningOneRoomBoard_HoldsThePartyToTheBell()
+        {
+            var seeds = new[] { 20260813, 4242, 99 };
+            var escapes = new List<int>();
+            float total = 0f;
+
+            foreach (int seed in seeds)
+            {
+                // FURNISHED THE WAY THE GAME FURNISHES IT. The first version of this built a bare
+                // one-room plan, measured 7 energy and three escapes, and would have been reported as
+                // a defect in the opening board -- but GameController.StockStarterRoom puts a slime
+                // pit and a chest in through the loadout, so a bare room is a board the game never
+                // presents. The cells are its cells: centre + (1,-2) and centre + (-1,2), off the
+                // entrance-to-boss line so the chest is a detour rather than something walked over.
+                DungeonLayout bare = DungeonLayout.Build(RoomPlan.Corridor(1), furnishedRooms: 1);
+                Vector2Int centre = bare.RoomCentres[0];
+
+                var placed = new Furnishings();
+                placed.SlimeSpawners.Add(centre + new Vector2Int(1, -2));
+                placed.Chests.Add(centre + new Vector2Int(-1, 2));
+
+                DungeonLayout layout = DungeonLayout.Build(
+                    RoomPlan.Corridor(1), placed: placed, furnishedRooms: 1);
+                var raid = new Raid(layout, 0f, null, seed);
+                float harvest = Play(raid);
+                total += harvest;
+
+                if (raid.Outcome == RaidOutcome.PartyEscaped)
+                {
+                    escapes.Add(seed);
+                }
+
+                MooseRunnerFacade.Log(
+                    $"one room, seed {seed}: harvested {harvest:F0}, outcome {raid.Outcome}, "
+                    + $"visited {raid.Party.VisitedRooms}, "
+                    + $"{layout.SpawnerCells.Count} spawners, {layout.Grid.Doors.Count} doors");
+            }
+
+            MooseRunnerFacade.Log(
+                $"one room: mean {total / seeds.Length:F0} over {seeds.Length} seeds, "
+                + $"{escapes.Count} escapes");
+
+            // The bar is the design's, not a number picked here: a party that walks out early stops
+            // paying, so an opening board that leaks them is the opening board failing.
+            Assert.IsEmpty(escapes,
+                $"the one-room opening let the party escape on {escapes.Count} of {seeds.Length} "
+                + "seeds, and a party that leaves early stops earning");
+        }
     }
 }
