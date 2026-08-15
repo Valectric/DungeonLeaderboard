@@ -89,6 +89,31 @@ namespace Dungeon.Game
             DrawHeadline(raid, camera, scale, layout);
         }
 
+        /// <summary>
+        /// How wide the headline block is allowed to be, in pixels.
+        /// </summary>
+        /// <remarks>
+        /// Scaled like everything else <b>until the scale gets small</b>, and then held at a floor.
+        /// The itch embed runs at 523x293, where the UI scale is 0.41 and a straight 560-times-scale
+        /// gives a 228-pixel box — while the longest line, <i>TAP THE SLIME PIT TO HOLD THEM - TOO
+        /// MANY AND THEY DIE</i>, is about 265 pixels at the 9-pixel minimum font. It would have
+        /// clipped on the page most jam voters will actually play the game on, and nowhere else.
+        /// <para>
+        /// The floor is capped by the screen, so a narrow phone gets almost the full width rather
+        /// than a box wider than the display. Large screens are untouched: at scale 1 this returns
+        /// the same 560 it always did, so the block still sits over the room rather than spreading
+        /// across the whole window.
+        /// </para>
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="screenWidth">Canvas width in pixels.</param>
+        /// <returns>The block width.</returns>
+        public static float BlockWidth(float scale, float screenWidth)
+        {
+            float room = Mathf.Max(32f, screenWidth - 16f);
+            return Mathf.Clamp(560f * scale, Mathf.Min(420f, room), room);
+        }
+
         /// <summary>Draws the one big instruction, over the room the party walks into.</summary>
         /// <param name="raid">The raid in progress.</param>
         /// <param name="camera">Camera the dungeon is drawn with.</param>
@@ -116,7 +141,7 @@ namespace Dungeon.Game
 
             Vector2 point = GuiPointOf(camera, anchor);
 
-            float width = Mathf.Min(Screen.width - (16f * scale), 560f * scale);
+            float width = BlockWidth(scale, Screen.width);
             float lineHeight = Mathf.Max(16f, 30f * scale);
             float blockHeight = lineHeight * 3f;
 

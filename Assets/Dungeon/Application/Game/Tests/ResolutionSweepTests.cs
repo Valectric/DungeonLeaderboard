@@ -235,6 +235,44 @@ namespace Dungeon.Game.Tests
         }
 
         /// <summary>
+        /// The first raid's coaching text has room to be read at every size.
+        /// </summary>
+        /// <remarks>
+        /// The hints are the only tutorial the game has, and they are shown to the player least
+        /// likely to forgive a broken screen — the one who has never played it. The longest line is
+        /// about fifty-three characters, which at the nine-pixel floor the styles clamp to needs
+        /// roughly 265 pixels; a straight 560-times-scale gives 228 of them in the itch embed.
+        /// <para>
+        /// Checked in characters rather than by rendering, because IMGUI cannot measure text outside
+        /// a repaint. Approximate on purpose, and the approximation errs generous: at these sizes
+        /// bold Arial averages nearer half the point size per character than the 0.55 assumed here.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheOpeningHints_FitAtEverySize()
+        {
+            const string longest = "TAP THE SLIME PIT TO HOLD THEM  -  TOO MANY AND THEY DIE";
+
+            foreach (Vector2Int size in Sizes)
+            {
+                float scale = UiScaleAt(size);
+                float width = Hints.BlockWidth(scale, size.x);
+                float fontSize = Mathf.Max(9, Mathf.RoundToInt(14 * scale));
+                float needed = longest.Length * fontSize * 0.55f;
+
+                MooseRunnerFacade.Log(
+                    $"{size.x}x{size.y}: hint block {width:F0}px wide, longest line needs "
+                    + $"about {needed:F0}px at {fontSize:F0}px");
+
+                Assert.LessOrEqual(width, size.x,
+                    $"{size.x}x{size.y}: the hint block is wider than the screen");
+                Assert.Greater(width, needed,
+                    $"{size.x}x{size.y}: the longest hint needs about {needed:F0}px and has "
+                    + $"{width:F0}px, so the first thing a new player is told is cut off");
+            }
+        }
+
+        /// <summary>
         /// A dungeon tile is big enough to tap at every size the game ships at.
         /// </summary>
         /// <remarks>
