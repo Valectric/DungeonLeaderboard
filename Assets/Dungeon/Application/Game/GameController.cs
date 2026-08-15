@@ -161,14 +161,33 @@ namespace Dungeon.Game
         /// <summary>The league in progress. Read-only; tests observe rather than drive.</summary>
         public LeagueTable League => _league;
 
+        /// <summary>
+        /// Seed to start the next run from, or null to take one from the clock.
+        /// </summary>
+        /// <remarks>
+        /// Not intended for production use -- only for automated testing. SPEC.md asks for seeded
+        /// generation so a run can be reproduced from a bug report, and the seed was duly threaded
+        /// through everything downstream; what it was never given was a way to set it.
+        /// <para>
+        /// That made every season-long measurement non-reproducible, which is worse than it sounds,
+        /// because the measurements read as if they were. <c>RunProgressionTests</c> on unchanged code
+        /// returned best-of-four rounds of 7, 9, 9, 10 and 10 across five runs — a spread wide enough
+        /// to contain any tuning change the test was being used to judge, and D27 was drawn from a
+        /// single sample on each side of it.
+        /// </para>
+        /// </remarks>
+        public int? SeedOverride { get; set; }
+
         /// <summary>Starts a fresh season and opens on the standings.</summary>
         /// <remarks>
         /// The seed comes from the clock so each run is a different league, but every table is built
-        /// from that one number -- so a run can be reproduced exactly from a bug report.
+        /// from that one number -- so a run can be reproduced exactly from a bug report, and a test
+        /// that sets <see cref="SeedOverride"/> gets the same season every time.
         /// </remarks>
         public void NewRun()
         {
-            _league = new LeagueTable(System.Environment.TickCount);
+            int seed = SeedOverride ?? System.Environment.TickCount;
+            _league = new LeagueTable(seed);
             _phase = Phase.Standings;
             _shift = 1f;
             _loadout = new Loadout();
@@ -180,7 +199,7 @@ namespace Dungeon.Game
             // The first party of a run is always the balanced one. A new player who meets THE
             // UNSHRIVEN before they know what a healer does will wipe them and conclude the game is
             // unfair -- when a wipe is the one outcome the design most wants them to avoid.
-            _partySeed = System.Environment.TickCount;
+            _partySeed = seed;
             _nextParty = PartyComposition.Opening;
 
             // A raid exists even on the title screen, so the dungeon is drawn behind the standings

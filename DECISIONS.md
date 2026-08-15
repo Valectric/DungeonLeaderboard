@@ -1081,3 +1081,37 @@ the clock, and is the only one of the three that adds a decision rather than rem
 a new rule, and SPEC.md is firm about not adding rules until the three verbs are proven.
 
 The instrument is committed, so whichever is chosen can be measured the same way.
+
+## 2026-08-15 — D31. The season instrument was seeded from the clock, so D27 was luck until now
+
+`GameController.NewRun` took its seed from `System.Environment.TickCount`. Every season-long
+measurement in this project was therefore a *different* season, and read as if it were not. Five
+consecutive runs of **unchanged** code returned best-of-four rounds of **7, 9, 9, 10 and 10**.
+
+D27 was drawn from one sample on each side of that spread. Its conclusion happened to be right; its
+evidence did not support it, and a spread of 7-to-10 will happily contain any tuning change anyone
+cares to make.
+
+SPEC.md asked for seeded generation so a run could be reproduced from a bug report, and the seed was
+threaded correctly through the league, the party chain and the combat. What was never built was a way
+to **set** it — so the property existed everywhere except where a test could reach it.
+
+Fixed with `GameController.SeedOverride`, and `RunProgressionTests` now sweeps three seasons rather
+than playing one. The seed must be set and `NewRun()` called again, because `Awake` has already
+started a season from the clock by the time `AddComponent` returns.
+
+**With that, D27 re-measured properly — same seeds, same four policies, only the constant changing:**
+
+```
+GoodRun = 500   best per season  8, 7, 8    wins 0 of 12
+GoodRun = 430   best per season 10, 9,10    wins 3 of 12
+```
+
+Every season improved and every policy improved. **The season is winnable**: a quarter of the
+policy-and-season combinations now win outright, where none did before.
+
+The lesson is not "the answer was right". It is that a measurement which cannot be repeated cannot
+support a conclusion, and this one printed a tidy list of numbers that looked exactly like one that
+could. That is the third time today a measurement rather than the code was at fault — see D28 and the
+closed pale-bands note in HANDOVER.md — and all three shared a shape: the instrument was never asked
+to prove it could tell two known-different cases apart.

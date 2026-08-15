@@ -332,9 +332,17 @@ namespace Dungeon.Game.Tests
         /// <param name="ceaseFire">Health of the worst survivor below which to stop pressing.</param>
         /// <param name="ct">Cancellation token.</param>
         /// <returns>The rounds played.</returns>
-        private async UniTask<List<Round>> Attempt(float ceaseFire, CancellationToken ct)
+        private async UniTask<List<Round>> Attempt(float ceaseFire, int seed, CancellationToken ct)
         {
             SetUp();
+
+            // The seed has to be set and the run restarted, because Awake has already started one
+            // from the clock by the time AddComponent returns. Without this every season measured
+            // here was a different season, which is how five runs of unchanged code produced
+            // best-of-four figures of 7, 9, 9, 10 and 10.
+            _game.SeedOverride = seed;
+            _game.NewRun();
+
             _ceaseFireBelow = ceaseFire;
 
             List<Round> rounds = await PlayARun(12, ct);
@@ -355,7 +363,7 @@ namespace Dungeon.Game.Tests
             }
 
             MooseRunnerFacade.Log(
-                $"cease-fire below {ceaseFire:P0}: {rounds.Count} rounds — "
+                $"seed {seed} cease-fire below {ceaseFire:P0}: {rounds.Count} rounds — "
                 + $"{string.Join("  ", trail)}; won={_game.HasWon} "
                 + $"relegated={_game.League.PlayerRelegated}");
 
@@ -382,22 +390,47 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask WhenToStopSpawning_DecidesTheRun(CancellationToken ct)
         {
-            var reached = new List<int>();
             var settings = new[] { 0.3f, 0.45f, 0.6f, 0.75f };
 
-            int best = 0;
-            bool won = false;
-            foreach (float ceaseFire in settings)
+            // SEVERAL SEASONS, NOT ONE. A season is a chain of ten seeded parties, and which parties
+            // turn up swings the result far more than the dial being swept: unchanged code returned
+            // best-of-four rounds of 7, 9, 9, 10 and 10 on five consecutive runs. A single season is
+            // therefore not evidence about tuning, however carefully the rest of it is measured.
+            var seeds = new[] { 12345, 777, 20260815 };
+
+            var bestPerSeed = new List<int>();
+            int wins = 0;
+            foreach (int seed in seeds)
             {
-                List<Round> rounds = await Attempt(ceaseFire, ct);
-                reached.Add(rounds.Count);
-                best = Mathf.Max(best, rounds.Count);
-                won |= _game.HasWon;
+                var reached = new List<int>();
+                foreach (float ceaseFire in settings)
+                {
+                    List<Round> rounds = await Attempt(ceaseFire, seed, ct);
+                    reached.Add(rounds.Count);
+                    if (_game.HasWon)
+                    {
+                        wins++;
+                    }
+                }
+
+                bestPerSeed.Add(Mathf.Max(Mathf.Max(reached[0], reached[1]),
+                    Mathf.Max(reached[2], reached[3])));
+                MooseRunnerFacade.Log(
+                    $"seed {seed}: rounds by cease-fire {string.Join(", ", reached)}");
+            }
+
+            int best = 0;
+            int worstSeed = int.MaxValue;
+            foreach (int b in bestPerSeed)
+            {
+                best = Mathf.Max(best, b);
+                worstSeed = Mathf.Min(worstSeed, b);
             }
 
             MooseRunnerFacade.Log(
-                $"rounds survived by cease-fire setting: {string.Join(", ", reached)} "
-                + $"(best {best}, won={won})");
+                $"best per season: {string.Join(", ", bestPerSeed)} "
+                + $"(best {best}, worst season {worstSeed}, wins {wins} of "
+                + $"{seeds.Length * settings.Length})");
 
             Assert.GreaterOrEqual(best, 6,
                 $"the best of {settings.Length} plausible ways to play the game reached only round "
@@ -523,7 +556,7 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask ACompetentPlayer_SurvivesTheOpeningRounds(CancellationToken ct)
         {
-            List<Round> rounds = await Attempt(0.6f, ct);
+            List<Round> rounds = await Attempt(0.6f, seed: 12345, ct);
 
             Assert.Greater(rounds.Count, 0, "the run never played a round at all");
             Assert.Greater(rounds[0].Harvested, 150f,
