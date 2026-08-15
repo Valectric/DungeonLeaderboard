@@ -388,8 +388,12 @@ is wanted — that phrasing alone produced the 2-colour tiles.
   runs an autonomous agent that writes files; on Windows there is **no OS-enforced sandbox** (Codex
   has no Seatbelt/Landlock equivalent there), so the workspace boundary is a convention, not a wall.
   A bad turn inside `Assets/` can touch things it was never asked to.
-- **`Assets/Art/` is untracked (`??`).** Nothing generated there is protected by git. Either commit
-  it deliberately or accept that a mistake is unrecoverable. Check `git status` before overwriting.
+- **`Assets/Art/` IS tracked, all 330 files, nothing untracked.** This note used to say the opposite
+  and it was stale — which is worse than absent, because it invites treating committed art as
+  disposable. Overwriting a sprite is therefore recoverable with `git checkout`, and the real rule is
+  the ordinary one: **check `git status` before overwriting, and commit a generation you want to
+  keep.** Verify rather than trust this line — `git ls-files Assets/Art | wc -l` against
+  `find Assets/Art -type f | wc -l` settles it in one command.
 - **`codex` must resolve on the PATH of the shell that launches the binary.** It is looked up once,
   cached for the process lifetime, and **on Windows there is no fallback** — the login-shell probe is
   Unix-only. Fixing PATH afterwards does nothing; the process must be restarted. Codex lives at
