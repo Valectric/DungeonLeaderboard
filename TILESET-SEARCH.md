@@ -292,3 +292,48 @@ point-upscaling is the same integer-scale step this project already does for pac
 Transparency Sort Axis → **(0, 1, 0)**, on the Renderer2D asset. Characters then sort behind wall
 caps by Y automatically — no split lower/upper door tiles, no per-tile sorting layers. That answers
 the door-occlusion question from the other direction entirely.
+
+## 11. Two blunt conclusions, one of them about our own process
+
+### The premise was fighting every available tool
+
+**No hosted image API will honour "repaint this and keep it on a 64-pixel grid."** The vendors say so
+themselves: OpenAI's mask *"may not follow its exact shape with complete precision"*; Black Forest
+Labs lists *"expecting pixel-perfect structural matching"* under **Avoid**, because FLUX *"interprets
+structure semantically"*; Gemini cannot be asked for an exact pixel size at all, only an aspect-ratio
+enum. So the whole-board-repaint approach was never going to hold a grid, however the brief was
+worded — which is consistent with the grid landing correctly in only **two of five** runs
+(`a-cut-stone` and `c-mossy` peak at `x%64==63`; `b-worn` is 8px off, `d-ossuary` 6px, `e-arcane`
+half a cell).
+
+### Every generation this session ran blind
+
+`grep -c referenced_image_paths` returns **0** on every run log — the tileset runs, the restyle runs
+and all three panel re-runs. The style references were never passed to the image model. They were
+shown to the *agent*, which described them back in prose that reads exactly like it used them.
+
+CLAUDE.md documents this exact trap, in capitals, as the thing that cost five tile runs. The
+instruction was in every prompt this session and it was ignored every time, silently. **The lesson is
+that the instruction is worthless and the check is everything**: `grep -c referenced_image_paths` on
+the log, after every run, before looking at the picture.
+
+So the style drift attributed to prompting was partly a model that never saw the moodboard.
+
+### Three fixes, measured rather than argued
+
+1. **Order matters and it is counterintuitive.** Normalise mean luminance per class *then* quantise
+   to the fixed ramp. Measured on `a-cut-stone`: wall spread 2.12× → **1.12×**, sd 10.0 → 1.4,
+   25,104 colours → 10. Quantising first — which is what every tool in `Tools/` currently does —
+   made it slightly **worse** (2.20×). About fifteen lines in `slice-room.py`, which today does no
+   colour normalisation at all while every other tool does.
+2. **Render the repaint source at 16 px per cell, not 64.** The sampler at 1664×1280 exceeds every
+   pixel-art-native model's limit; at 16px/cell the same board is 416×320. Sixteen is also our true
+   logical resolution — `LOGICAL = 16` in `extract-dungeon-tiles.py`, and the moodboard masonry
+   period is 16px. A model asked to hold a grid across 416 pixels rather than 1664 has sixteen times
+   less room to drift, and the ×4 upscale on import is exact.
+3. **Our tiles are not pixel art.** 0.0% of 4×4 blocks are flat; 927–2105 unique colours per 64×64
+   tile. Snapping to the 4× grid costs only 7.9/255 mean error, so the fix is nearly lossless.
+
+Also worth knowing: `wall-11` measures 26.0 against `floor-drain` at 28.7 — a wall that reads
+*darker* than the floor beside it. That is the same spread the ratio work was chasing, and
+normalisation fixes it in one pass rather than by re-running a generator.
