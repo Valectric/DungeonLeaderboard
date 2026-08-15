@@ -1,7 +1,7 @@
 # Handover
 
-**State: M1–M11 built, tested and SHIPPED. `main` is green at 284 tests and itch is serving
-`0.1.2608150051`. Nothing is held on a branch.**
+**State: M1–M13 built, tested and SHIPPED. `main` is green at 331 tests and itch is serving
+`0.1.2608152056`. Nothing is held on a branch.**
 
 The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
 review over generated key art, a thirty-second spatial shop, the next raid — and the league ends
@@ -13,10 +13,23 @@ the marching order; the rate pays for variety — a disarm, a new room, a crowd 
 a long grind, with a HUD line naming which of those is currently moving it; a tired party slows to
 80%; and wounded bodies back off, tanks giving ground below 30% of their own health.
 
-**Two things deliberately left open, both in D30:** the league's rival earnings are downstream of
-measured harvest (D13) and have NOT been retuned for the flatter wound correlation the author
-accepted; and `EarlyEscape`'s threshold must not be lowered a second time — if it needs it, the
-room bonus is too strong and that is what to fix.
+**D30's first item is now done, the second still stands.** The rival earnings HAVE been retuned —
+`GoodRun` read 500 and no raid has ever harvested it, so the ceiling sat above the game's own maximum
+and inverted the promise D20 and D25 rest on. Corrected to the measured 430; the best of four
+play-styles went from round 7 to round 9 and now contests the final. See **D27**. Unchanged:
+`EarlyEscape`'s threshold must not be lowered a second time — if it needs it, the room bonus is too
+strong and that is what to fix.
+
+**The newest finding, and the biggest open one: D29.** The party reaches exactly three rooms in sixty
+seconds whatever the dungeon's size, so harvest saturates at 446 and every hall after the third earns
+nothing. `MaxRooms` is 5 against one starting room, which means the shop sells four halls and **two
+are inert**. `RoomsPayTests` is the instrument. Not fixed, because the three candidate fixes point in
+opposite directions and one of them is a new rule SPEC.md forbids until the three verbs are proven.
+
+**Two corrections were made to this file's own claims on 2026-08-15, both worth reading before
+trusting a measurement here:** D28 (a tileset gate that ranked the fix below the fault, and was
+"confirmed" by a second method that was the same method) and the closed pale-bands section at the
+bottom (a defect measured out of a screenshot that the test suite was overwriting between reads).
 
 **Read first, before diagnosing anything:** the RaidManager and ShopManager suites now need ~1600s,
 not 800s, because raids that used to end early run the full clock. And when a "performance
@@ -25,7 +38,13 @@ three separate toolchain faults wore that disguise in one session (Safe Mode aft
 that `force-recompile` reported as `[PASS]`, a CPU affinity left pinned after a build, and plain
 editor wear). None of them had.
 
-Last updated: 2026-08-14.
+**Verify the shipped build, not just the suite.** On 2026-08-15 a green run of 98 Game tests, a full
+E2E pass and every Look test all missed a green health bar and a blue mana bar lying across the
+league standings — the title screen, and the first thing a jam voter sees. It was found by opening
+the itch page. Nothing photographed `Phase.Standings`; `PhaseLookTests.TheLeagueScreen_ShowsNoHealthBars`
+now does.
+
+Last updated: 2026-08-15 (evening).
 
 > **Latest pass (M8), directed by the author after playing M7:**
 >
