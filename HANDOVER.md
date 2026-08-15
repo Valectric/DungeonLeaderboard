@@ -338,3 +338,36 @@ Known rough edges:
   works but looks nothing like the moodboard's HUD.
 - **`Assets/Art/` is committed now** — regenerating art overwrites tracked files, so check
   `git status` after any rerun of the art tools.
+
+## 2026-08-15 — the one-room opening, the pinch fix, and the retreat door
+
+Live on itch as **0.1.2608150904**. 299 tests green (Raid 149, Game 77, Shop 49, League 24).
+
+Four author requests, all shipped, with the reasoning in **D31–D33**:
+
+- **The run opens on one room with one slime pit and one chest.** The kit is placed through the
+  loadout, not stamped in by the builder, so it previews, counts toward the dungeon's value, blocks
+  its tile and moves when a hall bought to the left re-anchors the grid.
+- **A tap is decided on release**, so the first finger of a pinch is no longer a click.
+- **A retreating party forces the door barring its exit** — the safety valve is a valve again.
+- **First-raid hints** over the opening room and on each tappable thing, off from round two.
+
+### What to look at next
+
+1. **The league has not been retuned for the one-room opening, and this is the one real risk.**
+   A player who touches nothing earns **51**; rivals in round one earn a mean of about **236**
+   (uniform 22.5–450). That is roughly 15th of 16 with the bottom two relegated — a coin flip on
+   being eliminated in the first minute for doing nothing. Playing the room earns **342** and lands
+   comfortably mid-table, and the hints now say so out loud, so the lesson is legible rather than
+   unfair. It is still the author's dial: `LeagueTable.BadRun`/`GoodRun`/`RivalHandicap`, untouched
+   since D13.
+2. **The opening board cannot reach the old rate figures, by design.** One slime pit peaks around
+   8–9/s where three rooms of skeletons reached 27+. Nearly all the rate is in the wound curve and
+   slimes barely wound. `RaidE2E.Step3` now asserts a lift off the idle floor rather than 5×, and
+   measures the **peak** rather than a single sample.
+3. **The tileset arch is still the open art item** — see `TILESET-NOTES.md`. Unchanged advice: cut it
+   by hand from `tileset-final.png`, whose material already matches by measurement. Only the geometry
+   is wrong, and geometry is what a human fixes faster than a generator.
+4. **The camera pans to keep the dungeon's own centre reachable** now, so a small dungeon sits in the
+   middle of the frame instead of against the right edge. Worth a look on a phone in portrait, which
+   is the aspect that framing rule is hardest on.
