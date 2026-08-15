@@ -88,7 +88,16 @@ namespace Dungeon.RaidManager.Tests
         /// <returns>What it did.</returns>
         private static Violations Play(PartyComposition composition, int seed)
         {
-            DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: 4);
+            return Play(composition, seed, DungeonLayout.BuildCorridor(roomCount: 4));
+        }
+
+        /// <summary>Plays one raid on a given dungeon and counts what it does to the geometry.</summary>
+        /// <param name="composition">Roster to send in.</param>
+        /// <param name="seed">Seed, so a reported figure can be reproduced.</param>
+        /// <param name="layout">Dungeon to raid.</param>
+        /// <returns>What it did.</returns>
+        private static Violations Play(PartyComposition composition, int seed, DungeonLayout layout)
+        {
             var raid = new Raid(layout, 0f, composition, seed);
             var counts = new Violations();
 
@@ -97,6 +106,9 @@ namespace Dungeon.RaidManager.Tests
             {
                 previous[member] = member.Position;
             }
+
+            // Who has actually set foot in the dungeon. Nobody is measured before they do.
+            var entered = new HashSet<Adventurer>();
 
             int seenShots = 0;
 
@@ -114,6 +126,28 @@ namespace Dungeon.RaidManager.Tests
 
                 foreach (Adventurer member in raid.Party.Living)
                 {
+                    // The procession into the dungeon does not count. A party is deliberately strung
+                    // out along the approach at tick zero -- the trail is seeded outside the
+                    // entrance so they read as marching in -- and the approach is scenery rather
+                    // than grid, so every follower still on it is standing on an unwalkable cell by
+                    // construction.
+                    //
+                    // Left in, it is a fixed cost of about 130 samples per raid that shows up as 2%
+                    // of a long corridor run and 13.5% of a short one-room run. The census breaking
+                    // it down was unambiguous: all of it inside the first three seconds, none after,
+                    // all of it at (0,3) and (-1,3) with the entrance at (1,3), and all of it the
+                    // back of the column -- healer, mage, archer, in that order.
+                    if (!entered.Contains(member))
+                    {
+                        if (!layout.Grid.IsWalkable(member.Cell))
+                        {
+                            previous[member] = member.Position;
+                            continue;
+                        }
+
+                        entered.Add(member);
+                    }
+
                     counts.Samples++;
 
                     if (!layout.Grid.IsWalkable(member.Cell))
@@ -192,6 +226,142 @@ namespace Dungeon.RaidManager.Tests
             // sampling would otherwise report a clean game.
             Assert.Greater(totalSamples, 1000,
                 "the probe barely sampled anything, so its zero counts would mean nothing");
+        }
+
+        /// <summary>
+        /// Reports who ends up inside a wall, when, and where.
+        /// </summary>
+        /// <remarks>
+        /// A share of samples says a number is bad and nothing about what to change. This breaks it
+        /// down by role, by second, and by cell, which is the difference between "the geometry is
+        /// broken" and "the party files in through an approach that is outside the grid".
+        /// </remarks>
+        /// <param name="layout">Dungeon to play.</param>
+        private static void Census(DungeonLayout layout)
+        {
+            var raid = new Raid(layout, 0f, PartyComposition.Opening, 4242);
+            var byRole = new Dictionary<AdventurerRole, int>();
+            var byCell = new Dictionary<Vector2Int, int>();
+            int early = 0;
+            int late = 0;
+            int samples = 0;
+            float elapsed = 0f;
+
+            while (raid.IsRunning)
+            {
+                raid.Tick(0.02f);
+                elapsed += 0.02f;
+
+                foreach (Adventurer member in raid.Party.Living)
+                {
+                    samples++;
+                    if (layout.Grid.IsWalkable(member.Cell))
+                    {
+                        continue;
+                    }
+
+                    byRole[member.Role] = byRole.GetValueOrDefault(member.Role) + 1;
+                    byCell[member.Cell] = byCell.GetValueOrDefault(member.Cell) + 1;
+
+                    if (elapsed < 3f)
+                    {
+                        early++;
+                    }
+                    else
+                    {
+                        late++;
+                    }
+                }
+            }
+
+            var worst = new List<KeyValuePair<Vector2Int, int>>(byCell);
+            worst.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+            var roles = new List<string>();
+            foreach (KeyValuePair<AdventurerRole, int> pair in byRole)
+            {
+                roles.Add($"{pair.Key} {pair.Value}");
+            }
+
+            var cells = new List<string>();
+            for (int i = 0; i < worst.Count && i < 6; i++)
+            {
+                cells.Add($"{worst[i].Key} x{worst[i].Value}");
+            }
+
+            MooseRunnerFacade.Log(
+                $"census of {samples} samples: first 3s {early}, after {late}; "
+                + $"by role [{string.Join(", ", roles)}]; worst cells [{string.Join(", ", cells)}]; "
+                + $"entrance {layout.EntranceCell}, grid {layout.Grid.Width}x{layout.Grid.Height}");
+        }
+
+        /// <summary>
+        /// The single room the game now opens on is measured against its own walls.
+        /// </summary>
+        /// <remarks>
+        /// A new geometry the instrument has never seen. Every figure this file has ever produced
+        /// came from a corridor, where the party spends most of a raid walking a straight line
+        /// between rooms — and the shipped opening dungeon is now one five-by-five box in which four
+        /// adventurers, their formation spacing, a chest detour and a stream of slimes are all
+        /// pressed together against four walls at once. Standing off from a threat, backing away
+        /// wounded and kiting are exactly the behaviours that push a body into masonry, and they
+        /// have never been measured anywhere this tight.
+        /// </remarks>
+        [Test]
+        public void TheOpeningRoom_IsMeasuredAgainstItsWalls()
+        {
+            // The shape the game ships: one room, a slime pit deep in it, a chest off the walking
+            // line. Rebuilt here rather than imported, because DungeonManager must not learn what a
+            // shop item is and this assembly cannot see the controller that places them.
+            var furniture = new Furnishings();
+            furniture.SlimeSpawners.Add(new Vector2Int(4, 1));
+            furniture.Chests.Add(new Vector2Int(2, 5));
+
+            DungeonLayout layout = DungeonLayout.Build(
+                RoomPlan.Corridor(1), placed: furniture, furnishedRooms: 1);
+
+            int totalInside = 0;
+            int totalCrossed = 0;
+            int totalShotThrough = 0;
+            int totalShots = 0;
+            int totalSamples = 0;
+
+            foreach (PartyComposition composition in PartyComposition.All)
+            {
+                Violations v = Play(composition, 4242, layout);
+
+                totalInside += v.InsideWall;
+                totalCrossed += v.CrossedWall;
+                totalShotThrough += v.ShotThroughWall;
+                totalShots += v.ShotsFired;
+                totalSamples += v.Samples;
+            }
+
+            // WHERE, and WHO. A share on its own cannot tell a party still filing in through the
+            // entrance from a healer backing into masonry mid-fight, and those are opposite
+            // problems: the first is the approach being outside the grid by construction, the
+            // second is the positioning rules failing in a room too small to back off in.
+            Census(layout);
+
+            float insideShare = totalSamples == 0 ? 0f : totalInside * 100f / totalSamples;
+            float crossedShare = totalSamples == 0 ? 0f : totalCrossed * 100f / totalSamples;
+            float shotShare = totalShots == 0 ? 0f : totalShotThrough * 100f / totalShots;
+
+            MooseRunnerFacade.Log(
+                $"ONE ROOM: inside a wall {totalInside} ({insideShare:F2}% of {totalSamples} "
+                + $"samples), moved through a wall {totalCrossed} ({crossedShare:F2}%), "
+                + $"shot through a wall {totalShotThrough}/{totalShots} ({shotShare:F1}%)");
+
+            Assert.Greater(totalSamples, 1000,
+                "the probe barely sampled anything, so its zero counts would mean nothing");
+
+            // A guard rather than an instrument this time. Counting only adventurers who have
+            // actually entered, a corridor sits at nearly nothing; a single room coming back worse
+            // would mean the geometry fixes hold only where there is room to manoeuvre, which is
+            // the opposite of where they are needed.
+            Assert.Less(insideShare, 2f,
+                $"{insideShare:F1}% of position samples in the opening room are inside a wall -- "
+                + "the geometry fixes do not survive a room this small");
         }
 
         /// <summary>
