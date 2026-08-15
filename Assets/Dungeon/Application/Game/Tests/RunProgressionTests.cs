@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -401,6 +402,112 @@ namespace Dungeon.Game.Tests
             Assert.GreaterOrEqual(best, 6,
                 $"the best of {settings.Length} plausible ways to play the game reached only round "
                 + $"{best} of a ten-round season, so the league is not survivable by playing well");
+        }
+
+        /// <summary>
+        /// The winning ending exists, is reachable, and draws without throwing.
+        /// </summary>
+        /// <remarks>
+        /// Nothing had ever reached <c>Phase.Won</c>. The sweep above cannot get there — the best of
+        /// four ways to play reaches round nine of ten and is eliminated — so the one screen the
+        /// game is played <i>for</i> had never been rendered by anything, at any point in the
+        /// project. That is precisely where a crash sits undisturbed, and one was already found
+        /// next door: <c>LeagueScreen.DrawStrip</c> indexed the standings against the length the
+        /// table <b>started</b> at, so it threw out of <c>OnGUI</c> once rivals began to be
+        /// eliminated — a fault that can only happen late in a winning run.
+        /// <para>
+        /// The league is driven to the final through its own public API rather than by playing nine
+        /// perfect seasons. That is a white-box shortcut and the right one: the subject here is the
+        /// controller's ending and the screen it draws, not the league's arithmetic, which has its
+        /// own suite. The last round is played through the controller's real handlers so the win is
+        /// declared by the code that declares it in a shipped game.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public async UniTask TheWinningEnding_IsReachedAndDrawn(CancellationToken ct)
+        {
+            _game.Advance();
+            await UniTask.Yield(ct);
+
+            // Down to the final: the player and one rival, with the player far ahead.
+            int guard = 0;
+            while (_game.League.Entries.Count > 2 && guard++ < 40)
+            {
+                _game.League.SubmitRaid(5000f);
+                _game.League.CollapseRelegated();
+            }
+
+            Assert.AreEqual(2, _game.League.Entries.Count, "the league never reached a final");
+            Assert.IsTrue(_game.League.IsFinal, "and it does not think it is one");
+
+            bool sawError = false;
+            void Watch(string condition, string trace, LogType type)
+            {
+                if (type is LogType.Error or LogType.Exception or LogType.Assert)
+                {
+                    sawError = true;
+                    MooseRunnerFacade.Log($"error while the ending drew: {condition}");
+                }
+            }
+
+            UnityEngine.Application.logMessageReceived += Watch;
+            try
+            {
+                for (int press = 0; press < 4 && !_game.IsRaiding && !_game.IsShopping; press++)
+                {
+                    _game.Advance();
+                    await UniTask.Yield(ct);
+                }
+
+                if (_game.IsShopping)
+                {
+                    _game.TapShop(ReadyPoint());
+                    await UniTask.Yield(ct);
+                    await UniTask.Yield(ct);
+                }
+
+                Assert.IsTrue(_game.IsRaiding, "the final never started");
+                PlayRaid();
+                await UniTask.Yield(ct);
+                await UniTask.Yield(ct);
+
+                await UniTask.WaitForSeconds(
+                    GameController.ReviewLockoutSeconds + 0.2f, cancellationToken: ct);
+                Assert.IsTrue(_game.DismissReview(), "the final's review refused to be dismissed");
+
+                // Several frames, because the fault this is looking for is in drawing rather than
+                // in the transition, and OnGUI runs per frame per event.
+                for (int frame = 0; frame < 12; frame++)
+                {
+                    await UniTask.NextFrame(ct);
+                }
+
+                // Photographed, because "it did not throw" is a weaker claim than it sounds and this
+                // project has shipped three features that were green and invisible. Nobody has ever
+                // seen this screen.
+                await UniTask.WaitForEndOfFrame(ct);
+                Texture2D shot = ScreenCapture.CaptureScreenshotAsTexture();
+                string directory = Path.Combine(
+                    UnityEngine.Application.dataPath, "..", "Screenshots");
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "05-the-winning-ending.png");
+                File.WriteAllBytes(path, shot.EncodeToPNG());
+                Object.DestroyImmediate(shot);
+                MooseRunnerFacade.Log($"captured {path}");
+            }
+            finally
+            {
+                UnityEngine.Application.logMessageReceived -= Watch;
+            }
+
+            MooseRunnerFacade.Log(
+                $"after the final: won={_game.HasWon} relegated={_game.League.PlayerRelegated} "
+                + $"field={_game.League.Entries.Count} errors={sawError}");
+
+            Assert.IsTrue(_game.HasWon,
+                "winning the final did not put the game on its winning ending, so the screen the "
+                + "whole run is played for cannot be reached");
+            Assert.IsFalse(sawError, "the winning ending logged an error while drawing");
         }
 
         /// <summary>

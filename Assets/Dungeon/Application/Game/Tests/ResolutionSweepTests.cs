@@ -30,8 +30,29 @@ namespace Dungeon.Game.Tests
             new(1920, 1080),
             new(800, 480),      // a small landscape phone
             new(1024, 768),     // 4:3
-            new(2560, 1080)     // ultrawide
+            new(2560, 1080),    // ultrawide
+            new(390, 844),      // a phone held upright, which is how people pick one up
+            new(360, 780),      // a smaller one
+            new(768, 1024)      // a tablet in portrait
         };
+
+        /// <summary>
+        /// The scale the shipped game draws at, for a given screen.
+        /// </summary>
+        /// <remarks>
+        /// This has to be <c>GameController.UiScale</c>'s arithmetic and not an approximation of it.
+        /// Every case here used <c>height / 720</c>, which agrees with the game in landscape and is
+        /// wildly wrong in portrait: a phone held upright reports 1.17 by that formula and 0.30 by
+        /// the game's, so the whole sweep was checking a layout four times larger than the one on
+        /// the glass. Portrait text coming out squished was reported from a real phone and could
+        /// not have failed here, because here it was never portrait.
+        /// </remarks>
+        /// <param name="size">Screen size to scale for.</param>
+        /// <returns>The UI scale.</returns>
+        private static float UiScaleAt(Vector2Int size)
+        {
+            return Mathf.Min(size.x / 1280f, size.y / 720f);
+        }
 
         /// <summary>The standings prompt is on screen at every size.</summary>
         /// <remarks>
@@ -43,7 +64,7 @@ namespace Dungeon.Game.Tests
         {
             foreach (Vector2Int size in Sizes)
             {
-                float scale = size.y / 720f;
+                float scale = UiScaleAt(size);
 
                 foreach (bool announcing in new[] { false, true })
                 {
@@ -76,7 +97,7 @@ namespace Dungeon.Game.Tests
         {
             foreach (Vector2Int size in Sizes)
             {
-                float scale = size.y / 720f;
+                float scale = UiScaleAt(size);
                 Rect ready = ShopScreen.ReadyRect(scale, size.x, size.y);
 
                 Assert.LessOrEqual(ready.yMax, size.y,
@@ -132,7 +153,7 @@ namespace Dungeon.Game.Tests
         {
             foreach (Vector2Int size in Sizes)
             {
-                float scale = size.y / 720f;
+                float scale = UiScaleAt(size);
                 Rect ready = ShopScreen.ReadyRect(scale, size.x, size.y);
 
                 for (int step = 0; step <= 10; step++)
@@ -163,7 +184,7 @@ namespace Dungeon.Game.Tests
         {
             foreach (Vector2Int size in Sizes)
             {
-                float scale = size.y / 720f;
+                float scale = UiScaleAt(size);
                 Rect[] rows = ShopScreen.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
@@ -189,7 +210,7 @@ namespace Dungeon.Game.Tests
         {
             foreach (Vector2Int size in Sizes)
             {
-                float scale = size.y / 720f;
+                float scale = UiScaleAt(size);
                 Rect[] rows = ShopScreen.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
@@ -243,6 +264,8 @@ namespace Dungeon.Game.Tests
 
             float smallest = float.MaxValue;
             string smallestAt = "nowhere";
+            float smallestUpright = float.MaxValue;
+            string uprightAt = "nowhere";
 
             foreach (int roomCount in new[] { 3, 5 })
             {
@@ -264,7 +287,14 @@ namespace Dungeon.Game.Tests
                         $"{roomCount} rooms at {size.x}x{size.y}: one tile is "
                         + $"{pixelsPerCell:F1}px across");
 
-                    if (pixelsPerCell < smallest)
+                    bool upright = size.y > size.x;
+                    if (upright && pixelsPerCell < smallestUpright)
+                    {
+                        smallestUpright = pixelsPerCell;
+                        uprightAt = $"{roomCount} rooms at {size.x}x{size.y}";
+                    }
+
+                    if (!upright && pixelsPerCell < smallest)
                     {
                         smallest = pixelsPerCell;
                         smallestAt = $"{roomCount} rooms at {size.x}x{size.y}";
@@ -280,6 +310,26 @@ namespace Dungeon.Game.Tests
             Assert.Greater(smallest, 15f,
                 $"at {smallestAt} a dungeon tile is only {smallest:F1}px across, so aiming a "
                 + "purchase at one is guesswork on the page the game actually ships on");
+
+            // A phone held upright is a separate requirement, and a weaker one, because it is
+            // arithmetic rather than a choice: a five-room corridor is thirty-one cells wide, and
+            // thirty-one cells across 360 pixels is eleven pixels each however the camera is
+            // configured. Fitting by height instead would make the tiles four times bigger and take
+            // most of the dungeon off screen, which is worse during a raid -- the whole board has to
+            // be readable while the party crosses it.
+            //
+            // So aiming a purchase in portrait means pinching in first, which is exactly the gesture
+            // that did not work until D32: the first finger was read as a tap, so a player on a
+            // phone could neither see the tile nor zoom to it. This asserts only that the board is
+            // still legible at the opening framing; the pinch is what makes it usable.
+            MooseRunnerFacade.Log(
+                $"upright phones: tightest tile is {smallestUpright:F1}px at {uprightAt} "
+                + $"(landscape tightest {smallest:F1}px at {smallestAt})");
+
+            Assert.Greater(smallestUpright, 8f,
+                $"at {uprightAt} a dungeon tile is only {smallestUpright:F1}px across -- below this "
+                + "the board is not readable at all on a phone held upright, and no amount of "
+                + "zooming makes an unreadable overview usable");
         }
     }
 }

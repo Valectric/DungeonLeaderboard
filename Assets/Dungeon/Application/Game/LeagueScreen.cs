@@ -115,12 +115,22 @@ namespace Dungeon.Game
                 fontSize = Mathf.RoundToInt(13 * scale),
                 alignment = TextAnchor.MiddleCenter
             };
+            // Nothing left to eliminate. Said plainly, because the alternative is what the winning
+            // ending actually showed the first time anything rendered it: "1 DUNGEONS LEFT. THE
+            // BOTTOM 1 ARE DESTROYED." -- a competition still running, in broken grammar, over the
+            // one screen the whole run is played for.
+            bool over = league.Entries.Count <= 1;
+
             caption.normal.textColor = Dim;
             GUI.Label(new Rect(0f, top + (rowHeight * 1.5f), Screen.width, rowHeight),
-                                league.IsFinal
-                    ? "THE FINAL.  ONE OF YOU LEAVES; THE OTHER WINS."
-                    : $"{league.Entries.Count} DUNGEONS LEFT.  THE BOTTOM "
-                      + $"{league.EliminationsThisRound} ARE DESTROYED.", caption);
+                over
+                    ? "NOTHING IS LEFT TO BEAT."
+                    : league.IsFinal
+                        ? "THE FINAL.  ONE OF YOU LEAVES; THE OTHER WINS."
+                        : $"{league.Entries.Count} DUNGEONS LEFT.  THE BOTTOM "
+                          + $"{league.EliminationsThisRound} "
+                          + (league.EliminationsThisRound == 1 ? "IS" : "ARE") + " DESTROYED.",
+                caption);
 
             float listTop = top + (rowHeight * 2.6f);
 
@@ -144,12 +154,18 @@ namespace Dungeon.Game
             }
 
             // The relegation line: the thing that makes the board a threat rather than a table.
-            float lineY = listTop + (relegationFrom * rowHeight) - (2f * scale);
-            var line = new Rect(left, lineY, width, Mathf.Max(2f, 2f * scale));
-            Color was = GUI.color;
-            GUI.color = RelegationRed;
-            GUI.DrawTexture(line, Texture2D.whiteTexture);
-            GUI.color = was;
+            // Not drawn once the competition is over -- a red drop line above the winner's own row,
+            // which is what the ending screen showed, reads as a threat to a player who has just
+            // beaten everybody.
+            if (!over)
+            {
+                float lineY = listTop + (relegationFrom * rowHeight) - (2f * scale);
+                var line = new Rect(left, lineY, width, Mathf.Max(2f, 2f * scale));
+                Color was = GUI.color;
+                GUI.color = RelegationRed;
+                GUI.DrawTexture(line, Texture2D.whiteTexture);
+                GUI.color = was;
+            }
 
             // Below the whole table, not beside the line. Every row is full width -- rank, name and
             // score -- so anything placed level with the line lands on top of a score, whichever
@@ -160,9 +176,19 @@ namespace Dungeon.Game
                 alignment = TextAnchor.MiddleCenter
             };
             warn.normal.textColor = RelegationRed;
-            GUI.Label(new Rect(0f, listTop + (rowHeight * (LeagueTable.Size + 0.1f)),
-                                Screen.width, rowHeight),
-                league.IsFinal ? "LAST PLACE IS DESTROYED" : "THE BOTTOM TWO ARE DESTROYED", warn);
+
+            // Under the table as it stands rather than under the twenty rows it started with, and
+            // gone entirely once there is nobody left to destroy. Pinned to the starting size it
+            // floated in open space three rows below the last dungeon by the final, and on the
+            // winning screen it announced "THE BOTTOM TWO ARE DESTROYED" beneath a table of one.
+            if (!over)
+            {
+                GUI.Label(
+                    new Rect(0f, listTop + (rowHeight * (league.Entries.Count + 0.4f)),
+                        Screen.width, rowHeight),
+                    league.IsFinal ? "LAST PLACE IS DESTROYED" : "THE BOTTOM TWO ARE DESTROYED",
+                    warn);
+            }
 
             float promptRow = LeagueTable.Size + 1.2f;
 
