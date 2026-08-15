@@ -18,6 +18,12 @@ only free source found with a genuine open **and** closed door drawn as a pair. 
 and point-scaled from 32×32 to the 64×64 this project imports at, and the sixteen wall shapes are
 generated from them; `Tools/import-tileset.py` is the whole pipeline and can reproduce it.
 
+A caveat that belongs here rather than only in the design notes: those sixteen shapes **do not
+currently differ from one another**. Measured, they separate by 1.47× against their own texture
+grain, so `wall-0` and `wall-15` render the same and the autotiling is decorative. That is a fault in
+how they were derived, not in the Crawl art, which is sound — nothing about the licence or the
+attribution above changes. `Tools/validate-tileset.py` now fails a set that does this.
+
 The Crawl project maintains a `TILES_UNDER_UNKNOWN_LICENSE.md` listing tiles whose provenance is
 unclear. Nothing on that list is used here.
 
