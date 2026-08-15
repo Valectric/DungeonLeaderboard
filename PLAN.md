@@ -345,12 +345,19 @@ The author's four asks, and the three defects they uncovered. D31–D33 have the
       nothing has ever harvested it, so the ceiling sat above the game's own maximum and inverted the
       promise D20 and D25 rest on. Corrected to the measured 430: best of four play-styles went from
       round 7 to round 9, and it now contests the final instead of dying mid-table. See D27.
-- [ ] **Still open, and the author's call: nothing has yet won a season by playing it.** The bot
-      reaches the final and loses on cumulative score. D25 measured that a player needs ~400 a round
-      to win and this bot averages 308, so the real question is whether 400 is reachable by a human
-      on a five-room dungeon, or whether `MaxRooms` or the wound curve has to move. `FinalistPressure`
-      was tried at 0.55 and reverted — measured, it changed nothing the `GoodRun` fix had not already
-      done, and it cost D25's "late on, a rival never has an off day".
+- [x] **The season is winnable, and it is now proven rather than hoped.** Across three seeded seasons
+      and four play-styles the bot wins **3 of 12** outright and reaches round 9 or 10 in every one.
+      `FinalistPressure` was tried at 0.55 and reverted — it changed nothing the `GoodRun` fix had not
+      already done, and it cost D25's "late on, a rival never has an off day".
+- [x] **A season is reproducible.** `GameController.SeedOverride` — the seed was threaded correctly
+      through the league, the party chain and combat, and could not be *set*, so every season-long
+      measurement was a different season. Unchanged code spanned 7 to 10 rounds across five runs. See
+      D31, and treat any single-season figure written before it as an anecdote.
+- [ ] **Open, and the author's call: is a quarter the right win rate?** Three of twelve is a real
+      contest rather than a formality, and it is one number chosen by nobody — it fell out of pricing
+      the rivals honestly. D25 measured that winning needs ~400 a round against this bot's 308, and
+      the bot is explicitly "a floor on competence, not a good player", so a human should do better
+      than a quarter. Whether that is the intended shape is a design judgement, not a measurement.
 
 ---
 
