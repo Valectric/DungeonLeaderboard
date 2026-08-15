@@ -135,3 +135,43 @@ Screaming Brain's on **magenta**, so both need alpha keying before they reach `A
 `Tools/sprite-contact-sheet.py` flags exactly that fringe. And DCSS's CC0 comes with a maintainer's
 caveat and a `TILES_UNDER_UNKNOWN_LICENSE.md` exclusion list, which must be diffed against whatever
 we actually copy.
+
+---
+
+## 7. Why cutting tiles out of a repainted room can never work
+
+Found by research, and it explains every measurement in section 6 at once.
+
+**Slicing a painted image cannot produce joining edges.** Tile A's right-hand column and tile B's
+left-hand column come from unrelated parts of the painting. Nothing in the prompt can fix that,
+because the two columns were never drawn to agree — and that is exactly what the border-coverage
+figure was measuring when it came back at 33%, and at 7–9% for the fully-enclosed pieces.
+
+Every tool that genuinely solves this does the same thing: it **composites tiles from shared
+sub-pieces**, so the pixels along a shared edge are literally the same pixels rather than two
+drawings that happen to look similar. Tilesetter builds a set from a base plus an edge; Blobator
+assembles a 47-piece blob from 13 quadrant templates; the principle is identical.
+
+So the repaint-and-slice loop is the wrong shape for **wall pieces**. It remains right for floors,
+doors, props and the entrance, none of which have to tile against a neighbour.
+
+### The other correction: our mask is an edge set, and the world uses corner sets
+
+`DungeonScenery.WallMask` computes north 1, east 2, south 4, west 8 — an **Edge Set** in Tiled's
+terminology. Godot's "Match Corners and Sides", Unity's AutoTile 2×2 mask and the 47-piece blob are
+all **corner** sets. Both are sixteen tiles and they are **not interchangeable**. Any tool adopted
+from the list below needs a mapping layer, and there are three different bit orders in play
+(ours, Tiled's wangid, Blobator's) — one tested mapping module, with a case per mask.
+
+### The change worth making
+
+**Unity's `RuleTile` supports `Rotated`, `MirrorX`, `MirrorY` and `RotatedMirror` transforms**, which
+collapses the sixteen edge masks to about **six unique drawings**: isolated, one-edge, two-opposite,
+two-adjacent, three-edge, four-edge. Six is an achievable ask from a generator. Sixteen demonstrably
+is not — we have now failed at it three times, in three different ways.
+
+`TileBase` is a `ScriptableObject`, so the assets can be authored headlessly from
+`Assets/Dungeon/Editor/` exactly like the scene builder, driven by a sentinel file.
+
+Package: `com.unity.2d.tilemap.extras`, Unity Companion Licence, free. `AutoTile` (added 4.2.0)
+supports 2×2 → 16 sprites and 3×3 → 47/48 and is still marked experimental.
