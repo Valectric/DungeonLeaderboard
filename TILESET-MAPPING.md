@@ -32,6 +32,23 @@ step. Check which one a pack ships before assuming.
 | `wall-14` | ESW | N | straight run, floor to the N only |
 | `wall-15` | NESW | none | fully enclosed interior -- never touches floor, pure fill |
 
+## The full list of names, not just the sixteen
+
+The mask tiles are most of the work but not all of it. `DungeonScenery` also asks for four floors,
+picked by a spread hash so a room is not uniform, and two fallbacks the selection path uses when a
+mask sprite is missing:
+
+```
+floor-plain  floor-cracked  floor-rubble  floor-drain  wall  wall-moss
+```
+
+**22 names in total.** Anything else in `Assets/Art/Resources/tiles/` is dead weight that ships
+in the build — `wall-cracked` is currently exactly that, installed and loaded by nothing, and it once
+shipped byte-identical to `wall.png`.
+
+Re-run `python Tools/mask-reference.py` to audit the folder against this list; it reports missing and
+surplus names from the code rather than from this document.
+
 ## After mapping, before believing it
 
 ```
