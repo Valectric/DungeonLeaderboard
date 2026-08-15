@@ -854,3 +854,95 @@ not the claim.
 **Operational, and the single most useful thing to know first:** the RaidManager and ShopManager
 suites now need **~1600s, not 800s**. Raids that used to end early run the full clock because parties
 neither die nor escape. Twice in one session that looked exactly like a hang and cost real time.
+
+## 2026-08-15 — D31. The run opens on one room, so "they left" had to be re-defined
+
+The author's instruction was one line: *"the starter dungeon should just be one room with one slime
+pit and one chest."* The shape is the easy half. What it broke is a **duration**, and nothing in the
+suite was watching one.
+
+With a single room, the entrance and the deepest cell share it. Every room has been visited on the
+first tick and the party is standing on the entrance, so `HasExploredEverything && Cell ==
+_entranceCell` — the escape condition since exploration replaced the boss-cell ending — was **true
+before anybody moved**. The raid would have ended at zero seconds. Nothing would have failed: the
+outcome is a legitimate `PartyEscaped`, the league would have taken the score, and the round would
+simply have been over before the loading screen finished fading.
+
+So a party now has to have gone in before leaving counts: crossed into a second room, or — in a
+one-room dungeon — reached the far wall. Deliberately two clauses rather than one elegant rule. The
+first is true in a corridor long before exploration finishes, so **a corridor pays nothing for
+this**; only the degenerate case has to earn it. A single "walked to the deepest cell" rule read
+better and cost a five-room corridor its escape ending outright: it added a there-and-back leg in
+the last room and `AnUnboughtDungeon_CanAlwaysBeCrossedInTime` went red at 5 rooms.
+
+Measured on the shipped opening board:
+
+| | seconds | harvested | outcome |
+|---|---|---|---|
+| nobody touches anything | 12.2 | 51 | PartyEscaped |
+| the slime pit is tapped | 60.0 | 342 | TimeExpired |
+
+That gap is the whole first lesson, and it is why the hints over the opening room are worth their
+clutter. **Round one is now genuinely losable by doing nothing** — 51 against a rival field earning
+a mean of ~236 in round one puts the player around 15th of 16, with the bottom two relegated. That
+is the author's dial rather than a defect (the old three-room opening earned ~70 passively, so it is
+not new), but it is a coin flip on elimination for a player who watches the first minute go by, and
+the league's rival calibration has not been revisited since D13.
+
+Two things fell out of the change that were nothing to do with it, and both were literals that had
+quietly encoded "the dungeon starts with three rooms":
+
+- `CanBuyHall` counted `_boughtHalls.Count < MaxRooms - 3`. The player could buy two halls and then
+  found the marker dead, with money in the purse and a cap of five rooms. Nothing failed; the offer
+  simply stopped being accepted.
+- `LeagueScreen.DrawStrip` walked its window against `LeagueTable.Size` — the length the table
+  *started* at, not its current length. Once rivals are eliminated it indexes rows that no longer
+  exist and throws `ArgumentOutOfRangeException` out of `OnGUI`, taking the clock, the rate and the
+  harvest down with it. Late in a *winning* run, which is the least forgivable time for the interface
+  to go.
+
+## 2026-08-15 — D32. A tap is decided on release, because a pinch starts exactly like one
+
+Reported as *"pinch zoom is not clicking forward when showing a click on the screen to continue"*,
+which describes the code exactly. `TryReadTap` fired on `wasPressedThisFrame`, and the first finger
+of a two-finger gesture is indistinguishable from a tap **at the moment it lands**. The existing
+guard — ignore a tap while a second finger is down — could only ever fire a frame too late. On the
+standings, starting a pinch advanced past them; in the shop it opened a build menu or spent energy on
+whichever tile was under the first finger.
+
+Touch taps now resolve on release, and only for a gesture that used one finger and stayed within
+40px. A second finger at any point cancels it **for good** — including the stretch at the end of a
+pinch where one finger is still on the glass, which is the case a naive fix misses. The mouse still
+fires on press: there is no pinch to confuse it with, and press-to-act feels better on a desktop.
+
+The recogniser is a plain state machine (`TapReader.Feed`) taking one frame of state at a time, so
+the decision is testable with a synthetic pinch. That matters here more than usual: no headless test
+in this project has a touchscreen, and the project's doctrine bans synthesising raw Input System
+device events as too fragile. Without that seam the fix would have shipped unverified, which is
+precisely how the original bug shipped.
+
+## 2026-08-15 — D33. A retreating party forces the door behind it
+
+*"Make sure a team attacks a closed door."* The door-forcing code existed and was correct — for an
+**advancing** party. It returned immediately while the goal was `Retreating`, and the door it looked
+for was the one on the route to the boss room. Shut the door a party has just walked through and both
+answers are wrong: the route home does not exist, so the retreat pathfind returned an empty route,
+and an empty route means the leader does not move. The party stood against the door until the clock
+ran out.
+
+That is worse than a stalled animation. SPEC.md makes the retreat the player's only safety valve and
+their central regret — *open a door behind a losing party and let them retreat and heal*. A party
+that will not use a door it can open itself turns the valve into a trap and the game's most
+interesting decision into a farm.
+
+Two changes, both narrow: a retreating party looks for the shut door on the route to the **entrance**
+rather than to the boss room, and it walks to that door's threshold rather than to an entrance it
+cannot reach. Fighting still comes first for an advancing party; a fleeing one works the door even
+with monsters on it, because that is what fleeing looks like. Measured: 4.01 → 1.35 cells, lock
+picked in 3.5s.
+
+The test to write this against took three attempts and every failure looked like a production bug.
+Hitting each member for 80% of its bar left the party at 29% against a retreat threshold of 28%, so
+it advanced; hitting repeatedly until the pooled figure dropped killed them, because the pool is
+measured over the **living** and each death lifts it. Taking each member *down to* 15% is the version
+that measures what it claims to.
