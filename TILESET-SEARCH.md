@@ -407,7 +407,7 @@ What the photograph says to change, for whoever picks this up:
   should carry shadow alone — the light in this dungeon comes from above, and lighting all four
   sides equally is what makes it read as an outline instead of as relief.
 
-## 14. The diagnosis was wrong, and this is what the tiles actually are
+## 14. RETRACTED — this section's diagnosis was itself wrong (see §15)
 
 Everything above §13 argues about texture, relief and lighting. All of it was treating a symptom.
 Measured on the shipped set in `Assets/Art/Resources/tiles/`:
@@ -460,3 +460,50 @@ downloading and looking at the previews rather than reading the blurb:
 Do not buy anything from **Seliel the Shaper**, whose art is the best in the survey. The Mana Seed
 licence forbids use "in a project alongside 'AI' generated imagery, writing, code, or anything
 else", and this project is both AI-generated art and agent-written code.
+
+## 15. Retracting §14: the tiles do encode shape, and the measurement was at fault
+
+§14 claimed the sixteen mask tiles were "the same picture" and that the autotiling was decorative.
+**That is wrong.** Measured per side, conditioned on the mask bit:
+
+```
+N bit CLEAR (edge faces open floor)   top strip   51.4 - 59.0    <- the lit cap is there
+N bit SET   (continues into wall)     top strip   29.9 - 35.9
+S bit CLEAR (faces open floor)        bottom      13.8 - 14.6    <- shadow is there
+S bit SET   (continues into wall)     bottom      19.2 - 21.2
+```
+
+`wall-0` reads 57.8 along its top and `wall-15` reads 35.9. They are not interchangeable, and
+`DungeonScenery.WallMask` has been selecting between genuinely different pieces all along.
+
+### How the wrong answer got measured, twice
+
+The metric compared **whole tiles** to each other and divided by texture grain. That question is
+structurally unanswerable for a Wang set: sixteen correct tiles share one interior and differ only in
+a few pixels at their edges, so whole-tile mean difference is near zero **by design**. A low ratio is
+what a correct set looks like.
+
+The proof that the metric rather than the art was broken: the same gate scored a set built
+specifically to encode boundaries at **0.33x**, worse than the set it had just condemned at 1.47x. A
+measure that ranks a deliberate fix below the thing it fixes is measuring something else.
+
+Worse, this was "confirmed". A research agent reported the identical conclusion from the identical
+whole-tile method, and reproducing its numbers read as independent verification when it was the same
+mistake run twice. **Agreement between two runs of one flawed method is not evidence.** The check
+that would have caught it — does the metric separate a known-good set from a known-bad one — costs
+nothing and was not done.
+
+### What the gate asks now
+
+For each side, the mean edge strip across tiles where that bit is SET against tiles where it is
+CLEAR. That is the property the renderer actually depends on, and it fails a set that has no
+boundary while passing one that has. The installed set scores N=22.2, W=9.2, S=6.2, E=4.6.
+
+### What this does NOT explain
+
+The author's report stands unexplained: *"the walls don't look like walls from slight angle but just
+pattern tiles in different colours."* The cap exists in the art, so the reason it does not read is
+still open — the cap is 4px on a 64px tile, under 7% of its height, which is a candidate and is not
+yet measured against anything. **Do not treat that question as answered.** §13's three failed relief
+attempts were aimed at a defect that turns out not to exist, which is worth remembering before the
+fourth.

@@ -1012,3 +1012,38 @@ Still open, and the author's call: **nothing has won a season by playing it.** T
 final and loses on cumulative score. D25 measured that winning needs ~400 a round against this bot's
 308, so the question is whether 400 is reachable by a human on a five-room dungeon, or whether
 `MaxRooms` or the wound curve has to move. That is a design question, not a stale constant.
+
+## 2026-08-15 — D28. A gate that ranked the fix below the fault
+
+D-note to the tileset thread, and a correction to something committed and pushed earlier today.
+
+`validate-tileset.py` gained a gate claiming the sixteen wall tiles were "the same picture", and
+`CREDITS.md` and `TILESET-SEARCH.md` §14 were both updated to say the autotiling was decorative. **It
+is not.** Measured per side, conditioned on the mask bit, an edge facing open floor sits at luminance
+51–59 where the same edge continuing into wall sits at 30–36. `wall-0` and `wall-15` differ by 22
+luminance along their top rows.
+
+The gate compared **whole tiles** and divided by texture grain. Sixteen correct Wang tiles share one
+interior and differ only at their edges, so whole-tile difference is near zero *by design* — the
+metric could not answer the question it was asked, and its low score was the signature of a healthy
+set being read as a broken one.
+
+Two things caused it, and both are cheap to avoid:
+
+- **The metric was never calibrated against a known-good case.** Building a set that encodes
+  boundaries on purpose and re-running the gate took one command; it scored **0.33x**, worse than the
+  1.47x it had just condemned. A measure that ranks a deliberate fix below the fault is measuring
+  something else, and that check would have caught this before anything was written down.
+- **A second opinion agreed, from the same flawed method.** A research agent independently reported
+  the same conclusion, having computed the same whole-tile statistic. Reproducing its numbers felt
+  like verification. It was one mistake run twice — agreement is only evidence when the methods
+  differ.
+
+The gate now asks the right question: per side, mean edge strip across tiles with the bit SET against
+tiles with it CLEAR. The installed set passes at N=22.2, W=9.2, S=6.2, E=4.6.
+
+**The author's actual report remains unexplained.** "The walls don't look like walls from slight
+angle but just pattern tiles in different colours" is still true and still undiagnosed; the lit cap
+is 4px on a 64px tile, under 7% of its height, which is a candidate nobody has measured. §13's three
+failed attempts at drawing relief were aimed at a defect that does not exist. Before a fourth, find
+out what does.

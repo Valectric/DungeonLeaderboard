@@ -114,28 +114,39 @@ def encodes_shape(walls):
     drawn anywhere in the set, and lighting a boundary that was never drawn cannot work. A tileset
     has to encode WHERE the wall stops, and this gate is the cheapest possible check that it does.
 
-    Returns (ok, ratio, pairwise, noise). A real Wang set separates cleanly -- the reference set
-    measured 1.28 seam-to-interior, with tiles that differ structurally, not by crop.
+    Returns (ok, worst, per_side). Each per-side figure is the gap between that edge drawn as open
+    floor and the same edge drawn as continuing wall, in luminance.
+
+    MEASURE IT PER SIDE, CONDITIONED ON THE BIT. The first version of this gate compared whole tiles
+    to each other and divided by texture grain, which is the wrong question twice over: a correct
+    Wang set shares its interior across all sixteen tiles and differs only at the edges, so
+    whole-tile mean difference is near zero BY DESIGN. That version scored a genuinely shape-encoding
+    set at 0.33x -- worse than the broken set's 1.47x -- and would have rejected the fix while
+    passing the fault.
     """
-    import itertools
+    edges = {1: lambda a: a[:4, :], 2: lambda a: a[:, -4:],
+             4: lambda a: a[-4:, :], 8: lambda a: a[:, :4]}
 
     arrays = {}
     for path in walls:
         stem = os.path.basename(path)[len("wall-"):-len(".png")]
         if stem.isdigit():
-            arrays[stem] = np.asarray(Image.open(path).convert("RGB"), dtype=np.float32)
+            arrays[int(stem)] = luminance(path)
 
-    if len(arrays) < 2:
-        return True, 0.0, 0.0, 0.0
+    if len(arrays) < 8:
+        return True, 0.0, {}
 
-    pairs = [np.abs(a - b).mean() for a, b in itertools.combinations(arrays.values(), 2)]
-    noise = [np.abs(v[1:] - v[:-1]).mean() for v in arrays.values()]
+    per_side = {}
+    for bit, side in SIDES.items():
+        closed = [edges[bit](a).mean() for m, a in arrays.items() if m & bit]
+        open_ = [edges[bit](a).mean() for m, a in arrays.items() if not m & bit]
+        per_side[side] = (abs(np.mean(closed) - np.mean(open_))
+                          if closed and open_ else 0.0)
 
-    pairwise, grain = float(np.mean(pairs)), float(np.mean(noise))
-    ratio = pairwise / grain if grain > 0 else 0.0
-
-    # Threefold is undemanding -- a genuine mask set differs by whole edges, not by texture.
-    return ratio >= 3.0, ratio, pairwise, grain
+    # At least one side must carry a real boundary, and the worst may be zero -- a south edge that is
+    # shadow-only is legitimate. Six luminance levels is roughly one step on the moodboard ramp.
+    best = max(per_side.values()) if per_side else 0.0
+    return best >= 6.0, best, per_side
 
 
 def flat_cells(path, block=4):
@@ -198,10 +209,11 @@ def main():
         print(f"{name:16s} {'YES' if has_frame else 'no':>6s} {edge:6.1f} {inner:6.1f} "
               f"{flat:6.0%} {colours:6d}  {' '.join(required) if required else '-'}")
 
-    shaped, ratio, pairwise, grain = encodes_shape(walls)
+    shaped, best, per_side = encodes_shape(walls)
     if not shaped:
         failures += 1
-    print(f"\nshape: tiles differ {pairwise:.1f} against grain {grain:.1f} = {ratio:.2f}x "
+    detail = "  ".join(f"{s}={v:.1f}" for s, v in per_side.items())
+    print(f"\nshape: open-vs-closed edge gap  {detail}  best {best:.1f} "
           f"({'ok' if shaped else 'FAIL -- the mask tiles are the same picture'})")
 
     print(f"\n{failures} gate failures")
