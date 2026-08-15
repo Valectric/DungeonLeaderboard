@@ -175,3 +175,65 @@ is not — we have now failed at it three times, in three different ways.
 
 Package: `com.unity.2d.tilemap.extras`, Unity Companion Licence, free. `AutoTile` (added 4.2.0)
 supports 2×2 → 16 sprites and 3×3 → 47/48 and is still marked experimental.
+
+## 8. What the tiles actually have wrong, and why one of our metrics could not see it
+
+Profiled from the shipped PNGs rather than described. Alpha is 100% everywhere, so this was never a
+transparency margin. Classifying by luminance (floor 18.5, wall-15 interior 62.1), the ring means of
+`wall-15` by distance from its edge:
+
+```
+d=0  9.1    d=1  8.4    d=2  7.0    d=3 21.4    d=4 27.5   ...   interior 62.1
+```
+
+**A three-pixel near-black frame drawn around every tile.** The generator was not stopping the
+masonry short — it was drawing each tile as a self-contained illustration *with an outline*, the way
+you would draw an icon. Tiled across a wall region that renders a black grid. Same on `wall-0`,
+`wall-6`, `wall-cracked` and `wall-moss`, all at 0.0–0.4% border coverage.
+
+**And the seam metric is blind to it.** On `wall-15` the wrap seam measures V=2.7 and H=5.4 against
+an interior adjacent-column gradient of 9.8 — the seam is *smoother than the texture*, a clean pass.
+A symmetric dark frame is perfectly wrap-continuous. Seam continuity is necessary and nowhere near
+sufficient; the border-versus-interior statistic is the instrument that catches this, and it should
+be a hard gate rather than a number in a log.
+
+Per-side coverage also shows the generator had a consistent bias worth knowing: `wall-1` came back
+N=73%, S=56%, W=14%, E=0% — it drew the top edge and abandoned the right.
+
+## 9. The fix: composite the set, do not draw it
+
+Ask the generator for **one seamless wall fill and one floor fill** — the thing it is good at — and
+derive all sixteen cases mechanically from about **six 32×32 quadrants** (fill, outer corner, edge,
+inner corner, plus `np.rot90` rotations, which are exact and lossless on pixel art).
+
+```python
+Q = 32
+def tile_from_quadrants(tl, tr, bl, br):     # each 32x32 RGBA
+    return np.block([[tl, tr], [bl, br]])
+```
+
+The fully-enclosed tile then **is** the fill texture, so 100% border coverage is true by
+construction rather than by measurement, and the edge-hash validator below becomes a regression
+test instead of a bug-finder. Prior art, both MIT: `HeartoLazor/autotile_generator` (Python + Pillow,
+composites a bitmask set from quadrants) and `itsjavi/autotiler`. About 120 lines to own outright.
+
+**Dual-grid rendering** is what makes six quadrants sufficient: offset the display tilemap by half a
+cell so each drawn tile's four corners land on four world cells — four yes/no questions, sixteen
+cases, no ambiguity. Reference implementation `jess-hammer/dual-grid-tilemap-system-unity`, MIT,
+about 80 lines of C# on our side.
+
+### The validator to add — `Tools/validate-tileset.py`, ~110 lines, no new dependencies
+
+- **Edge hash**: `blake2b` of each tile's 1px border strip; every adjacency the mask can place must
+  have identical facing strips.
+- **Border coverage, per side**: where a tile's mask says wall continues, require ≥95% coverage on
+  that side, plus `ring_mean(0) >= 0.6 * interior_mean` to catch the frame.
+- **Flat-cell rate**: fraction of 4×4 blocks that are constant, which catches the off-grid resample
+  already recorded in CLAUDE.md.
+- **Palette lock**: `Image.quantize(palette=..., dither=Image.Dither.NONE)`. Dithering is wrong here
+  — it fabricates high-frequency checkerboards that wreck both the flat-cell and seam metrics.
+
+Everything above runs on what is already installed (numpy 2.5, Pillow 12.2, scipy 1.18,
+scikit-image 0.26). Rejected: `texturize` (AGPL, non-deterministic), `imagequant` (libimagequant is
+GPL), OpenCV `seamlessClone` (gradient-domain, invents intermediate colours and breaks a six-colour
+palette), `img2texture` (hides seams with an alpha gradient, which undoes point filtering).
