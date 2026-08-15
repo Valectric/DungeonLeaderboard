@@ -1047,3 +1047,37 @@ angle but just pattern tiles in different colours" is still true and still undia
 is 4px on a 64px tile, under 7% of its height, which is a candidate nobody has measured. §13's three
 failed attempts at drawing relief were aimed at a defect that does not exist. Before a fourth, find
 out what does.
+
+## 2026-08-15 — D29. Two of the four halls the shop sells cannot be used
+
+Measured by `RoomsPayTests.MoreRooms_EarnMore`, same policy and same seed at every size:
+
+```
+2 rooms   harvested 330   PartyEscaped   party reached 2 of 2
+3 rooms   harvested 446   TimeExpired    party reached 3 of 3
+4 rooms   harvested 446   TimeExpired    party reached 3 of 4
+5 rooms   harvested 446   TimeExpired    party reached 3 of 5
+6 rooms   harvested 446   TimeExpired    party reached 3 of 6
+```
+
+**The party reaches exactly three rooms in sixty seconds, whatever the dungeon's size**, so harvest
+saturates at 446.33 and every hall after the third earns literally nothing. `MaxRooms` is 5 with one
+room to start, so the shop sells four halls and **two of them are inert** — the most expensive item in
+the shop, bought first by any competent player, with no effect on the score.
+
+This also explains the flat season curve that prompted D27: a bot buying a hall in almost every shop
+harvested 341 in round one and 359 in round seven, and the recurring 246 was the same raid happening
+again. The dungeon was growing into space the party never enters.
+
+Two rooms is a different failure and worth noting beside it: the party **escapes** rather than running
+the clock out, which is the losing outcome the whole design is built to avoid. So the usable range is
+narrow — three rooms works, two leaks the party out the far end, four and beyond are decoration.
+
+**Not fixed here, because every available fix is a design decision and they point in opposite
+directions.** `MaxRooms` down to 3 makes the shop honest and shrinks the game. A faster party, or
+smaller rooms, or a longer clock makes the later rooms reachable and changes the sixty seconds that
+the title is about. Making deeper rooms pay a multiplier rewards building forward without touching
+the clock, and is the only one of the three that adds a decision rather than removing one — but it is
+a new rule, and SPEC.md is firm about not adding rules until the three verbs are proven.
+
+The instrument is committed, so whichever is chosen can be measured the same way.

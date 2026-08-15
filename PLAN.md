@@ -354,6 +354,16 @@ The author's four asks, and the three defects they uncovered. D31–D33 have the
 
 ---
 
+## M14 — Measured, open for the author
+
+- [x] `RoomsPayTests` measures what a hall is worth, at every dungeon size, on one policy and seed
+- [ ] **Halls beyond the third buy nothing.** The party reaches exactly three rooms in sixty seconds
+      whatever the size, so harvest saturates at 446 and `MaxRooms = 5` sells two inert halls. Two
+      rooms is also wrong in the other direction — the party escapes. See D29 for the numbers and the
+      three candidate fixes, which point in opposite directions and are the author's call.
+
+---
+
 ## Not until the three verbs are proven
 
 The spec is explicit: **do not add a fourth verb.** Anything below is off the table until M1's gate
