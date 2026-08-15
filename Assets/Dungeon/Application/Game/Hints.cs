@@ -153,8 +153,14 @@ namespace Dungeon.Game
                 "HURT, ALIVE AND STILL INSIDE PAYS BEST", sub,
                 new Color(0.88f, 0.86f, 0.95f, alpha), alpha, scale);
 
+            // The restraint is part of the instruction, not a footnote to it. Measured: a player who
+            // simply mashes the opening slime pit spawns twenty-five slimes and wipes the party, in
+            // the one raid whose own caption says not to -- and the starting dungeon is a single
+            // room, so it has no threshold, no door, and therefore none of the retreat valve SPEC
+            // calls the player's only mercy. "Tap the spawner to keep them busy" invited exactly
+            // that, and the review's verdict afterwards is a one-star NOBODY CAME BACK.
             Write(new Rect(left, top + (lineHeight * 2f), width, lineHeight),
-                "TAP THE SPAWNER TO KEEP THEM BUSY", sub,
+                "TAP THE SLIME PIT TO HOLD THEM  -  TOO MANY AND THEY DIE", sub,
                 new Color(0.72f, 0.7f, 0.82f, alpha), alpha, scale);
         }
 

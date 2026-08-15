@@ -111,6 +111,68 @@ namespace Dungeon.Game.Tests
             Assert.IsFalse(Hints.ShouldShow(9), "and neither is the tenth");
         }
 
+        /// <summary>Plays the opening raid, spawning up to a given number of live slimes.</summary>
+        /// <param name="atMost">How many slimes to keep alive at once. Zero means no limit.</param>
+        /// <param name="spawned">Receives how many were spawned in total.</param>
+        /// <returns>How the raid ended.</returns>
+        private RaidOutcome PressThePit(int atMost, out int spawned)
+        {
+            Raid raid = _game.CurrentRaid;
+            Vector2Int pit = raid.Layout.SpawnerCells[0];
+            int room = raid.Layout.Grid.RoomAt(pit);
+            spawned = 0;
+
+            while (raid.IsRunning)
+            {
+                if ((atMost <= 0 || raid.Mobs.CountInRoom(room) < atMost) && raid.SpawnMob(pit))
+                {
+                    spawned++;
+                }
+
+                raid.Tick(0.02f);
+            }
+
+            return raid.Outcome;
+        }
+
+        /// <summary>
+        /// The pace the opening hint describes holds the party without killing it.
+        /// </summary>
+        /// <remarks>
+        /// The coached raid has to be survivable by doing what it says. It is not survivable by
+        /// doing what it said <i>before</i>: "TAP THE SPAWNER TO KEEP THEM BUSY" invites mashing,
+        /// and mashing spawns twenty-five slimes and wipes the party — in the one raid whose own
+        /// caption reads DON'T KILL THE CHARGING TEAM, with a one-star "NOBODY CAME BACK" waiting on
+        /// the other side of it.
+        /// <para>
+        /// The line now says <i>TOO MANY AND THEY DIE</i>, and this is the measurement that the
+        /// advice is true: a couple of slimes at a time is a full clock and a good harvest. The
+        /// unlimited case is logged rather than forbidden, because being able to make that mistake
+        /// is the game — SPEC.md gives the player no way to call monsters off, and the regret is the
+        /// mechanic. It must be a mistake the player chooses, not one the caption walks them into.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ThePaceTheHintDescribes_HoldsThemWithoutKillingThem()
+        {
+            RaidOutcome paced = PressThePit(atMost: 2, out int pacedSpawns);
+            float pacedHarvest = _game.CurrentRaid.EnergyHarvested;
+
+            SetUp();
+            RaidOutcome mashed = PressThePit(atMost: 0, out int mashedSpawns);
+            float mashedHarvest = _game.CurrentRaid.EnergyHarvested;
+
+            MooseRunnerFacade.Log(
+                $"paced: {pacedSpawns} slimes, {paced}, harvested {pacedHarvest:F0}  /  "
+                + $"mashed: {mashedSpawns} slimes, {mashed}, harvested {mashedHarvest:F0}");
+
+            Assert.AreNotEqual(RaidOutcome.PartyWiped, paced,
+                $"holding two slimes on the party still killed them after {pacedSpawns} spawns, so "
+                + "the opening hint is advice that loses the raid it is printed on");
+            Assert.Greater(pacedHarvest, 150f,
+                $"the pace the hint describes earned only {pacedHarvest:F0}");
+        }
+
         /// <summary>Runs a raid to its end and reports how it went.</summary>
         /// <param name="spawn">Whether the player taps the spawner whenever they can afford to.</param>
         /// <param name="harvested">Receives the energy harvested.</param>

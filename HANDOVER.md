@@ -371,3 +371,58 @@ Four author requests, all shipped, with the reasoning in **D31–D33**:
 4. **The camera pans to keep the dungeon's own centre reachable** now, so a small dungeon sits in the
    middle of the frame instead of against the right edge. Worth a look on a phone in portrait, which
    is the aspect that framing rule is hardest on.
+
+## 2026-08-15 (later) — can it be played, and can it be won?
+
+Live on itch as **0.1.2608150956**. The page art and copy are in `Marketing/`, built from the
+game's own pixels by `python Tools/make-itch-art.py` — re-run it after any visual change.
+
+Nothing had ever *played* the game. `TenWholeRounds_LeaveTheGameIntact` walks the loop without
+spawning a monster, so the suite measured robustness and never playability, and `Phase.Won` had no
+public accessor — a state a test cannot observe is a state no test asserts.
+`RunProgressionTests` now plays whole seasons and sweeps the player's one judgement call.
+
+### The one thing that needs the author
+
+**A season played well is not winnable.** Best of four cease-fire settings reaches round 9 of 10;
+none of eight runs won. It is arithmetic rather than bad luck:
+
+- `FieldStrength` climbs to `FinalistPressure` (0.9) as rivals are eliminated, so the rivals' floor
+  rises to `22.5 + 427.5 × 0.9 = 407` against a ceiling of 450 — every survivor averages **~428 a
+  round** in the closing rounds.
+- The player's measured harvest across ~40 played raids is **246–435**, typically 320–400, with one
+  596 outlier. A dungeon capped at five rooms and sixty seconds cannot reliably beat 428.
+
+The dials are `LeagueTable.RivalHandicap`, `FinalistPressure`, and `GameController.MaxRooms`. D25
+reasons about that exact number, so nothing was changed; `RunProgressionTests` is the instrument to
+check any change against, and takes about a minute to run.
+
+### Fixed since the last note
+
+- **The winning ending had never been rendered by anything.** It draws now — and was announcing
+  "1 DUNGEONS LEFT. THE BOTTOM 1 ARE DESTROYED" with a red relegation line above the winner's own
+  row. Photograph: `Screenshots/05-the-winning-ending.png`.
+- **A "+ HALL" marker sat across the purse and the countdown.** A one-room dungeon has a free side
+  in all four directions, so the upward marker is offered from the first shop of every run and
+  clamped to the top of the screen. Markers and tile menus now clamp below the header.
+- **The collapse line was drawn in the player's green**, so "YOUR DUNGEON COLLAPSED IN 20th" read
+  as congratulation.
+- **The resolution sweep had never checked a portrait screen** despite existing to check small ones:
+  every case computed scale as `height / 720`, which matches the game in landscape and is four times
+  too large upright. Corrected, and phones added. Everything fits; what does not is tile size, which
+  is arithmetic — 31 cells across 360px is 11px each, and aiming there needs the pinch that only
+  started working today.
+- **Placement is not a refinement.** Buying onto the first buildable tile stacked every purchase
+  beside the entrance and produced raids harvesting *exactly zero* — the party met four monsters on
+  the threshold and died before the rate accrued anything. Buying deep removed wipes almost
+  entirely. That is D29 with the sharpest evidence yet, and it is worth saying somewhere the player
+  can hear it.
+
+### Known, deliberate, and worth a second opinion
+
+- **The opening dungeon has no door**, because one room has no threshold to put one in. The retreat
+  valve SPEC calls the player's only mercy therefore does not exist in round one, and a player who
+  simply mashes the slime pit spawns twenty-five slimes and wipes the party. The hint line now
+  carries the restraint — *TAP THE SLIME PIT TO HOLD THEM — TOO MANY AND THEY DIE* — rather than the
+  game removing the mistake, because being able to make it is the mechanic. If playtesting says new
+  players still drown their first party, the next lever is a door on the entrance, not a cap.
