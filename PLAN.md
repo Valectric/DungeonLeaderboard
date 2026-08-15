@@ -199,7 +199,7 @@ and so could not tell a tuned league from a formality: the player needs **400 a 
 
 ---
 
-## M9 — Walls, aggro, and paying for variety ▸ *planned, not started*
+## M9 — Walls, aggro, and paying for variety ▸ *done*
 
 Directed by the author after playing M8: more variation in the rate, a real aggro rule, solid walls,
 and a push toward Unity idiom (prefabs, built-in pathfinding).
@@ -247,7 +247,7 @@ in the **view**; the simulation stays plain C#, fixed-step, seeded and scene-fre
 
 ---
 
-## M10 — The end screen and the loading screen ▸ *requested, not started*
+## M10 — The end screen and the loading screen ▸ *done*
 
 Asked for by the author on 2026-08-14, after M9 Phase 5:
 
@@ -305,6 +305,47 @@ the harness before spending a generation. Budget two or three dry runs; they are
 
 The leaderboard is the title screen and that does not change — SPEC is explicit, and a loading
 screen is not a menu.
+
+---
+
+## M11 — Positioning, placement, and the second phone pass ▸ *done*
+
+Wounded members back off, the healer keeps its distance, the tank holds the line, and the mage
+blinks clear. Placement started paying for depth rather than proximity (D29). Portrait scaling and
+the healer's flee/return flicker were fixed from a phone report.
+
+---
+
+## M12 — The one-room opening ▸ *done, 2026-08-15*
+
+The author's four asks, and the three defects they uncovered. D31–D33 have the reasoning.
+
+- [x] The run opens on **one room, one slime pit, one chest**, placed through the loadout so the kit
+      previews, counts, blocks its tile and survives the grid being re-anchored
+- [x] "They left" re-defined, or a one-room raid ends at zero seconds — the party has to have gone in
+- [x] A **tap is decided on release**, so the first finger of a pinch is not a click
+- [x] A **retreating party forces the door barring its exit** — the safety valve is a valve again
+- [x] **First-raid hints** over the opening room, gone from round two
+- [x] `LeagueScreen.DrawStrip` threw out of `OnGUI` once rivals were eliminated
+- [x] `CanBuyHall` counted from a literal 3, killing the hall marker after two purchases
+- [x] The frame-budget test was averaging in every preceding test's scene load
+
+---
+
+## M13 — Can the game be played, and won? ▸ *measured, one open question*
+
+- [x] `RunProgressionTests` plays whole seasons and sweeps the player's one judgement call
+- [x] The winning ending reached, drawn and photographed for the first time — and fixed, because it
+      was announcing relegations at the winner
+- [x] The shop, the collapse screen and the mid-season table photographed; a hall marker was sitting
+      on the purse, and the collapse line was drawn in the winner's green
+- [x] Portrait screens added to the resolution sweep, which had been computing scale the landscape way
+- [x] itch page art and copy built from the game's own pixels (`Marketing/`)
+- [ ] **Open, and the author's call: the season is not winnable.** Best of four ways to play reaches
+      round 9 of 10. Rivals' floor climbs to 407 against a ceiling of 450 as the field shrinks, so
+      every survivor averages ~428 a round; a five-room dungeon on a sixty-second clock tops out
+      around 435. `RivalHandicap` / `FinalistPressure` / `MaxRooms` are the dials. D25 reasons about
+      that exact number, so it is not being changed here.
 
 ---
 
