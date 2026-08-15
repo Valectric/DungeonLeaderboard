@@ -406,3 +406,57 @@ What the photograph says to change, for whoever picks this up:
 - **Only the north-facing rim should be bright.** East and west should be much dimmer and south
   should carry shadow alone — the light in this dungeon comes from above, and lighting all four
   sides equally is what makes it read as an outline instead of as relief.
+
+## 14. The diagnosis was wrong, and this is what the tiles actually are
+
+Everything above §13 argues about texture, relief and lighting. All of it was treating a symptom.
+Measured on the shipped set in `Assets/Art/Resources/tiles/`:
+
+```
+pairwise tile-to-tile difference   11.5   (closest pair 0.3)
+within-tile neighbour-pixel noise   7.8
+ratio                               1.47x
+all 18 tiles fully opaque, alpha 255 everywhere
+```
+
+**The sixteen mask tiles are the same picture.** Tile-to-tile variation barely clears the texture's
+own grain, and the closest pair is identical to three decimal places. `wall-0` is an isolated pillar
+and `wall-15` is fully enclosed; they render identically. `DungeonScenery.WallMask` computes a
+correct mask and then selects between sixteen crops of one brick texture, so the autotiling has been
+**decorative since it was written** — the tilemap cannot express a wall boundary at all.
+
+This explains the author's report exactly. "The walls don't look like walls from slight angle but
+just pattern tiles in different colours" is not an impression to be argued with; it is a literal
+description of the files.
+
+It also explains why §13 failed three times. Relief drawn in code lights a wall/floor boundary, and
+there is no boundary anywhere in the set to light. A translucent quad over a uniform texture cannot
+invent one.
+
+### What this changes about the route
+
+- **A single seamless texture does not fix it.** §12 concluded "one seamless fill, then derive the
+  sixteen pieces by compositing quadrants". The first half is necessary and not sufficient: the
+  pieces have to encode *which corners are wall and which are floor*. That is the deliverable, and
+  it is the half that has never been attempted.
+- **Opacity is the tell.** A wall tile that touches floor must have transparent pixels, or a drawn
+  floor edge, on the side that faces it. Sixteen fully-opaque tiles is a set that has already lost.
+- **The check is now automated.** `Tools/validate-tileset.py` gained an `encodes_shape` gate: it
+  fails below 3x separation and reports 1.47x on the current set. Every other gate in that file
+  reads one tile in isolation, which is why all sixteen passed individually while being identical —
+  the same blind spot the file's own docstring warns about, in a new place.
+
+### The cheapest way out
+
+Buying a set that already encodes shape skips this entirely, and two candidates were verified by
+downloading and looking at the previews rather than reading the blurb:
+
+- **Szadi Rogue Fantasy Castle**, $3.20, 16x16, PSD included, licence explicitly public domain and
+  repo-safe — plus a free companion Catacombs pack.
+- **0x72 `dungeontileset-ii`**, CC0, whose file list carries `wall_outer_front`, `wall_outer_top_left`,
+  `wall_edge_left/right` and `doors_leaf_open/closed` — named boundary pieces, which is the property
+  this whole section is about.
+
+Do not buy anything from **Seliel the Shaper**, whose art is the best in the survey. The Mana Seed
+licence forbids use "in a project alongside 'AI' generated imagery, writing, code, or anything
+else", and this project is both AI-generated art and agent-written code.

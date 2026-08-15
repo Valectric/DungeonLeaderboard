@@ -94,6 +94,50 @@ def duplicates(paths):
     return [names for names in seen.values() if len(names) > 1]
 
 
+def encodes_shape(walls):
+    """
+    Whether the sixteen mask tiles actually differ from each other.
+
+    THE ONE THIS FILE MISSED. Every other gate here reads a tile on its own, so all sixteen can pass
+    individually while being the same picture -- which is exactly what shipped. Measured on the set
+    that prompted "the walls don't look like walls, just pattern tiles in different colours":
+
+        pairwise tile-to-tile difference   11.5   (min 0.3)
+        within-tile neighbour-pixel noise   7.8
+
+    Tile-to-tile variation barely clears the texture's own grain, and the closest pair is identical
+    to three decimal places. wall-0 is an isolated pillar and wall-15 is fully enclosed, and they
+    render the same, so DungeonScenery.WallMask computes a correct mask and then picks between
+    sixteen copies. The autotiling was decorative.
+
+    That is why three attempts at adding relief in code went nowhere: there is no wall/floor boundary
+    drawn anywhere in the set, and lighting a boundary that was never drawn cannot work. A tileset
+    has to encode WHERE the wall stops, and this gate is the cheapest possible check that it does.
+
+    Returns (ok, ratio, pairwise, noise). A real Wang set separates cleanly -- the reference set
+    measured 1.28 seam-to-interior, with tiles that differ structurally, not by crop.
+    """
+    import itertools
+
+    arrays = {}
+    for path in walls:
+        stem = os.path.basename(path)[len("wall-"):-len(".png")]
+        if stem.isdigit():
+            arrays[stem] = np.asarray(Image.open(path).convert("RGB"), dtype=np.float32)
+
+    if len(arrays) < 2:
+        return True, 0.0, 0.0, 0.0
+
+    pairs = [np.abs(a - b).mean() for a, b in itertools.combinations(arrays.values(), 2)]
+    noise = [np.abs(v[1:] - v[:-1]).mean() for v in arrays.values()]
+
+    pairwise, grain = float(np.mean(pairs)), float(np.mean(noise))
+    ratio = pairwise / grain if grain > 0 else 0.0
+
+    # Threefold is undemanding -- a genuine mask set differs by whole edges, not by texture.
+    return ratio >= 3.0, ratio, pairwise, grain
+
+
 def flat_cells(path, block=4):
     """
     Share of blocks that are a single colour.
@@ -153,6 +197,12 @@ def main():
 
         print(f"{name:16s} {'YES' if has_frame else 'no':>6s} {edge:6.1f} {inner:6.1f} "
               f"{flat:6.0%} {colours:6d}  {' '.join(required) if required else '-'}")
+
+    shaped, ratio, pairwise, grain = encodes_shape(walls)
+    if not shaped:
+        failures += 1
+    print(f"\nshape: tiles differ {pairwise:.1f} against grain {grain:.1f} = {ratio:.2f}x "
+          f"({'ok' if shaped else 'FAIL -- the mask tiles are the same picture'})")
 
     print(f"\n{failures} gate failures")
     return 1 if failures else 0
