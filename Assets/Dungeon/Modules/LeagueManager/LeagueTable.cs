@@ -147,12 +147,23 @@ namespace Dungeon.LeagueManager
         /// <remarks>
         /// Rivals are priced against what the player can actually do, because that is the only scale
         /// on which the table is a contest. Measured over the season sweeps, a raid the player barely
-        /// plays banks around 25 and a strong one around 500.
+        /// plays banks around 25 and a strong one around 430.
         /// </remarks>
         public const float BadRun = 25f;
 
         /// <summary>What a really good raid harvests, and the top of a rival's range.</summary>
-        public const float GoodRun = 500f;
+        /// <remarks>
+        /// <b>Measured, not chosen.</b> This read 500 for most of the project and no raid has ever
+        /// harvested it: the four play-styles in <c>RunProgressionTests</c> bank 226 to 434 across a
+        /// season, mean 308. A rival ceiling derived from 500 therefore sat <i>above</i> anything the
+        /// game can produce, which quietly inverted the promise on <see cref="RivalHandicap"/> —
+        /// there was no raid good enough that a rival could not have beaten it.
+        /// <para>
+        /// If the dungeon's earning power changes, re-measure and change this. It is a fact about the
+        /// game, and the two dials below are the design opinions applied on top of it.
+        /// </para>
+        /// </remarks>
+        public const float GoodRun = 430f;
 
         /// <summary>
         /// How far short of the player's own range a rival is held.
@@ -183,10 +194,23 @@ namespace Dungeon.LeagueManager
         /// </summary>
         /// <remarks>
         /// Short of 1 on purpose: at 1 the last rival would score exactly the same number every
-        /// round and the final would be an arithmetic check rather than a race. At 0.9 they roll
-        /// roughly 407 to 450, so the final is winnable but only with a genuinely good raid.
+        /// round and the final would be an arithmetic check rather than a race.
+        /// <para>
+        /// <b>This is the dial that was ending runs, and the ceiling was not.</b> The player's
+        /// harvest is flat across a season — 341 in round one and 359 in round seven, measured — while
+        /// this climb lifted the rivals' floor from 22 to 407. At 0.9 the final field rolled a mean of
+        /// 428 against a player mean of 308, so the last third of every season was arithmetically
+        /// lost however well it was played, and the four play-styles in <c>RunProgressionTests</c>
+        /// died in rounds five, six, seven and seven.
+        /// </para>
+        /// <para>
+        /// At 0.55 the final field rolls roughly 223 to 387 for a mean of 305, against that same
+        /// player mean of 308 — dead level, which is what "winnable but only with a genuinely good
+        /// raid" has to mean when written as arithmetic. Raise it again only alongside a dungeon that
+        /// earns more late than it does early; while the harvest is flat, this dial is a countdown.
+        /// </para>
         /// </remarks>
-        public const float FinalistPressure = 0.9f;
+        public const float FinalistPressure = 0.55f;
 
         /// <summary>
         /// How strong the surviving rivals are right now, from 0 in the opening round to
