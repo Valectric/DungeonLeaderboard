@@ -535,9 +535,17 @@ pure function of the grid. Code draws it perfectly; a generator draws it differe
 
 ### The state of the art, measured
 
-`python Tools/validate-tileset.py` — **main's own tiles score 68 gate failures**; the branch's score
-79. Main's art does not pass main's gate. The gate is new and the art predates it, but that is the
-honest number and the baseline any replacement must beat.
+`python Tools/validate-tileset.py` — **main's own tiles score 36 gate failures** (the branch's 79 was
+measured on the old gate and is not comparable). Main's art does not pass main's gate. The gate is
+new and the art predates it, but that is the honest number and the baseline any replacement must
+beat.
+
+**This read 68 until 2026-08-16, and 68 was wrong.** `side_coverage` asked luminance a question about
+transparency, so every wall pixel darker than the mean floor counted as missing art — about 32 of
+those 68 were that one false positive, and it is quoted as evidence in D28. The gate now measures
+alpha and is calibrated both ways: a transparent 4px margin scores 0% and fails, an opaque tile with
+a drawn shadow scores 100% and passes. Treat any validator figure written before that date as
+inflated.
 
 ### Branches
 

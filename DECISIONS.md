@@ -1204,3 +1204,30 @@ different parties and combat rolls, means over the three:
 exactly three rooms in sixty seconds whatever the dungeon's size and whoever walks in, so the
 saturation is not a draw artefact — it is the clock meeting the walk speed. Two of the four halls the
 shop sells remain provably inert, and the finding is now as solid as the instrument can make it.
+
+### D28 addendum — the 68 it cites was inflated by about half
+
+D28 quotes "68 gate failures" on main's own tiles as evidence of the art's state. That number was
+wrong, and wrong through the same class of mistake D28 is about.
+
+`side_coverage` exists to catch art that does not reach the canvas edge — a transparency question —
+and it was asking luminance. Every wall pixel darker than the mean floor therefore counted as missing
+art. With the gate measuring alpha instead, main's set scores **36**, so roughly 32 of the 68 were
+that single false positive.
+
+It would also have rejected good art on purchase day: both candidate tilesets draw base shadows, and
+a shadow along a tile's bottom edge read as an unsolid border at exactly the shadow's height — 88%
+against a 95% threshold on a synthetic pack, which is 8 rows of 64 after a x4 upscale.
+
+Calibrated both directions now, which is the step D28 was written about:
+
+```
+transparent 4px margin (the real fault)   N/E/S/W = 0%    fails
+opaque tile with a drawn shadow (fine)    E/W = 100%      passes
+```
+
+**The conclusion D28 draws is unaffected** — the art does not pass its own gate either way, and 36 is
+still a poor score. What changes is the size of the number, and that a figure quoted as evidence had
+never itself been checked. That is the third time in one day, and the shape is identical each time:
+the instrument was believed because it produced a number, not because anyone asked what the number
+was measuring.
