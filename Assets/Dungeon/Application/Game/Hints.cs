@@ -1,0 +1,234 @@
+using Dungeon.DungeonManager;
+using Dungeon.RaidManager;
+using UnityEngine;
+
+namespace Dungeon.Game
+{
+    /// <summary>
+    /// Coaching text drawn over the dungeon during the first raid of a run.
+    /// </summary>
+    /// <remarks>
+    /// The game has no tutorial and should not grow one — but it does have a rule that is the exact
+    /// opposite of what a dungeon game trains a player to expect: <b>killing the adventurers is
+    /// losing</b>. Nothing on the HUD says so. A new player spawns everything they can afford, wipes
+    /// the party in twenty seconds, watches the rate collapse and concludes the game is broken.
+    /// <para>
+    /// So the first raid, and only the first raid, is labelled: one headline over the room the party
+    /// walks into, and a small tag on each thing that can be tapped. From the second raid on the
+    /// board is bare again, because a label that never goes away stops being read and starts being
+    /// clutter.
+    /// </para>
+    /// <para>
+    /// Drawn in world space rather than as a HUD panel, so each instruction sits on the thing it is
+    /// talking about. A legend in the corner would make the player match names to sprites, which is
+    /// the work the label is supposed to save them.
+    /// </para>
+    /// </remarks>
+    public static class Hints
+    {
+        /// <summary>How long the headline stays up, in seconds of raid time.</summary>
+        /// <remarks>
+        /// Long enough to be read twice while the party is still walking in, short enough that the
+        /// end of the first raid -- the wounded, expensive part -- is not played through a caption.
+        /// </remarks>
+        public const float HeadlineSeconds = 18f;
+
+        /// <summary>Seconds the headline spends fading out at the end of its life.</summary>
+        private const float FadeSeconds = 2.5f;
+
+        /// <summary>Whether the hints should be drawn at all.</summary>
+        /// <remarks>
+        /// The first raid of a run is the one before anything has been banked, which is exactly
+        /// <c>Round == 0</c>. Read from the league rather than from a flag of its own so that
+        /// starting a new run after a collapse brings the hints back -- a player who lost in the
+        /// first minute is the player who most needs them.
+        /// </remarks>
+        /// <param name="round">League rounds completed so far.</param>
+        /// <returns>True during the first raid of a run.</returns>
+        public static bool ShouldShow(int round) => round == 0;
+
+        /// <summary>
+        /// Draws the first-raid hints over the dungeon.
+        /// </summary>
+        /// <param name="raid">The raid in progress.</param>
+        /// <param name="camera">Camera the dungeon is drawn with, for placing labels on cells.</param>
+        /// <param name="scale">UI scale, so this reads at the itch embed's 0.4.</param>
+        /// <param name="round">League rounds completed so far.</param>
+        public static void Draw(Raid raid, Camera camera, float scale, int round)
+        {
+            if (raid == null || camera == null || !ShouldShow(round))
+            {
+                return;
+            }
+
+            DungeonLayout layout = raid.Layout;
+
+            foreach (Vector2Int cell in layout.SpawnerCells)
+            {
+                Tag(camera, scale, cell,
+                    layout.SpawnerTierAt(cell) == 0 ? "SLIME PIT - TAP TO SPAWN" : "TAP TO SPAWN",
+                    new Color(0.6f, 0.95f, 0.55f));
+            }
+
+            foreach (Vector2Int cell in layout.ChestCells)
+            {
+                Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f));
+            }
+
+            foreach (Vector2Int cell in layout.TrapCells)
+            {
+                Tag(camera, scale, cell, "TAP TO WOUND", new Color(0.95f, 0.55f, 0.45f));
+            }
+
+            foreach (Door door in layout.Grid.Doors)
+            {
+                Tag(camera, scale, door.Cell, door.IsOpen ? "TAP TO SHUT" : "TAP TO OPEN",
+                    new Color(0.7f, 0.75f, 1f));
+            }
+
+            DrawHeadline(raid, camera, scale, layout);
+        }
+
+        /// <summary>Draws the one big instruction, over the room the party walks into.</summary>
+        /// <param name="raid">The raid in progress.</param>
+        /// <param name="camera">Camera the dungeon is drawn with.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="layout">The dungeon being raided.</param>
+        private static void DrawHeadline(
+            Raid raid, Camera camera, float scale, DungeonLayout layout)
+        {
+            float age = Raid.RaidSeconds - raid.TimeRemaining;
+            if (age >= HeadlineSeconds)
+            {
+                return;
+            }
+
+            float alpha = Mathf.Clamp01((HeadlineSeconds - age) / FadeSeconds);
+
+            // Over the first room, high enough to clear the party walking through it -- and kept
+            // wholly on screen. Anchored naively it ran off the right-hand edge and sat across the
+            // party's health bars, because the opening dungeon is one small room and the camera puts
+            // it wherever the world allows. The three lines are laid out as one block so they cannot
+            // drift apart from each other while being pushed back on screen.
+            Vector2Int anchor = layout.RoomCentres.Count > 0
+                ? layout.RoomCentres[0]
+                : layout.EntranceCell;
+
+            Vector2 point = GuiPointOf(camera, anchor);
+
+            float width = Mathf.Min(Screen.width - (16f * scale), 560f * scale);
+            float lineHeight = Mathf.Max(16f, 30f * scale);
+            float blockHeight = lineHeight * 3f;
+
+            // Above the room, unless that is off the top of the screen or under the HUD, in which
+            // case below it. The HUD's own rows end around a fifth of the way down.
+            float top = point.y - (86f * scale) - blockHeight;
+            if (top < Screen.height * 0.2f)
+            {
+                top = Mathf.Min(point.y + (70f * scale), Screen.height - blockHeight - (8f * scale));
+            }
+
+            float left = Mathf.Clamp(
+                point.x - (width * 0.5f), 8f * scale, Mathf.Max(8f * scale, Screen.width - width));
+
+            var headline = new GUIStyle(GUI.skin.label)
+            {
+                // Floored with a minimum: the itch embed runs at 0.4 scale, which is where an
+                // unfloored size once landed at eight-and-a-bit pixels and became unreadable.
+                fontSize = Mathf.Max(12, Mathf.RoundToInt(24 * scale)),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            var sub = new GUIStyle(headline)
+            {
+                fontSize = Mathf.Max(9, Mathf.RoundToInt(14 * scale))
+            };
+
+            Write(new Rect(left, top, width, lineHeight),
+                "DON'T KILL THE CHARGING TEAM", headline,
+                new Color(1f, 0.55f, 0.55f, alpha), alpha, scale);
+
+            Write(new Rect(left, top + lineHeight, width, lineHeight),
+                "HURT, ALIVE AND STILL INSIDE PAYS BEST", sub,
+                new Color(0.88f, 0.86f, 0.95f, alpha), alpha, scale);
+
+            Write(new Rect(left, top + (lineHeight * 2f), width, lineHeight),
+                "TAP THE SPAWNER TO KEEP THEM BUSY", sub,
+                new Color(0.72f, 0.7f, 0.82f, alpha), alpha, scale);
+        }
+
+        /// <summary>Draws a small label above a dungeon cell.</summary>
+        /// <param name="camera">Camera the dungeon is drawn with.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="cell">Cell to label.</param>
+        /// <param name="text">What to say.</param>
+        /// <param name="colour">Colour to say it in.</param>
+        private static void Tag(
+            Camera camera, float scale, Vector2Int cell, string text, Color colour)
+        {
+            Vector2 point = GuiPointOf(camera, cell);
+
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)),
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            // Kept on screen, for the same reason the headline is: a spawner near the edge of the
+            // frame would otherwise have half its label cut off, and half a label is worse than
+            // none -- the player reads it as the game clipping.
+            float width = Mathf.Min(220f * scale, Screen.width);
+            float left = Mathf.Clamp(point.x - (width * 0.5f), 0f, Mathf.Max(0f, Screen.width - width));
+
+            // Above the thing it names, except in the top third of the screen, where the headline
+            // lives -- the opening chest sits on the room's top row and its label landed straight
+            // across "DON'T KILL THE CHARGING TEAM".
+            float lift = point.y < Screen.height * 0.36f ? -30f * scale : 34f * scale;
+            float top = Mathf.Clamp(point.y - lift, 0f, Screen.height - (20f * scale));
+
+            Write(new Rect(left, top, width, 20f * scale), text, style, colour, 1f, scale);
+        }
+
+        /// <summary>
+        /// Draws text with a dark copy behind it.
+        /// </summary>
+        /// <remarks>
+        /// The dungeon floor is violet-black in some places and lit stone in others, and a single
+        /// colour is unreadable over one or the other. A one-pixel shadow costs a second draw call
+        /// and works over both, which a panel behind the text would not -- a panel would hide the
+        /// thing the label is pointing at.
+        /// </remarks>
+        /// <param name="rect">Where to draw.</param>
+        /// <param name="text">What to draw.</param>
+        /// <param name="style">Style to draw it in.</param>
+        /// <param name="colour">Colour of the text itself.</param>
+        /// <param name="alpha">Opacity, applied to the shadow as well.</param>
+        /// <param name="scale">UI scale, so the offset holds at every size.</param>
+        private static void Write(
+            Rect rect, string text, GUIStyle style, Color colour, float alpha, float scale)
+        {
+            var shadow = new GUIStyle(style);
+            shadow.normal.textColor = new Color(0.03f, 0.02f, 0.05f, alpha * 0.85f);
+            GUI.Label(
+                new Rect(rect.x + Mathf.Max(1f, 2f * scale), rect.y + Mathf.Max(1f, 2f * scale),
+                    rect.width, rect.height),
+                text, shadow);
+
+            var front = new GUIStyle(style);
+            front.normal.textColor = colour;
+            GUI.Label(rect, text, front);
+        }
+
+        /// <summary>Where a dungeon cell sits on screen, in GUI space.</summary>
+        /// <param name="camera">Camera the dungeon is drawn with.</param>
+        /// <param name="cell">Cell to locate.</param>
+        /// <returns>The point in GUI space.</returns>
+        private static Vector2 GuiPointOf(Camera camera, Vector2Int cell)
+        {
+            Vector3 screen = camera.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+            return new Vector2(screen.x, Screen.height - screen.y);
+        }
+    }
+}

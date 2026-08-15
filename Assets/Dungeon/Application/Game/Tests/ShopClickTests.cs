@@ -142,11 +142,15 @@ namespace Dungeon.Game.Tests
 
             Assert.IsTrue(_game.IsShopping, "the controller should be in the shop");
 
+            // Counted as a delta, not against zero: a run opens with a slime pit and a chest already
+            // standing in its one room, so the loadout is never empty even before the first shop.
+            int before = _game.Loadout.Count(ShopItem.Chest);
+
             Vector2Int cell = BuildableCell();
             _game.TapShop(TilePoint(cell));
             _game.TapShop(PopupRowPoint(cell, ShopItem.Chest));
 
-            Assert.AreEqual(0, _game.Loadout.Count(ShopItem.Chest),
+            Assert.AreEqual(before, _game.Loadout.Count(ShopItem.Chest),
                 "the shop opened with an empty purse, so the tap should have bought nothing");
         }
 
@@ -164,22 +168,27 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
+            // Deltas throughout: the run opens with a slime pit and a chest already placed, so two of
+            // these items start at one rather than at zero.
+            int totalBefore = _game.Loadout.Total;
+
             var placed = new List<(ShopItem item, Vector2Int cell)>();
             for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
                 ShopItem item = ShopScreen.Items[i];
                 Vector2Int cell = BuildableCell();
+                int before = _game.Loadout.Count(item);
 
                 _game.TapShop(TilePoint(cell));
                 _game.TapShop(PopupRowPoint(cell, item));
 
                 MooseRunnerFacade.Log($"bought {item} onto {cell}");
-                Assert.AreEqual(1, _game.Loadout.Count(item),
+                Assert.AreEqual(before + 1, _game.Loadout.Count(item),
                     $"tapping the {item} row should have bought exactly one {item}");
                 placed.Add((item, cell));
             }
 
-            Assert.AreEqual(ShopScreen.Items.Length, _game.Loadout.Total,
+            Assert.AreEqual(totalBefore + ShopScreen.Items.Length, _game.Loadout.Total,
                 "one purchase per placeable item");
 
             DungeonLayout layout = _game.CurrentRaid.Layout;
@@ -245,14 +254,24 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
-            for (int i = 0; i < 6; i++)
+            int roomsBefore = _game.CurrentRaid.Layout.RoomCentres.Count;
+
+            for (int i = 0; i < 8; i++)
             {
                 _game.TapShop(HallMarkerPoint());
+                MooseRunnerFacade.Log(
+                    $"hall tap {i + 1}: {_game.CurrentRaid.Layout.RoomCentres.Count} rooms, "
+                    + $"{_game.Loadout.Count(ShopItem.Door)} bought, "
+                    + $"purse {_game.CurrentShop.Purse:F0}");
             }
 
             Assert.AreEqual(5, _game.CurrentRaid.Layout.RoomCentres.Count,
                 "the corridor must stop at its cap");
-            Assert.AreEqual(2, _game.Loadout.Count(ShopItem.Door),
+
+            // Every hall between the room the run opens with and the cap, and not one more. Written
+            // as the difference rather than as a number, because the run now opens on ONE room and a
+            // literal here would have to be edited every time that changes.
+            Assert.AreEqual(5 - roomsBefore, _game.Loadout.Count(ShopItem.Door),
                 "and must not keep charging for halls it will not build");
         }
 
@@ -289,11 +308,14 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
+            int before = _game.Loadout.Total;
+
             Vector2Int cell = BuildableCell();
             _game.TapShop(TilePoint(cell));
             _game.TapShop(new Vector2(2f, Screen.height - 4f));
 
-            Assert.AreEqual(0, _game.Loadout.Total, "dismissing must not spend the player's energy");
+            Assert.AreEqual(before, _game.Loadout.Total,
+                "dismissing must not spend the player's energy");
         }
 
         /// <summary>Tapping solid rock buys nothing and opens nothing.</summary>
@@ -303,10 +325,16 @@ namespace Dungeon.Game.Tests
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
-            _game.TapShop(TilePoint(new Vector2Int(-8, -8)));
-            _game.TapShop(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            int before = _game.Loadout.Total;
 
-            Assert.AreEqual(0, _game.Loadout.Total,
+            // Both points are off the dungeon: solid rock, then the very corner of the canvas. The
+            // screen centre used to be the second one and no longer works -- with a single room the
+            // dungeon is framed large enough that the middle of the screen is a buildable tile, so
+            // the "stray" tap was landing on a menu row and buying exactly what the test forbids.
+            _game.TapShop(TilePoint(new Vector2Int(-8, -8)));
+            _game.TapShop(new Vector2(2f, Screen.height - 4f));
+
+            Assert.AreEqual(before, _game.Loadout.Total,
                 "a stray tap must not spend the player's energy");
         }
 
@@ -368,6 +396,11 @@ namespace Dungeon.Game.Tests
         {
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
+
+            // A hall first. The run opens on a single room, and five purchases scattered across one
+            // room leave the decorator no free floor at all -- the test then passes nothing to check
+            // and fails on its own "was anything decorated" guard rather than on what it is for.
+            _game.TapShop(HallMarkerPoint());
 
             // Furnish a spread of tiles so fittings land in the decoration spots.
             for (int i = 0; i < ShopScreen.Items.Length; i++)

@@ -248,6 +248,14 @@ namespace Dungeon.Game
         /// <remarks>
         /// A window around the player rather than the whole table: during a raid the only question
         /// that matters is how close the relegation line is, and twenty rows would bury it.
+        /// <para>
+        /// Sized off the table's <b>current</b> length rather than off <c>LeagueTable.Size</c>, which
+        /// is the length it <i>started</i> at. Rivals are eliminated as the run goes on, so the two
+        /// diverge from the first relegation onward -- and the window was being clamped into rows
+        /// that no longer existed. It threw <c>ArgumentOutOfRangeException</c> out of <c>OnGUI</c>,
+        /// which takes the rest of the frame's interface down with it: the clock, the rate, the
+        /// harvest. Late in a winning run, exactly when the standings are most worth reading.
+        /// </para>
         /// </remarks>
         /// <param name="league">Table to show.</param>
         /// <param name="scale">UI scale.</param>
@@ -255,8 +263,9 @@ namespace Dungeon.Game
         public static void DrawStrip(LeagueTable league, float scale, float liveScore)
         {
             const int window = 2;
+            int rows = league.Entries.Count;
             int centre = league.PlayerPosition - 1;
-            int first = Mathf.Clamp(centre - window, 0, LeagueTable.Size - ((window * 2) + 1));
+            int first = Mathf.Clamp(centre - window, 0, Mathf.Max(0, rows - ((window * 2) + 1)));
             float rowHeight = 18f * scale;
             float width = 220f * scale;
             float x = Screen.width - width - (16f * scale);
@@ -266,10 +275,10 @@ namespace Dungeon.Game
             label.normal.textColor = Dim;
             GUI.Label(new Rect(x, y - (16f * scale), width, rowHeight), "STANDINGS", label);
 
-            for (int i = first; i < first + (window * 2) + 1 && i < LeagueTable.Size; i++)
+            for (int i = first; i < first + (window * 2) + 1 && i < rows; i++)
             {
                 LeagueEntry entry = league.Entries[i];
-                bool doomed = i >= LeagueTable.Size - LeagueTable.RelegationCount;
+                bool doomed = i >= rows - league.EliminationsThisRound;
                 var row = new Rect(x, y + ((i - first) * rowHeight), width, rowHeight);
 
                 var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(12 * scale) };

@@ -133,6 +133,9 @@ namespace Dungeon.PartyManager
         private readonly DungeonGrid _grid;
         private readonly Vector2Int _bossCell;
         private readonly IReadOnlyList<Vector2Int> _roomCentres;
+
+        /// <summary>Whether the caller supplied real room centres rather than leaving them null.</summary>
+        private readonly bool _hasRoomPlan;
         private readonly Vector2Int _entranceCell;
         private readonly HashSet<Vector2Int> _looted = new();
         private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
@@ -327,6 +330,10 @@ namespace Dungeon.PartyManager
             _grid = grid;
             _entranceCell = entranceCell;
             _bossCell = bossCell;
+            // Whether the caller described a real dungeon or left it to be inferred. Tests written
+            // before exploration existed pass nothing and keep the old boss-cell ending; anything
+            // built from a room plan explores and walks back out, however few rooms it has.
+            _hasRoomPlan = roomCentres is { Count: > 0 };
             _roomCentres = roomCentres ?? new List<Vector2Int> { bossCell };
             Composition = composition ?? PartyComposition.Opening;
 
@@ -401,13 +408,20 @@ namespace Dungeon.PartyManager
             // tank that still fancies its chances.
             if (Goal == PartyGoal.Retreating)
             {
-                MoveAlongPath(leader, _entranceCell, deltaTime, traps);
+                // Run for the door rather than for the entrance when a shut one is in the way. The
+                // entrance is unreachable through it, so pathing there returns nothing and the party
+                // simply stands still -- which is what a player who shut the door behind them saw.
+                Door barred = DoorBlockingExit(leader);
+                Vector2Int refuge = barred != null ? ApproachCell(barred, leader) : _entranceCell;
+
+                MoveAlongPath(leader, refuge, deltaTime, traps);
                 RecordTrail(leader.Position);
                 for (int rank = 1; rank < living.Count; rank++)
                 {
                     Glide(living[rank], PositionBehind(rank * FollowSpacing), deltaTime);
                 }
 
+                ForceDoors(leader, deltaTime, threats.Count);
                 AssignActions(threats);
                 return;
             }
@@ -481,11 +495,17 @@ namespace Dungeon.PartyManager
             AssignActions(threats);
 
             // The raid ends when they leave, not when they touch one particular room. A party that
-            // has seen everything turns round and walks out the way it came in. Dungeons built
-            // without room centres keep the old boss-cell ending, which is every test written before
-            // exploration existed.
-            bool left = _roomCentres.Count > 1
-                ? HasExploredEverything && Cell == _entranceCell
+            // has seen everything AND has been as deep as the dungeon goes turns round and walks out
+            // the way it came in. Dungeons built without room centres keep the old boss-cell ending,
+            // which is every test written before exploration existed.
+            //
+            // The depth clause is what makes a ONE-ROOM dungeon a raid rather than a formality.
+            // Entrance and deepest cell sit in the same room there, so "explored everything and
+            // standing on the entrance" is true on the very first tick -- the party would have
+            // escaped before taking a step and the raid would end at zero seconds. In a corridor the
+            // clause costs a couple of cells of walking at the far end and nothing else.
+            bool left = _hasRoomPlan
+                ? HasExploredEverything && ReachedDepth && Cell == _entranceCell
                 : Cell == _bossCell;
 
             if (Goal != PartyGoal.Fighting && left)
@@ -596,10 +616,16 @@ namespace Dungeon.PartyManager
             }
 
             // Explore rather than walk a line to a fixed boss room: head for the nearest room not
-            // yet seen, and once they have all been seen, leave by the way in. That is what makes
-            // the player's placements steer anything -- a party choosing where to go can be tempted
-            // by a chest or held up by a monster; a party walking to one fixed cell cannot.
-            Vector2Int destination = NearestUnvisitedRoomCentre(leader) ?? _entranceCell;
+            // yet seen, then to the deepest cell, and only then leave by the way in. That is what
+            // makes the player's placements steer anything -- a party choosing where to go can be
+            // tempted by a chest or held up by a monster; a party walking to one fixed cell cannot.
+            //
+            // The middle step exists for the one-room dungeon the game now opens with. There is
+            // nothing unvisited there from the first tick, so without it the objective is the
+            // entrance the party is already standing on, and they walk in and straight back out --
+            // or, more precisely, never walk in at all.
+            Vector2Int destination = NearestUnvisitedRoomCentre(leader)
+                                     ?? (ReachedDepth ? _entranceCell : _bossCell);
 
             List<Vector2Int> path = _grid.FindPath(leader.Cell, destination);
             foreach (Vector2Int cell in path)
@@ -625,7 +651,39 @@ namespace Dungeon.PartyManager
         /// <returns>The door to deal with, or null when the way is clear.</returns>
         private Door BlockingDoor(Adventurer leader)
         {
-            if (_grid.FindPath(leader.Cell, _bossCell).Count > 0)
+            return ShutDoorOnWayTo(_bossCell, leader);
+        }
+
+        /// <summary>
+        /// The shut door standing between the party and the way out, if any.
+        /// </summary>
+        /// <remarks>
+        /// A retreating party has a different obstacle from an advancing one, and asking the wrong
+        /// question strands them: the door barring the route deeper is frequently not the door
+        /// barring the route home. Shutting the door a party has just walked through is the player's
+        /// most natural move, and it used to leave them standing against it for the rest of the raid.
+        /// </remarks>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>The door to deal with, or null when the way out is clear.</returns>
+        private Door DoorBlockingExit(Adventurer leader)
+        {
+            return ShutDoorOnWayTo(_entranceCell, leader);
+        }
+
+        /// <summary>
+        /// The shut door standing between the party and somewhere it wants to be.
+        /// </summary>
+        /// <remarks>
+        /// Found by asking whether a route exists at all, then looking for a shut door on this
+        /// room's threshold. Pathfinding cannot answer this directly -- a closed door is simply not
+        /// walkable, so the route it would have been on does not exist.
+        /// </remarks>
+        /// <param name="destination">Where the party is trying to get to.</param>
+        /// <param name="leader">Whoever is at the front.</param>
+        /// <returns>The door to deal with, or null when the way is clear.</returns>
+        private Door ShutDoorOnWayTo(Vector2Int destination, Adventurer leader)
+        {
+            if (leader.Cell == destination || _grid.FindPath(leader.Cell, destination).Count > 0)
             {
                 return null;
             }
@@ -908,12 +966,18 @@ namespace Dungeon.PartyManager
             WorkingOnDoor = null;
             PickingLock = false;
 
-            if (threats > 0 || Goal == PartyGoal.Retreating)
+            bool fleeing = Goal == PartyGoal.Retreating;
+
+            // Fighting comes first -- unless the party is running, in which case the door IS the
+            // escape. A wounded party pinned against a shut door it will not touch is the one stall
+            // with no answer in the game: the player's safety valve is opening a door behind them,
+            // and it is worth nothing if the party will not use a door it can open itself.
+            if (threats > 0 && !fleeing)
             {
                 return;
             }
 
-            Door door = BlockingDoor(leader);
+            Door door = fleeing ? DoorBlockingExit(leader) : BlockingDoor(leader);
             if (door == null)
             {
                 return;
@@ -1147,7 +1211,28 @@ namespace Dungeon.PartyManager
             }
 
             HasExploredEverything = _visited.Count >= _roomCentres.Count;
+
+            // Latched, not sampled: they went in once and it stays true, so a party walking back
+            // out does not lose the fact the moment it steps off the cell.
+            ReachedDepth |= _visited.Count > 1 || leader.Cell == _bossCell;
         }
+
+        /// <summary>
+        /// Whether the party has actually gone into the dungeon.
+        /// </summary>
+        /// <remarks>
+        /// The other half of "they are done here", alongside <see cref="HasExploredEverything"/>,
+        /// and it exists entirely for the <b>single-room</b> dungeon the game now opens with. There,
+        /// the entrance and the deepest cell share a room: every room has been visited on the first
+        /// tick, the party is standing on the entrance, and "explored everything and back at the
+        /// door" is therefore true before anybody has moved. The raid would end at zero seconds.
+        /// <para>
+        /// Crossing into a second room settles it in any larger dungeon, which is why this costs a
+        /// corridor nothing: it is already true long before exploration finishes. Only a one-room
+        /// dungeon has to earn it by walking to the far wall.
+        /// </para>
+        /// </remarks>
+        public bool ReachedDepth { get; private set; }
 
         /// <summary>Picks a goal from the party's health and what is in the room with it.</summary>
         /// <param name="threatsInRoom">Living mobs the party can see.</param>

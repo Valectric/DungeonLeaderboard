@@ -151,6 +151,11 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask ANewRun_StartsClean(CancellationToken ct)
         {
+            // What a run opens with: one slime pit and one chest, standing in its single room. The
+            // comparison below is against this rather than against zero, because "clean" means the
+            // dungeon the game hands a new player, not an empty one.
+            int opening = _game.Loadout.Total;
+
             _game.OpenShopWith(5000f);
             await UniTask.Yield(ct);
 
@@ -158,14 +163,16 @@ namespace Dungeon.Game.Tests
             BuyOntoAnEmptyTile(ShopManager.ShopItem.Slime);
             BuyOntoAnEmptyTile(ShopManager.ShopItem.SpikeTrap);
 
-            Assert.Greater(_game.Loadout.Total, 0, "the test needs to have bought something");
+            Assert.Greater(_game.Loadout.Total, opening, "the test needs to have bought something");
             int bought = _game.Loadout.Total;
 
             _game.NewRun();
             await UniTask.Yield(ct);
 
-            MooseRunnerFacade.Log($"loadout {bought} before a new run, {_game.Loadout.Total} after");
-            Assert.AreEqual(0, _game.Loadout.Total, "purchases survived into a fresh run");
+            MooseRunnerFacade.Log(
+                $"loadout {bought} before a new run, {_game.Loadout.Total} after, "
+                + $"opening kit {opening}");
+            Assert.AreEqual(opening, _game.Loadout.Total, "purchases survived into a fresh run");
             Assert.AreSame(PartyManager.PartyComposition.Opening, _game.NextParty,
                 "a fresh run should open on the balanced party");
         }

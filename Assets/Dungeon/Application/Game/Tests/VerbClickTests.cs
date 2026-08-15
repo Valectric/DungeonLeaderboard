@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Dungeon.DungeonManager;
 using Dungeon.RaidManager;
+using Dungeon.ShopManager;
 using MooseRunner;
 using NUnit.Framework;
 using UnityEngine;
@@ -65,10 +66,109 @@ namespace Dungeon.Game.Tests
             return camera.WorldToScreenPoint(DungeonView.CellToWorld(cell));
         }
 
+        /// <summary>UI scale the controller draws the shop at.</summary>
+        private static float Scale =>
+            Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
+
+        /// <summary>The same point in GUI space, which the drawing code measures from the top.</summary>
+        /// <param name="cell">Cell to locate.</param>
+        /// <returns>The anchor the popup and the markers are laid out from.</returns>
+        private static Vector2 GuiPointOver(Vector2Int cell)
+        {
+            Vector2 point = ScreenPointOver(cell);
+            return new Vector2(point.x, Screen.height - point.y);
+        }
+
+        /// <summary>
+        /// Buys a hall and a spike trap through the shop, so the dungeon has both to click.
+        /// </summary>
+        /// <remarks>
+        /// The run opens on a <b>single room with no door and no trap</b>, so two of the three verbs
+        /// have nothing to act on until the player has bought something. Rather than build a dungeon
+        /// the game would never hand out, this presses the same shop controls a player presses —
+        /// which also means these tests now cover the thing that makes a door exist at all.
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The awaitable purchase.</returns>
+        private static async UniTask BuyAHallAndATrap(CancellationToken ct)
+        {
+            GameController game = Controller;
+            game.OpenShopWith(5000f);
+            await UniTask.Yield(ct);
+
+            Vector2Int lattice = game.CurrentRaid.Layout.Plan.Expansions()[0];
+            Rect marker = ShopScreen.HallMarkerRect(
+                GuiPointOver(game.CurrentRaid.Layout.CentreOfLattice(lattice)),
+                Scale, Screen.width, Screen.height);
+            game.TapShop(new Vector2(marker.center.x, Screen.height - marker.center.y));
+
+            Vector2Int cell = FirstBuildableCell(game);
+            game.TapShop(ScreenPointOver(cell));
+
+            Rect[] rows = ShopScreen.PopupRows(
+                GuiPointOver(cell), Scale, Screen.width, Screen.height);
+            for (int i = 0; i < ShopScreen.Items.Length; i++)
+            {
+                if (ShopScreen.Items[i] == ShopItem.SpikeTrap)
+                {
+                    game.TapShop(new Vector2(rows[i].center.x, Screen.height - rows[i].center.y));
+                }
+            }
+
+            Rect ready = ShopScreen.ReadyRect(Scale, Screen.width, Screen.height);
+            game.TapShop(new Vector2(ready.center.x, Screen.height - ready.center.y));
+
+            // The controller starts the raid on the frame after it notices the shop closed.
+            await UniTask.Yield(ct);
+            await UniTask.Yield(ct);
+        }
+
+        /// <summary>The first tile the player is allowed to build on.</summary>
+        /// <param name="game">Controller whose dungeon to search.</param>
+        /// <returns>A buildable cell.</returns>
+        private static Vector2Int FirstBuildableCell(GameController game)
+        {
+            DungeonLayout layout = game.CurrentRaid.Layout;
+            for (int y = 0; y < layout.Grid.Height; y++)
+            {
+                for (int x = 0; x < layout.Grid.Width; x++)
+                {
+                    var cell = new Vector2Int(x, y);
+                    if (layout.CanBuildOn(cell))
+                    {
+                        return cell;
+                    }
+                }
+            }
+
+            Assert.Fail("the dungeon offered nowhere to build");
+            return default;
+        }
+
+        /// <summary>A dungeon with one room has no door, and gains one when a hall is bought.</summary>
+        /// <remarks>
+        /// The premise the two door tests below stand on, asserted rather than assumed: if buying a
+        /// hall ever stopped producing a door, those tests would fail with an index error and read
+        /// as a broken click handler.
+        /// </remarks>
+        [Test]
+        public async UniTask BuyingAHall_GivesTheDungeonADoor(CancellationToken ct)
+        {
+            Assert.AreEqual(0, Controller.CurrentRaid.Layout.Grid.Doors.Count,
+                "the run opens on a single room, which has nothing to put a door in");
+
+            await BuyAHallAndATrap(ct);
+
+            Assert.AreEqual(1, Controller.CurrentRaid.Layout.Grid.Doors.Count,
+                "a bought hall must arrive joined to the dungeon by a door");
+        }
+
         /// <summary>Clicking a door toggles it -- the primary verb and the game's safety valve.</summary>
         [Test]
         public async UniTask ClickingADoor_TogglesIt(CancellationToken ct)
         {
+            await BuyAHallAndATrap(ct);
+
             Raid raid = Controller.CurrentRaid;
             Door door = raid.Layout.Grid.Doors[0];
             bool before = door.IsOpen;
@@ -84,6 +184,8 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask ClickingADoorTwice_ReturnsItToTheStart(CancellationToken ct)
         {
+            await BuyAHallAndATrap(ct);
+
             Raid raid = Controller.CurrentRaid;
             Door door = raid.Layout.Grid.Doors[0];
             bool before = door.IsOpen;
@@ -132,6 +234,8 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask ClickingATrap_FiresIt(CancellationToken ct)
         {
+            await BuyAHallAndATrap(ct);
+
             Raid raid = Controller.CurrentRaid;
             Vector2Int trap = raid.Layout.TrapCells[0];
             float before = raid.TotalEnergy;

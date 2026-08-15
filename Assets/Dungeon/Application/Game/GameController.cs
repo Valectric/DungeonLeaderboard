@@ -10,7 +10,6 @@ using Dungeon.RaidManager;
 using Dungeon.ShopManager;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls;
 
 namespace Dungeon.Game
 {
@@ -79,6 +78,9 @@ namespace Dungeon.Game
         private int _partySeed;
         private RaidReview _review;
         private float _reviewAge;
+
+        /// <summary>Reads clicks and taps, and tells a pinch apart from a tap.</summary>
+        private readonly TapReader _taps = new();
 
         /// <summary>The last raid's review, or null before any raid has finished.</summary>
         public RaidReview LastReview => _review;
@@ -150,6 +152,7 @@ namespace Dungeon.Game
             _phase = Phase.Standings;
             _shift = 1f;
             _loadout = new Loadout();
+            StockStarterRoom();
             _shop = null;
             _bonusEnergy = 0f;
             _carriedEnergy = 0f;
@@ -244,13 +247,54 @@ namespace Dungeon.Game
         private const int MaxRooms = 5;
 
         /// <summary>
-        /// Rooms the dungeon opens with, and the only ones that come furnished.
+        /// Rooms the dungeon opens with.
         /// </summary>
         /// <remarks>
-        /// Everything beyond this is a hall the player bought, and a bought hall is bare floor until
-        /// they put something in it.
+        /// One, on the author's instruction: <i>"the starter dungeon should just be one room with one
+        /// slime pit and one chest"</i>. Everything beyond it is a hall the player bought, and a
+        /// bought hall is bare floor until they put something in it.
+        /// <para>
+        /// It doubles as the cutoff for the builder's automatic furnishing, which starts at room 1 —
+        /// so at this value nothing is auto-placed at all and the opening kit is
+        /// <see cref="StockStarterRoom"/>'s two items, on cells the player can see and the shop
+        /// treats exactly like anything else they own.
+        /// </para>
         /// </remarks>
-        private const int StartingRooms = 3;
+        private const int StartingRooms = 1;
+
+        /// <summary>
+        /// Puts the opening slime pit and chest into the one room the run starts with.
+        /// </summary>
+        /// <remarks>
+        /// The whole starting dungeon, and deliberately tiny: one room, one slime pit, one chest.
+        /// A new player has three things to learn — that the party must be kept alive, that a
+        /// spawner is a tap, and that a chest buys seconds — and a three-hall corridor stocked with
+        /// skeletons and spike traps taught none of them, because there was too much on the board to
+        /// attribute anything to anything.
+        /// <para>
+        /// Placed through the <see cref="Loadout"/> rather than by the layout builder, so the opening
+        /// kit is the same kind of object as everything bought later: it shows in the shop's preview,
+        /// counts toward the dungeon's value, blocks its own tile, and is carried along by
+        /// <see cref="Loadout.Translate"/> when a hall bought to the left or below re-anchors the
+        /// grid. Furniture the builder stamps in has none of that and would drift into the rock.
+        /// </para>
+        /// <para>
+        /// The cells come from a throwaway build of the same plan rather than from arithmetic on
+        /// room sizes, because the room's geometry is the builder's business and a hardcoded cell
+        /// here would be wrong the day a room stops being five by five.
+        /// </para>
+        /// </remarks>
+        private void StockStarterRoom()
+        {
+            DungeonLayout bare = DungeonLayout.Build(
+                PlannedRooms(), furnishedRooms: StartingRooms);
+            Vector2Int centre = bare.RoomCentres[0];
+
+            // Off the entrance-to-boss line, which runs through the centre: furniture standing on it
+            // would be walked over rather than walked to, and the chest's whole job is the detour.
+            _loadout.Add(ShopItem.Slime, centre + new Vector2Int(1, -2));
+            _loadout.Add(ShopItem.Chest, centre + new Vector2Int(-1, 2));
+        }
 
         /// <summary>Builds the dungeon the player has paid for.</summary>
         /// <returns>The layout for the next raid.</returns>
@@ -270,14 +314,14 @@ namespace Dungeon.Game
         /// The shape of the dungeon the player has paid for.
         /// </summary>
         /// <remarks>
-        /// Three rooms in a line to start with, as the game has always opened, plus whatever
-        /// directions have been bought since. Capped at <see cref="MaxRooms"/>: a corridor that keeps
-        /// growing eventually cannot be crossed in sixty seconds.
+        /// One room to start with, plus whatever directions have been bought since. Capped at
+        /// <see cref="MaxRooms"/>: a corridor that keeps growing eventually cannot be crossed in
+        /// sixty seconds.
         /// </remarks>
         /// <returns>The plan to build.</returns>
         private RoomPlan PlannedRooms()
         {
-            RoomPlan plan = RoomPlan.Corridor(3);
+            RoomPlan plan = RoomPlan.Corridor(StartingRooms);
             foreach (Vector2Int lattice in _boughtHalls)
             {
                 if (plan.Count >= MaxRooms)
@@ -379,9 +423,10 @@ namespace Dungeon.Game
             float dungeonFit = Mathf.Max(dungeonHalfHeight, dungeonHalfWidth / _camera.aspect);
 
             _zoom = Mathf.Clamp(dungeonFit / _fittedSize, MaxZoomIn, MaxZoomOut);
-            _pan = new Vector2(
-                ((grid.Width - 1) * 0.5f * DungeonView.CellSize) - _worldCentre.x,
-                ((grid.Height - 1) * 0.5f * DungeonView.CellSize) - _worldCentre.y);
+            _dungeonCentre = new Vector2(
+                (grid.Width - 1) * 0.5f * DungeonView.CellSize,
+                (grid.Height - 1) * 0.5f * DungeonView.CellSize);
+            _pan = _dungeonCentre - new Vector2(_worldCentre.x, _worldCentre.y);
 
             ApplyCamera();
         }
@@ -396,12 +441,47 @@ namespace Dungeon.Game
             Bounds world = _view.WorldBounds;
             float halfViewY = _camera.orthographicSize;
             float halfViewX = halfViewY * _camera.aspect;
-            float slackX = Mathf.Max(0f, world.extents.x - halfViewX);
-            float slackY = Mathf.Max(0f, world.extents.y - halfViewY);
 
-            _pan.x = Mathf.Clamp(_pan.x, -slackX, slackX);
-            _pan.y = Mathf.Clamp(_pan.y, -slackY, slackY);
+            _pan.x = ClampPan(_pan.x, world.extents.x, halfViewX,
+                _dungeonCentre.x - _worldCentre.x);
+            _pan.y = ClampPan(_pan.y, world.extents.y, halfViewY,
+                _dungeonCentre.y - _worldCentre.y);
+
             _camera.transform.position = _worldCentre + new Vector3(_pan.x, _pan.y, 0f);
+        }
+
+        /// <summary>Where the dungeon itself is centred, in world units.</summary>
+        private Vector2 _dungeonCentre;
+
+        /// <summary>
+        /// Limits a pan offset to what the world can fill, without ever locking the dungeon
+        /// off-centre.
+        /// </summary>
+        /// <remarks>
+        /// The plain rule -- never let the view leave the drawn world -- was right while the dungeon
+        /// was three rooms wide, because the world was then wider than the view on every side. It
+        /// stops being right for a small dungeon: the forest approach is drawn only on the
+        /// <b>entrance</b> side, so with one room the view is wider than everything drawn to the
+        /// right of it, and honouring the rule pinned the entire dungeon against the right-hand edge
+        /// of the screen with half of it under the standings strip. Photographed, not deduced.
+        /// <para>
+        /// So the dungeon's own centre is always inside the allowance, whatever the world does. The
+        /// cost is a band of the background colour on one side, which is the same violet-black the
+        /// unlit rock is drawn in and reads as more dungeon.
+        /// </para>
+        /// </remarks>
+        /// <param name="pan">Requested offset from the world centre.</param>
+        /// <param name="worldExtent">Half the world's size on this axis.</param>
+        /// <param name="halfView">Half the view's size on this axis.</param>
+        /// <param name="dungeonOffset">Where the dungeon's centre sits, relative to the world's.</param>
+        /// <returns>The offset to actually use.</returns>
+        private static float ClampPan(
+            float pan, float worldExtent, float halfView, float dungeonOffset)
+        {
+            float slack = Mathf.Max(0f, worldExtent - halfView);
+            float low = Mathf.Min(-slack, dungeonOffset);
+            float high = Mathf.Max(slack, dungeonOffset);
+            return Mathf.Clamp(pan, low, high);
         }
 
         /// <summary>
@@ -870,8 +950,17 @@ namespace Dungeon.Game
             }
         }
 
-        /// <summary>Whether the corridor can still take another hall.</summary>
-        private bool CanBuyHall => _boughtHalls.Count < MaxRooms - 3;
+        /// <summary>
+        /// Whether the corridor can still take another hall.
+        /// </summary>
+        /// <remarks>
+        /// Counted from <see cref="StartingRooms"/>, not from a literal. It was a literal 3, matching
+        /// the corridor the game used to open with, and the day that opening became one room the
+        /// player could buy exactly two halls and then found the marker dead -- with money in the
+        /// purse, a cap of five rooms, and a dungeon of three. Nothing failed; the offer simply
+        /// stopped being accepted.
+        /// </remarks>
+        private bool CanBuyHall => _boughtHalls.Count < MaxRooms - StartingRooms;
 
         /// <summary>Every lattice cell the player could put a new hall on.</summary>
         /// <returns>The cells, or an empty list for a layout built without a plan.</returns>
@@ -944,57 +1033,24 @@ namespace Dungeon.Game
         /// dead on a phone -- which is exactly what shipped. Both devices are checked because a
         /// WebGL build runs on either, and a tablet with a mouse attached has both.
         /// <para>
-        /// A tap is ignored while a second finger is down, so the pinch-zoom gesture cannot also fire
-        /// a verb and, say, spend energy on a trap the player never meant to trigger.
+        /// The gesture work lives in <see cref="TapReader"/>, which fires a touch tap on release
+        /// rather than on press so that the first finger of a pinch is not read as a tap. Called
+        /// exactly once per frame from each branch of <see cref="Update"/>, which the reader's state
+        /// machine depends on.
         /// </para>
         /// </remarks>
         /// <param name="position">Screen position of the tap, when there was one.</param>
         /// <returns>True when the player tapped or clicked this frame.</returns>
-        private static bool TryReadTap(out Vector2 position)
+        private bool TryReadTap(out Vector2 position)
         {
-            position = default;
-
-            Touchscreen touch = Touchscreen.current;
-            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
-            {
-                if (ActiveTouchCount() > 1)
-                {
-                    return false;
-                }
-
-                position = touch.primaryTouch.position.ReadValue();
-                return true;
-            }
-
-            Mouse mouse = Mouse.current;
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame)
-            {
-                return false;
-            }
-
-            position = mouse.position.ReadValue();
-            return true;
+            return _taps.TryRead(out position);
         }
 
         /// <summary>Counts fingers currently on the screen.</summary>
+        /// <returns>The number of pressed touches.</returns>
         private static int ActiveTouchCount()
         {
-            Touchscreen touch = Touchscreen.current;
-            if (touch == null)
-            {
-                return 0;
-            }
-
-            int count = 0;
-            foreach (TouchControl finger in touch.touches)
-            {
-                if (finger.press.isPressed)
-                {
-                    count++;
-                }
-            }
-
-            return count;
+            return TapReader.ActiveTouchCount();
         }
 
         /// <summary>
@@ -1117,6 +1173,10 @@ namespace Dungeon.Game
                     _phase is Phase.Destroyed or Phase.Won ? null : _nextParty);
                 return;
             }
+
+            // Under the combat numbers and the HUD, because a hint must never be the thing covering
+            // up what it is telling the player to look at.
+            Hints.Draw(_raid, _camera, scale, _league.Round);
 
             CombatNumbers.Draw(_raid.Feed, _camera, scale);
             LeagueScreen.DrawStrip(_league, scale, _raid.EnergyHarvested);

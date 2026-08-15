@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Dungeon.RaidManager;
@@ -174,22 +175,46 @@ namespace Dungeon.Game.Tests
             // passing while every verb in the shipped game was throwing on the input layer.
             Camera camera = Camera.main;
             Vector2Int spawner = raid.Layout.SpawnerCells[0];
-            Controller.ClickAt(camera.WorldToScreenPoint(DungeonView.CellToWorld(spawner)));
+            Vector2 pit = camera.WorldToScreenPoint(DungeonView.CellToWorld(spawner));
+
+            Controller.ClickAt(pit);
             await UniTask.NextFrame(ct);
             Assert.Greater(raid.Mobs.Mobs.Count, 0, "clicking the spawner should have spawned a mob");
 
-            // Wait for contact rather than a fixed sleep. The mob is bound to its own room and the
-            // party now walks deliberately slowly, so how long it takes them to meet depends on
-            // pacing constants -- a hard-coded delay here would break every time those are tuned.
-            for (int i = 0; i < 40 && raid.CurrentRate <= idleRate * 5f && raid.IsRunning; i++)
+            // Wait for contact rather than a fixed sleep, and keep tapping the pit while waiting.
+            // The run now opens on a single room, so a party nobody detains is out of the dungeon in
+            // about twelve seconds -- one slime, spawned once, can be killed and walked past well
+            // inside that. A player holding a party in the opening room taps the pit repeatedly, so
+            // this does too, in short steps rather than second-long sleeps.
+            //
+            // The PEAK is what gets asserted, not the reading at the end of the loop. The rate is a
+            // curve that moves every tick with how hurt the party is and how many monsters are on
+            // them, and sampling it once catches whichever moment the loop happened to stop in --
+            // twice in a row that was a lull just after a slime died.
+            float peak = idleRate;
+            for (int i = 0; i < 80 && peak <= idleRate * 1.5f && raid.IsRunning; i++)
             {
-                await UniTask.WaitForSeconds(1f, cancellationToken: ct);
+                if (raid.Mobs.Living.Count() < 2 && raid.TotalEnergy > Raid.SpawnCost)
+                {
+                    Controller.ClickAt(pit);
+                }
+
+                await UniTask.WaitForSeconds(0.25f, cancellationToken: ct);
+                peak = Mathf.Max(peak, raid.CurrentRate);
             }
 
-            MooseRunnerFacade.Log($"rate {idleRate:F2}/s -> {raid.CurrentRate:F2}/s, " +
+            MooseRunnerFacade.Log($"rate {idleRate:F2}/s idle -> {peak:F2}/s peak, " +
                                   $"harvested {raid.EnergyHarvested:F1}");
-            Assert.Greater(raid.CurrentRate, idleRate * 5f,
-                "engaging the party must lift the rate far above idle");
+
+            // Half again over idle, not the five times this asked for when the game opened on three
+            // rooms of skeletons. The opening dungeon is one room and one SLIME pit -- the weak
+            // monster, deliberately, because round one is where a wipe teaches a new player the
+            // wrong lesson. Slimes hold a party and barely wound it, and nearly all of the rate is
+            // in the wound curve, so the opening board cannot reach the old figure and should not.
+            // The multiple raids' worth of harvest that comes out of it is measured in
+            // StarterDungeonTests, which compares playing against doing nothing.
+            Assert.Greater(peak, idleRate * 1.5f,
+                "engaging the party must visibly lift the rate off its idle floor");
 
             Capture("03-engaged");
             await CaptureScreen("03-engaged-hud", ct);

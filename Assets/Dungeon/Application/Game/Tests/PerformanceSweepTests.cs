@@ -145,8 +145,19 @@ namespace Dungeon.Game.Tests
 
         /// <summary>The frame loop itself stays inside a sensible budget during a raid.</summary>
         /// <remarks>
-        /// Uses MooseRunner's own timing telemetry, which measures wall clock between FixedUpdates
-        /// rather than anything the test controls.
+        /// Timed over <b>this test's own frames</b> rather than from MooseRunner's session
+        /// telemetry. <c>GetMeanDeltaRealTime()</c> averages across everything the session has run,
+        /// so the figure it returns depends on how many tests came before: this method measured
+        /// 15.5 ms run on its own and 191 ms run at the end of the suite, on the same build, with
+        /// the simulation cost logged two tests earlier unchanged at ~330 us/tick. What it was
+        /// actually reporting was the multi-second scene loads and domain reloads of its
+        /// predecessors, averaged in.
+        /// <para>
+        /// That is the project's own recurring failure again — a measurement whose name and whose
+        /// subject had come apart — and it is worth stating plainly because the number it produced
+        /// looked exactly like a catastrophic frame-rate regression. The telemetry is still logged
+        /// below, as data.
+        /// </para>
         /// </remarks>
         [Test]
         public async UniTask TheFrameLoop_KeepsItsBudget(CancellationToken ct)
@@ -168,13 +179,28 @@ namespace Dungeon.Game.Tests
                 }
             }
 
-            await UniTask.WaitForSeconds(4f, cancellationToken: ct);
+            // Let the loop settle before the clock starts: the frame that follows a scene build is
+            // never representative of the ones after it.
+            await UniTask.WaitForSeconds(0.5f, cancellationToken: ct);
 
-            double worst = MooseRunnerFacade.InstanceQuiet.GetMaxRealFixedDeltaTime();
-            double mean = MooseRunnerFacade.InstanceQuiet.GetMeanDeltaRealTime();
+            var clock = Stopwatch.StartNew();
+            int frames = 0;
+            while (clock.Elapsed.TotalSeconds < 3.0)
+            {
+                await UniTask.NextFrame(ct);
+                frames++;
+            }
+
+            clock.Stop();
+            double mean = clock.Elapsed.TotalSeconds / Mathf.Max(1, frames);
+
+            double sessionMean = MooseRunnerFacade.InstanceQuiet.GetMeanDeltaRealTime();
+            double sessionWorst = MooseRunnerFacade.InstanceQuiet.GetMaxRealFixedDeltaTime();
             MooseRunnerFacade.Log(
-                $"with {game.CurrentRaid.Mobs.Mobs.Count} mobs: mean {mean * 1000.0:F1} ms, "
-                + $"worst {worst * 1000.0:F1} ms between fixed updates");
+                $"with {game.CurrentRaid.Mobs.Mobs.Count} mobs: {frames} frames in "
+                + $"{clock.Elapsed.TotalSeconds:F1}s, mean {mean * 1000.0:F1} ms "
+                + $"(session telemetry: mean {sessionMean * 1000.0:F1} ms, "
+                + $"worst {sessionWorst * 1000.0:F1} ms)");
 
             Assert.Less(mean, 0.1, "the mean frame time is over 100 ms, which is 10 fps");
         }
