@@ -57,7 +57,21 @@ pages. Treat them as a starting point and confirm against the actual archive.
   `wall_edge_left/right`, `wall_mid` — which lines up with the "piece needed" column above more
   literally than most packs will.
 
-Both are 16x16. This project imports at **PPU 64** with Point filtering and no compression
-(`PixelArtImportPostprocessor`), so decide deliberately whether to scale 16→64 by an integer factor
-or to change the project's pixels-per-unit. A non-integer resample destroys exactly what point
-filtering preserves.
+## Both packs are 16x16, and this project is 64px — scale, do not change PPU
+
+`PixelArtImportPostprocessor` forces **PPU 64** on everything under `Assets/Art`, and **127 of the
+131 sprites are exactly 64x64** (the other four are key art). One cell is 64px is one world unit. A
+16px tile dropped in unchanged imports at a quarter of a cell and renders tiny.
+
+Changing PPU to 16 would break all 127. So scale the pack instead:
+
+```
+python Tools/upscale-pack.py <unzipped-pack> Assets/Art/Resources/tiles --factor 4
+```
+
+Integer, nearest-neighbour, verified on the property that matters: every 4x4 block comes out a single
+flat colour and the colour count is unchanged. That is the same `flat_cells` check
+`validate-tileset.py` runs, so the two agree on what "still pixel art" means. A non-integer resample
+or any smoothing filter destroys exactly what Point filtering and uncompressed import exist to
+preserve — and this project shipped that fault once already, when a crop made a vertical resample
+non-integer.
