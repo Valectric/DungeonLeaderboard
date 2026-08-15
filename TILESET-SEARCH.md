@@ -237,3 +237,58 @@ Everything above runs on what is already installed (numpy 2.5, Pillow 12.2, scip
 scikit-image 0.26). Rejected: `texturize` (AGPL, non-deterministic), `imagequant` (libimagequant is
 GPL), OpenCV `seamlessClone` (gradient-domain, invents intermediate colours and breaks a six-colour
 palette), `img2texture` (hides seams with an alpha gradient, which undoes point filtering).
+
+## 10. How artists actually do it, and the pair we have been measuring wrongly
+
+Slynyrd, the most-cited authority on top-down tilesets, describes the workflow this pipeline has
+been inverting:
+
+> *"step one with any tileset is the base repeating texture, which must loop well on all four sides.
+> After that, all side and corner variants can be made by shaving off portions of the base texture."*
+> — slynyrd.com/blog/2023/3/26/pixelblog-43-top-down-tiles-part-2
+
+Nobody draws forty-seven tiles independently. They draw **one**, and subtract. That is why a human's
+borders always join: every tile's edge pixels come from the same source image. Ours were drawn as
+forty-eight separate illustrations, which is the single cause of both failures — art floating inside
+its cell, and art wandering across the boundary.
+
+### Measured from 0x72's DungeonTileset II (CC0), not inferred
+
+| | |
+|---|---|
+| Wall front face height | exactly **1.0 tile** |
+| Lit wall top cap | exactly **0.25 tile** |
+| Border opacity, all four edges | **100%** |
+| Lit cap ÷ floor | **2.16×** |
+| Wall front face ÷ floor | **0.93×** — the same brightness |
+| Distinct colours across wall and all floors | **3** |
+| Floor variants | 9, differing 6–43% of pixels, all within ±6% luminance |
+
+**We have been measuring the wrong pair all session.** Every re-run of the brief chased wall-versus-
+floor brightness, pushing it from 1.09 to 2.16. In the reference the wall *face* and the floor are
+the same value — the separation comes entirely from the **bright top cap** and a one-pixel dark
+outline. Chasing the face/floor ratio was optimising a quantity the reference deliberately leaves
+flat, which is why the pictures kept getting brighter without getting better.
+
+### Rules worth putting straight into a brief or a validator
+
+- Detail sizes must **divide the tile exactly**: at 16px with a 1px grout line, brick dimensions are
+  15, 7, 3, 1. At 64px: 63, 31, 15, 7, 3, 1. Side-wall bricks are shorter than top-wall bricks.
+- **Variants change detail, never value** — within ±8% luminance of the base.
+- Base shadow is **at most one tile long, the same length whatever the wall height**, on one or two
+  faces only.
+- Corners are best served by a **column or universal corner piece** rather than bespoke corner art.
+- Lock a **three-colour ramp per material** and reject any pixel outside it: drift becomes
+  impossible rather than merely detectable.
+
+### Two corrections to our own setup
+
+**64×64 is off-convention.** Every source works at 16×16; Slynyrd calls anything over 32×32 overkill
+for pixel art. At 64 the generator has sixteen times the pixels to keep coherent across a seam,
+which plausibly *causes* the drift and the floating we measured. Generating at 16 or 32 and
+point-upscaling is the same integer-scale step this project already does for packs.
+
+**Occlusion is an engine setting, not art.** Unity 2D URP: Transparency Sort Mode → **Custom Axis**,
+Transparency Sort Axis → **(0, 1, 0)**, on the Renderer2D asset. Characters then sort behind wall
+caps by Y automatically — no split lower/upper door tiles, no per-tile sorting layers. That answers
+the door-occlusion question from the other direction entirely.
