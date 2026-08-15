@@ -661,11 +661,15 @@ namespace Dungeon.Game
             _shift = Mathf.Min(1f, _shift + (Time.deltaTime / ShiftSeconds));
             _view.Refresh(_raid, Time.deltaTime);
 
-            // Nobody is raiding on the standings, so a health bar there reads as a stray sprite --
-            // and it is the brightest thing on the screen, because the darkening quad the league
-            // draws takes the masonry down eight times harder than it takes a saturated bar. Cleared
-            // after Refresh, which is what puts them back every frame.
-            if (_phase == Phase.Standings)
+            // A health bar means something only while a raid is running. Everywhere else it is the
+            // brightest thing on the screen, because the darkening quad these screens draw takes the
+            // masonry down some eight times harder than it takes a saturated bar. Cleared after
+            // Refresh, which is what puts them back every frame.
+            //
+            // Written as "not raiding" rather than as a list of screens on purpose: the first version
+            // of this named Phase.Standings alone and shipped with the same fault still on the
+            // collapse screen, where the bars lay across standings rows 10 to 12.
+            if (_phase != Phase.Raiding)
             {
                 _view.HidePartyBars();
             }

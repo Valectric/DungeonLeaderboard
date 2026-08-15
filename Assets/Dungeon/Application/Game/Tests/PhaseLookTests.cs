@@ -172,6 +172,19 @@ namespace Dungeon.Game.Tests
                 + $"{_game.League.PlayerRelegated}");
 
             await Capture("07-collapse", ct);
+
+            // The same fault the standings had, on the screen most players will actually reach.
+            // The first fix named Phase.Standings alone, so it shipped still broken here -- the bars
+            // lay across standings rows 10 to 12, above the party's own sprites. The rule is now
+            // "bars only while raiding", and this is the second screen it has to cover.
+            System.Collections.Generic.List<string> lit = LitBars();
+            MooseRunnerFacade.Log(
+                $"collapse screen: {lit.Count} party bars still drawn "
+                + (lit.Count > 0 ? string.Join(", ", lit) : "(none)"));
+
+            Assert.IsEmpty(lit,
+                $"{lit.Count} party health/mana bars are drawn over the collapse screen's standings, "
+                + "where under its darkening they are the brightest thing on it");
         }
 
         /// <summary>
@@ -267,5 +280,25 @@ namespace Dungeon.Game.Tests
                 $"{lit.Count} party health/mana bars are drawn over the standings, and under the "
                 + "screen's darkening they are the brightest thing on it");
         }
+
+        /// <summary>Names every party bar currently drawn.</summary>
+        /// <returns>The enabled bar renderers, by name.</returns>
+        private static System.Collections.Generic.List<string> LitBars()
+        {
+            var lit = new System.Collections.Generic.List<string>();
+            foreach (SpriteRenderer bar in Object.FindObjectsByType<SpriteRenderer>(
+                FindObjectsSortMode.None))
+            {
+                bool isBar = bar.name.StartsWith("hpfill") || bar.name.StartsWith("hpback")
+                    || bar.name.StartsWith("manafill") || bar.name.StartsWith("manaback");
+                if (isBar && bar.enabled)
+                {
+                    lit.Add(bar.name);
+                }
+            }
+
+            return lit;
+        }
+
     }
 }
