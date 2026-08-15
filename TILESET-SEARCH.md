@@ -337,3 +337,47 @@ So the style drift attributed to prompting was partly a model that never saw the
 Also worth knowing: `wall-11` measures 26.0 against `floor-drain` at 28.7 — a wall that reads
 *darker* than the floor beside it. That is the same spread the ratio work was chasing, and
 normalisation fixes it in one pass rather than by re-running a generator.
+
+## 12. The conclusion all five searches arrive at
+
+**The tileset is the wrong problem.** We have been asking a generator for sixteen images whose
+correctness lives in their *relationships*, which is the one thing an image model cannot hold — while
+the pipeline silently resampled them to two thousand colours and handed back a duplicate file as a
+distinct variant.
+
+Two verifications from the last search, both reproduced here:
+
+- **`wall.png` and `wall-cracked.png` are byte-identical**, MD5 `128c19d9`. A variant that was never
+  made looks exactly like a variant that was, and nothing reported it. (Ours, not the generator's:
+  `slice-room.py` filled both from the same mask-15 list when only one candidate existed.)
+- **1,016 to 2,136 unique colours per 64×64 tile** — 52% of the pixels holding a colour of their own.
+  These are resampled images *of* pixel art. Edges built from two thousand interpolated colours
+  cannot align even in principle, which is upstream of the frame and would sabotage a hand-drawn
+  tileset just as thoroughly.
+
+### Our own notes named the fix before any of this
+
+`TILESET-NOTES.md:18`, written days ago: the moodboard *"does not separate wall from floor by
+value… It separates them with the **rim highlight**, which is ~90% brighter than the floor."*
+
+That settles it. The standing-up cue is the **rim**, and a rim is a pure function of the grid — *is my
+neighbour open?* It is precisely what code draws perfectly and a generator draws inconsistently. The
+same file also predicted the exact defect that shipped: *"I did not see the floor vignette that would
+have drawn a black grid across every room."*
+
+### The route, in the order that matters
+
+1. **One seamless, full-bleed stone fill**, with three checkable gates: border/body luminance
+   1.0 ± 0.05, wrap-seam ratio ≈ 1.0, unique colours ≤ 32. Current tiles score 0.19, 3.97× and 2,136.
+2. **Derive the pieces from it** — procedurally in world space, or via Tilesetter/Wangscape, which
+   composite every tile from the same source pixels so joining is arithmetic rather than luck.
+3. **Draw the depth in code**: rim highlight first, then front face, drop shadow, ambient occlusion.
+4. If dual-grid is adopted, keep colliders and every room/threshold rule on the **data** grid. Our
+   room-bounded pursuit is load-bearing — a half-tile offset there would break the retreat valve in
+   a way no rendering test would catch.
+
+Rejected: `ShadowCaster2D` from a tilemap collider (selectable but produces no shadow, unresolved on
+6.3 as of April 2026, community fixes reach into private fields by reflection) — wrong risk for a
+jam when the code-drawn layers cost nothing per frame. And Rule Tile's rotation transform does not
+save us six sprites the way it would elsewhere: a wall with a top face and a front face is
+anisotropic, so only the horizontal mirror is available.

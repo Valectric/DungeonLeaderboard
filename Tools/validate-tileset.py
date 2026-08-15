@@ -14,6 +14,7 @@ Exits non-zero if any gate fails, so it can sit in front of an import.
 """
 
 import glob
+import hashlib
 import os
 import sys
 
@@ -64,6 +65,35 @@ def side_coverage(lum, side, floor_level):
     return float((strip > floor_level).mean())
 
 
+def unique_colours(path):
+    """
+    How many distinct colours a tile holds.
+
+    The cheapest gate of the four and it catches a whole class at once. Pixel art drawn at this size
+    carries a handful of colours -- the reference dungeon set uses THREE per material. Ours measured
+    1,016 to 2,136, which is 52% of a 64x64 tile's pixels holding a colour of their own. These are
+    resampled images OF pixel art rather than pixel art, and edges built from two thousand
+    interpolated colours cannot align even in principle. CLAUDE.md already records this failure at
+    610-746 colours on an earlier run; it came back three times worse.
+    """
+    a = np.asarray(Image.open(path).convert("RGB")).reshape(-1, 3)
+    return len(set(map(tuple, a.tolist())))
+
+
+def duplicates(paths):
+    """
+    Tiles that are byte-identical to another tile.
+
+    wall.png and wall-cracked.png shipped as the same file. Nothing reported it, because a variant
+    that was never made looks exactly like a variant that was.
+    """
+    seen = {}
+    for path in paths:
+        digest = hashlib.md5(open(path, "rb").read()).hexdigest()
+        seen.setdefault(digest, []).append(os.path.basename(path))
+    return [names for names in seen.values() if len(names) > 1]
+
+
 def flat_cells(path, block=4):
     """
     Share of blocks that are a single colour.
@@ -91,7 +121,8 @@ def main():
     print(f"{len(walls)} wall tiles, {len(floors)} floor tiles, floor level {floor_level:.1f}\n")
 
     failures = 0
-    print(f"{'tile':16s} {'frame':>6s} {'edge0':>6s} {'inner':>6s} {'flat':>6s}  sides that must be solid")
+    print(f"{'tile':16s} {'frame':>6s} {'edge0':>6s} {'inner':>6s} {'flat':>6s} {'cols':>6s}  "
+          "sides that must be solid")
     for path in walls:
         name = os.path.basename(path)
         stem = name[len("wall-"):-len(".png")]
@@ -111,13 +142,17 @@ def main():
                     if cover < 0.95:
                         failures += 1
 
+        colours = unique_colours(path)
+
         if has_frame:
             failures += 1
         if flat < 0.9:
             failures += 1
+        if colours > 32:
+            failures += 1
 
         print(f"{name:16s} {'YES' if has_frame else 'no':>6s} {edge:6.1f} {inner:6.1f} "
-              f"{flat:6.0%}  {' '.join(required) if required else '-'}")
+              f"{flat:6.0%} {colours:6d}  {' '.join(required) if required else '-'}")
 
     print(f"\n{failures} gate failures")
     return 1 if failures else 0
