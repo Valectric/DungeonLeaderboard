@@ -100,6 +100,15 @@ namespace Dungeon.RaidManager.Tests
             }
 
             Mob spawned = raid.Mobs.Mobs[raid.Mobs.Mobs.Count - 1];
+
+            // Logged either way, so a skip cannot be silent. A conditional Assert.Ignore is a test
+            // that stops asserting when its setup drifts, and it reports the same green as one that
+            // ran -- which is the shape of fault this project spent a day on. The neighbouring
+            // CombatReachTests already logs its distance before deciding; this did not.
+            MooseRunnerFacade.Log(
+                $"spawn refund: monster alive={spawned.IsAlive} after 200 ticks, "
+                + $"energy {raid.TotalEnergy:F1} against {before:F1} before the spawn");
+
             if (!spawned.IsAlive)
             {
                 Assert.Ignore("the party reached and killed it, which this case is not about");
