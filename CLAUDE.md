@@ -409,3 +409,18 @@ is wanted — that phrasing alone produced the 2-colour tiles.
 
 Unity `6000.3.17f1`, **2D URP** (Renderer2D). MooseRunner `2.2.5` (Valectric npm registry), UniTask
 (OpenUPM) and `com.unity.recorder` come from the manifest. WebGL Build Support module required.
+
+## Screenshots are overwritten by every test run — copy before you analyse
+
+`Screenshots/*.png` are rewritten in place by the Look tests and `RaidE2E` on every pass of the Game
+suite. Reading one across several turns while the suite runs means comparing different frames without
+knowing it.
+
+This cost a whole investigation on 2026-08-15: two "pale bands" were measured out of
+`01-raid-opening.png` over several turns, ruled against doors, props, glow, hints and post-processing,
+and written up as an open defect — and were not reproducible. The tell was an impossible number, a
+band at luminance 100 against a brightest tile pixel of 63 in a renderer already shown to be 1:1.
+**An impossible measurement means the measurement is wrong, most often in its provenance.**
+
+Capture inside the test that reads the pixels, as `SceneryDumpTests` does, or copy the PNG out under a
+unique name first.

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,6 +44,41 @@ namespace Dungeon.Game.Tests
         {
             DoNotDestroyOnTeardown.CleanSceneImmediate();
             _game = new GameObject("game").AddComponent<GameController>();
+        }
+
+        /// <summary>
+        /// Renders the camera to a PNG, so the pixels and the renderer list are the same frame.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately the camera rather than <c>ScreenCapture</c>: IMGUI must stay out of the
+        /// image, or a HUD element over the dungeon becomes another candidate to rule out.
+        /// </remarks>
+        /// <param name="camera">Camera to render.</param>
+        /// <param name="name">File name, without extension.</param>
+        private static void Capture(Camera camera, string name)
+        {
+            string directory = Path.Combine(
+                UnityEngine.Application.dataPath, "..", "Screenshots");
+            Directory.CreateDirectory(directory);
+
+            var target = new RenderTexture(Screen.width, Screen.height, 24);
+            RenderTexture previousTarget = camera.targetTexture;
+            camera.targetTexture = target;
+            camera.Render();
+
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture.active = target;
+            var image = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+            image.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+            image.Apply();
+            RenderTexture.active = previousActive;
+            camera.targetTexture = previousTarget;
+
+            string path = Path.Combine(directory, $"{name}.png");
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            Object.DestroyImmediate(image);
+            target.Release();
+            MooseRunnerFacade.Log($"captured {path} ({Screen.width}x{Screen.height})");
         }
 
         /// <summary>
@@ -108,11 +144,39 @@ namespace Dungeon.Game.Tests
                     + $"rgba=({c.r:F2},{c.g:F2},{c.b:F2},{c.a:F2}) order={r.sortingOrder}");
             }
 
-            // The band was measured in a 1280x720 screenshot at x 499..851, y 112..136 counting from
-            // the TOP. Unity's screen space counts from the bottom, so that is y 584..608 here.
-            // Naming whatever covers that point is the whole purpose of this test.
             Camera camera = Camera.main;
             Assert.IsNotNull(camera, "no camera to map screen coordinates with");
+
+            // ONE FRAME, PHOTOGRAPHED HERE. The previous version of this test mapped the band's
+            // coordinates out of a screenshot another fixture had taken, which silently assumed both
+            // runs framed the camera identically. They did not, and it produced a confident wrong
+            // answer -- it named a wall tile whose brightest pixel is 63 as the source of a band
+            // measuring 100. Capturing in this test removes the assumption entirely.
+            Capture(camera, "09-scenery-dump");
+            MooseRunnerFacade.Log(
+                $"camera ortho={camera.orthographicSize:F3} "
+                + $"pos=({camera.transform.position.x:F2},{camera.transform.position.y:F2}) "
+                + $"screen={Screen.width}x{Screen.height} "
+                + $"px per cell={Screen.height / (2f * camera.orthographicSize):F2}");
+
+            // A named tile's exact screen rect, so the PNG can be indexed with no arithmetic of mine
+            // in between.
+            foreach (string named in new[] { "tile_3_6", "tile_3_0", "tile_3_3" })
+            {
+                SpriteRenderer tile = all.FirstOrDefault(r => r.name == named);
+                if (tile == null)
+                {
+                    MooseRunnerFacade.Log($"  {named} not present");
+                    continue;
+                }
+
+                Vector3 low = camera.WorldToScreenPoint(tile.bounds.min);
+                Vector3 high = camera.WorldToScreenPoint(tile.bounds.max);
+                MooseRunnerFacade.Log(
+                    $"  {named,-10} sprite={tile.sprite?.name} screen x {low.x:F0}..{high.x:F0} "
+                    + $"y {low.y:F0}..{high.y:F0}  (png rows {Screen.height - high.y:F0}.."
+                    + $"{Screen.height - low.y:F0})");
+            }
 
             foreach ((string label, Vector2 point) in new[]
             {

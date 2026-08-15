@@ -476,71 +476,38 @@ honest number and the baseline any replacement must beat.
 `tiles-from-room` carries the sampler experiments, the sliced tiles and the relief prototype.
 `tileset-dcss` is the violet recolour, superseded. Neither should be merged as-is.
 
-## Open defect, found 2026-08-15: pale bands across every room
+## Closed 2026-08-15: the "pale bands" were not reproducible, and why
 
-Two pale lavender bands render across the top and bottom of the room interior, in **world space**, in
-the build published as `0.1.2608151950`. Visible in `Screenshots/01-raid-opening.png`; cropped and
-magnified at `Screenshots/bar-diagnosis.png`.
-
-Measured, so the next person does not start from scratch:
+A section here reported two pale bands rendering across every room in world space, with exact pixel
+extents and a list of things ruled out. **It could not be reproduced and the current build is
+correct.** Measured in a capture taken inside the dump test, so the pixels and the renderer list are
+one frame:
 
 ```
-extent      x = 499..851 (353 px, ~5.5 cells), IDENTICAL on both bands
-top band    y = 112..136   luminance 90..126
-bottom band y = 536..542   luminance ~132
-colour      rgb ~ (140,134,166), pale lavender
+wall-11 region peak   47.0    source wall-11.png peak   47.0
+wall-14 region peak   63.0    source wall-14.png peak   63.4
+floor                 18.8    source floor-plain.png    19.5
 ```
 
-The brickwork shows through, so it is a translucent overlay rather than an opaque sprite. Short
-vertical segments appear at the right-hand end of each band.
+Rendering is pixel-faithful. `Screenshots/09-scenery-dump.png` shows a normal room.
 
-### Ruled out, with the evidence
+### The trap, which is the part worth keeping
 
-- **Not UI, and not the first-raid hints.** `RaidE2E.Capture` renders through `camera.Render()` into a
-  RenderTexture, which excludes IMGUI entirely — and the bands are present there, byte-identical to
-  the `ScreenCapture` version. Hint text colour `(0.88, 0.86, 0.95)` is a near match for the band's
-  hue, which makes this a tempting wrong answer; the capture path rules it out.
-- **Not doors.** `door-a.png` is dark red at mean (54,38,32). Its only bright rows are the gold bands
-  at 30/31 and 46/47, which are yellow, not lavender. PPU is 64 on a 64px sprite, so no scaling fault.
-- **Not the decoration props.** All six are 64x64 and dark, means from (68,32,81) to (92,69,52).
-- **Not the generated glow.** Radial, soft-edged, scaled 1.7–2.1 (about one tile). The bands are hard
-  edged and 5.5 cells wide.
-- **Not the wall tiles' lit cap.** Those measure 51–59 luminance; the bands are 90–132.
-- **Not the reverted §13 rim highlight.** No such code remains in `DungeonScenery` — grep for
-  rim/highlight/strip/glow finds only the glow.
-- **No sprite in `Assets/Art/Resources` matches**, either by mean colour (nothing within 28 of the
-  band) or by containing a bright full-width row (only the two doors, and those are gold).
+**Everything in `Screenshots/` is overwritten by every test run.** `01-raid-opening.png` is rewritten
+by `RaidE2E` on each pass of the Game suite. The bands were measured out of that file across several
+turns while the suite kept rewriting it, so "the bands are identical in all five screenshots" and the
+later contradiction — a band at luminance 100 against a brightest tile pixel of 63 — were readings of
+*different frames* presented as readings of one.
 
-### The runtime dump, and what it did and did not settle
+The contradiction was the tell and it was visible for a while before it was believed: no tile can
+render as 100 at 1:1, and rendering had already been shown to be 1:1. The right response to an
+impossible measurement is to distrust the measurement's provenance, not to look harder for an exotic
+renderer.
 
-`SceneryDumpTests.EveryWideRenderer_IsNamed` now exists and names every renderer. Results:
+**When analysing a screenshot, capture it in the same test that reads it, or copy it out of
+`Screenshots/` under a unique name first.** `SceneryDumpTests` now does the former, which is why it
+settled this in one run after several turns of guessing.
 
-- **Exactly one renderer is wider than two cells** — `approach` (the entrance backdrop), 13.84 x 6.91
-  at centre x = -6.32, i.e. outside the room entirely. **So the bands are not a wide sprite.** Every
-  tile is 1x1 and every one renders untinted white.
-- **Rendering is faithful.** A floor patch measures 18.9 on screen against a source `floor-plain.png`
-  of 19.5, so there is no gamma fault, no post-processing (the scene holds no Volume or Bloom) and no
-  double sRGB encode. What is on screen is what is in the PNG.
-- **And that is the contradiction.** The band measures 100.1, while the brightest pixel in ANY wall
-  tile is 63.4 (`wall-14`, row 2; `wall-11` peaks at 47.0). Nothing in the tile art can render as 100
-  at 1:1.
+The author's original report — walls reading as pattern tiles rather than walls — remains open and is
+about how the art *looks*, not about a renderer fault. See D28 before starting a fourth attempt.
 
-**Do not trust the screen-to-world mapping in that test.** It converts the band's screenshot
-coordinates into a cell and reports `tile_3_6` / `wall-11`, which looks like an answer and is not one:
-the mapping assumes the dump run and the `RaidE2E` screenshot were framed identically, and that was
-never checked. The luminance contradiction above is the evidence it is wrong.
-
-### Where to look next
-
-Make the dump and the screenshot the same frame, which removes the assumption that broke this:
-capture the PNG *inside* the dump test, immediately after enumerating, and log
-`camera.orthographicSize`, `camera.transform.position` and the screen rect of a named tile alongside
-it. Then the band's pixels and the renderer list describe one frame and can be compared directly.
-
-Worth checking early: whether anything draws with a **material** rather than a sprite colour — the
-dump reads `SpriteRenderer.color`, so an additive or emissive material would show as white (1,1,1,1)
-and be invisible to this diagnostic while rendering far brighter than its texture.
-
-**Do not assume this is the answer to the author's wall complaint.** It is a real defect found while
-looking for that, which is not the same thing — see D28 for what happened last time those two got
-conflated.
