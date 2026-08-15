@@ -110,6 +110,11 @@ namespace Dungeon.Game
                         }
                     }
 
+                    if (grid.KindAt(cell) == CellKind.Wall)
+                    {
+                        DrawRelief(grid, cell);
+                    }
+
                     if (tile != null)
                     {
                         _sprites.Make($"tile_{x}_{y}", $"tiles/{tile}",
@@ -398,6 +403,94 @@ namespace Dungeon.Game
             // read as a hole straight through the dungeon. The whole grid is around 130 cells, so
             // the saving was never worth the failure mode.
             return spread % 11 == 0 ? "wall-moss" : "wall";
+        }
+
+        /// <summary>
+        /// Draws the lit rim and cast shadow that make a wall read as stone standing up.
+        /// </summary>
+        /// <remarks>
+        /// The style cue, in code rather than in art. `TILESET-NOTES.md` recorded it before any of
+        /// the tileset work: the moodboard <i>"does not separate wall from floor by value — it
+        /// separates them with the rim highlight, which is ~90% brighter than the floor"</i>. A rim
+        /// is a pure function of the grid — is my neighbour open? — which is exactly what code draws
+        /// identically every time and a generator draws differently every run.
+        /// <para>
+        /// Second attempt. The first lit all four sides equally at 85% alpha across a full cell and
+        /// read as a neon frame around the room rather than as relief. Three corrections, all from
+        /// the photograph: the strip is a third as thick, the alpha is a fraction of what it was,
+        /// and <b>only the north edge is bright</b> — the light here comes from above, so lighting
+        /// every side equally is precisely what turns relief back into an outline.
+        /// </para>
+        /// </remarks>
+        /// <param name="grid">Dungeon being drawn.</param>
+        /// <param name="cell">Wall cell to relieve.</param>
+        private void DrawRelief(DungeonGrid grid, Vector2Int cell)
+        {
+            int mask = WallMask(grid, cell);
+
+            // A wall whose SOUTH side is open is the one the player looks at, and it is not edged
+            // with a line -- it is split into TWO BANDS. The upper part is the top face of the
+            // stone, catching the light from above; the lower part is the front face, turned away
+            // and much darker. That two-band reading is what `shot-1` has and what a hairline rim
+            // could never produce, however thin or dim it was drawn.
+            if ((mask & 4) == 0)
+            {
+                Strip(cell, new Vector2(0f, 0.28f), new Vector2(1f, 0.44f), TopFace, 3);
+                Strip(cell, new Vector2(0f, -0.22f), new Vector2(1f, 0.56f), FrontFace, 3);
+                Strip(cell, new Vector2(0f, 0.48f), new Vector2(1f, 0.05f), RimLight, 4);
+                Strip(cell, new Vector2(0f, -0.62f), new Vector2(1f, 0.26f), BaseShadow, 1);
+            }
+            else if ((mask & 1) == 0)
+            {
+                // Facing away from the player: the far wall shows its lit back edge and no face.
+                Strip(cell, new Vector2(0f, 0.47f), new Vector2(1f, 0.055f), RimLight, 3);
+            }
+
+            // Sides catch a fraction of the light, dim enough to read as a turn in the stone.
+            if ((mask & 2) == 0)
+            {
+                Strip(cell, new Vector2(0.475f, 0f), new Vector2(0.05f, 1f), RimSide, 3);
+            }
+
+            if ((mask & 8) == 0)
+            {
+                Strip(cell, new Vector2(-0.475f, 0f), new Vector2(0.05f, 1f), RimSide, 3);
+            }
+        }
+
+        /// <summary>The top face of a wall, lifted so the stone reads as lit from above.</summary>
+        private static readonly Color TopFace = new(0.62f, 0.60f, 0.74f, 0.30f);
+
+        /// <summary>The front face, turned away from the light and much darker.</summary>
+        private static readonly Color FrontFace = new(0.04f, 0.03f, 0.07f, 0.45f);
+
+        /// <summary>The lit top edge. Bright, because the moodboard's rim is what carries the read.</summary>
+        private static readonly Color RimLight = new(0.66f, 0.63f, 0.78f, 0.55f);
+
+        /// <summary>A side turn, much dimmer than the top.</summary>
+        private static readonly Color RimSide = new(0.42f, 0.40f, 0.53f, 0.22f);
+
+        /// <summary>Shadow thrown onto the floor at the base of a wall.</summary>
+        private static readonly Color BaseShadow = new(0.02f, 0.015f, 0.04f, 0.42f);
+
+        /// <summary>Draws one flat quad over a cell, in cell-relative units.</summary>
+        /// <param name="cell">Cell to draw over.</param>
+        /// <param name="offset">Offset from the cell centre, in cells.</param>
+        /// <param name="size">Size in cells.</param>
+        /// <param name="colour">Colour to draw.</param>
+        /// <param name="order">Sorting order.</param>
+        private void Strip(Vector2Int cell, Vector2 offset, Vector2 size, Color colour, int order)
+        {
+            Vector3 at = DungeonView.CellToWorld(cell, 8f)
+                         + new Vector3(offset.x * DungeonView.CellSize,
+                             offset.y * DungeonView.CellSize, 0f);
+
+            SpriteRenderer strip = _sprites.MakeBar(
+                $"relief_{cell.x}_{cell.y}_{order}_{offset.x}_{offset.y}", order);
+            strip.transform.position = at;
+            strip.transform.localScale = new Vector3(
+                size.x * DungeonView.CellSize, size.y * DungeonView.CellSize, 1f);
+            strip.color = colour;
         }
 
         /// <summary>
