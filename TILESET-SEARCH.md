@@ -81,3 +81,57 @@ Straight from what the game draws today (`DungeonScenery.TileFor`, `Assets/Art/R
   orthogonal neighbours are wall, mapped to sixteen sprites. Roughly forty lines and a table, and it
   is what makes a dungeon look built rather than stamped. **Only worth doing against a pack that
   ships the sixteen pieces**, which is why criterion 2 outranks how pretty a pack is.
+
+---
+
+# 5. The search: ten candidates, rated
+
+Three independent searches — itch.io, OpenGameArt, and GitHub/elsewhere — each required to open every
+page and quote the licence rather than describe it. The four links in the top three and the palette
+donor were then re-verified by hand. Ratings are out of 5 per column; **wall system is weighted
+double**, because §1 established that a missing wall system, not colour, is what is actually broken.
+
+| # | Pack | Licence | Wall system | Doors O+C | Entrance | Palette fit | Volume | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **DCSS — `crawl/tiles`** | CC0 ⚠️ (4) | **5** — `rock_wall_00–15`, the full sixteen | 5 — 91 door files, open/closed/runed/sealed, H+V gates | 5 — 127 gateway tiles | 3 — dark cobalt/grey, recolours per tile | 5 — 800 walls, 586 floors | **Pick for the walls** |
+| 2 | **Kenney — Tiny Dungeon** | CC0 (5) | 3 — corners, not a 16-set | **5** — both states seen in the pixels | 5 — stone arch + portcullis | 3 — warm tan, but 28 colours total | 3 — 132 tiles | **Pick for the doors** |
+| 3 | **Buch — Dungeon tileset (OGA)** | CC0 (5) | 3 — five room frames with corner sets | **5** — open doorway, planked door, portcullis, adjacent in one wall run | 3 — stairs, no formal arch | **4** — already cool blue-grey, avg (62,66,79) | 3 — ~250 cells, 36 colours | **Pick for the mood** |
+| 4 | 0x72 — 16x16 Dungeon Tileset (the *first* one) | CC0 (5) | 4 — inner+outer autotile demo | 3 — closed seen, open unconfirmed | 2 | **5** — dark plum floor, grey-lavender brick, orange sconces | 3 | Already violet |
+| 5 | hyprv — Dungeon Pack 16x16 | CC0 (5) | 4 — clean inner+outer | 3 — doors listed, split unconfirmed | 3 — portcullis seen | **5** — closest palette found | 2 — ~20–30 tiles | Palette, little volume |
+| 6 | Kenney — Roguelike Caves & Dungeons | CC0 (5) | 4 — rounded + broken-edge variants | 4 — single and double wooden | 4 — several arched doorframes | 3 | 4 — 520 tiles | Solid second Kenney |
+| 7 | HorusKDI — 6 Color Dungeon 16x16 | CC0 (5) | 3 | 1 — no in-wall pair | **5** — animated portcullis over stairs | **5** — measured `#16101E`/`#2E2440`/`#70579C`/`#E096A8` | 2 — ~70 cells | **The palette donor** |
+| 8 | rubberduck — dungeon tileset with walls and floors | CC0 (5) | 3 — 4 walls, 15 floors | 3 — unconfirmed split | 3 — stairs | 4 — ships a clean greyscale ramp | 4 | The recolour shortcut |
+| 9 | Shade — 16x16 Puny Dungeon | CC0 (5) | 4 — 2-edge Wang tiles | 3 — gate + frame, pair unconfirmed | 2 | 3 — grey, green moss to kill | 3 | Good autotiling |
+| 10 | 0x72 — DungeonTileset II | CC0 (5) | 3 | 5 | 5 | **1** — warm brown/tan, the brief's one veto | 5 | Famous, wrong game |
+
+### Rejected on licence — do not put these in a public MIT repo
+
+| Pack | Why |
+|---|---|
+| **LPC base assets** | CC-BY-SA 3.0 **and** GPL 3.0. Share-alike would infect the repo. |
+| **DawnLike** | Shipped `README.txt` says **CC-BY-SA 3.0** even though its OpenGameArt page says CC-BY 4.0. A licence that contradicts itself is not one to build on — and it is otherwise the best recolour target here, drawn entirely on DawnBringer-16. |
+| **Minifantasy — Dungeon** | The free tier is **non-commercial only**; commercial use is a paid licence. Frequently recommended, wrong terms. |
+| **CraftPix free assets** | *"You can NOT… redistribute art in a manner that would make some or all of the art files useable to another end user"* — a public repo containing the PNGs breaks this. |
+| **Shattered Pixel Dungeon / Pixel Dungeon** | GPL-3.0. |
+| **Anokolisa — Pixel Crawler** | Terms live in an off-site Google Doc rather than a named licence. Unresolvable. |
+| **David Gervais / TomeTik** | Grants copy, distribute and transmit — but **never adaptation**, so recolouring is legally as well as visually wrong. |
+
+## 6. Recommendation: a composite, not a pack
+
+No free tileset satisfies the whole list. The cheapest complete route is three CC0 sources, none of
+which requires attribution:
+
+1. **Walls from DCSS.** It is the only candidate that ships `rock_wall_00–15` — the sixteen-piece run
+   that maps **directly onto the mask this codebase now computes** (`DungeonScenery.WallMask`,
+   N 1 · E 2 · S 4 · W 8). Our dungeons use eight of those sixteen (1, 4, 5, 7, 11, 13, 14, 15), so
+   the import is eight files and a rename.
+2. **Doors and the arch from Kenney's Tiny Dungeon**, palette-swapped. Twenty-eight flat colours and
+   one outline colour across the whole sheet, so the swap is a lookup table, not a repaint.
+3. **The palette from HorusKDI's 6 Color Dungeon**, which measures `#16101E`, `#2E2440`, `#70579C`,
+   `#E096A8` against our `#251B31`, `#50275E`, `#D75268`. It is our moodboard, already drawn.
+
+Two import traps, both already known to this project: Kenney's sheets ship on a **blue backdrop** and
+Screaming Brain's on **magenta**, so both need alpha keying before they reach `Assets/Art/` —
+`Tools/sprite-contact-sheet.py` flags exactly that fringe. And DCSS's CC0 comes with a maintainer's
+caveat and a `TILES_UNDER_UNKNOWN_LICENSE.md` exclusion list, which must be diffed against whatever
+we actually copy.

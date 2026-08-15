@@ -97,6 +97,19 @@ namespace Dungeon.Game
                 {
                     var cell = new Vector2Int(x, y);
                     string tile = TileFor(grid, cell);
+
+                    // A wall that knows which sides face open floor, when the art can draw one.
+                    // Falls through to the flat variants when it cannot, so this is inert until a
+                    // tileset with the sixteen pieces is imported and correct the moment one is.
+                    if (grid.KindAt(cell) == CellKind.Wall)
+                    {
+                        string shaped = $"wall-{WallMask(grid, cell)}";
+                        if (_sprites.Load($"tiles/{shaped}", quiet: true) != null)
+                        {
+                            tile = shaped;
+                        }
+                    }
+
                     if (tile != null)
                     {
                         _sprites.Make($"tile_{x}_{y}", $"tiles/{tile}",
@@ -385,6 +398,51 @@ namespace Dungeon.Game
             // read as a hole straight through the dungeon. The whole grid is around 130 cells, so
             // the saving was never worth the failure mode.
             return spread % 11 == 0 ? "wall-moss" : "wall";
+        }
+
+        /// <summary>
+        /// Which sides of a wall cell are backed by more wall, as a four-bit mask.
+        /// </summary>
+        /// <remarks>
+        /// North is 1, east 2, south 4, west 8, so a wall buried in rock is 15 and a wall with open
+        /// floor to the south is 11. Sixteen cases, which is the standard blob-tile numbering a
+        /// tileset that ships edges and corners is drawn against.
+        /// <para>
+        /// This is the hole in the current art, and it is a code fact as much as an art one: every
+        /// wall cell has always been given the same sprite regardless of its neighbours, so no
+        /// redraw of a single tile could ever make a wall turn a corner. The masonry reads as a
+        /// repeated band because that is exactly what it is.
+        /// </para>
+        /// <para>
+        /// Anything off the grid counts as wall. The dungeon is surrounded by rock, and treating the
+        /// void as open floor would draw a lit edge along the outside of the map facing nothing.
+        /// </para>
+        /// </remarks>
+        /// <param name="grid">Dungeon being drawn.</param>
+        /// <param name="cell">Wall cell to classify.</param>
+        /// <returns>A mask from 0 to 15.</returns>
+        public static int WallMask(DungeonGrid grid, Vector2Int cell)
+        {
+            int mask = 0;
+            if (IsSolid(grid, cell + Vector2Int.up)) { mask |= 1; }
+            if (IsSolid(grid, cell + Vector2Int.right)) { mask |= 2; }
+            if (IsSolid(grid, cell + Vector2Int.down)) { mask |= 4; }
+            if (IsSolid(grid, cell + Vector2Int.left)) { mask |= 8; }
+            return mask;
+        }
+
+        /// <summary>Whether a cell is wall, or off the map and therefore rock.</summary>
+        /// <param name="grid">Dungeon being drawn.</param>
+        /// <param name="cell">Cell to test.</param>
+        /// <returns>True when nothing can stand there.</returns>
+        private static bool IsSolid(DungeonGrid grid, Vector2Int cell)
+        {
+            if (cell.x < 0 || cell.y < 0 || cell.x >= grid.Width || cell.y >= grid.Height)
+            {
+                return true;
+            }
+
+            return grid.KindAt(cell) == CellKind.Wall;
         }
     }
 }
