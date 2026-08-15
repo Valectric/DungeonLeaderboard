@@ -1,7 +1,7 @@
 # Handover
 
 **State: M1–M13 built, tested and SHIPPED. `main` is green at 331 tests and itch is serving
-`0.1.2608152213`. Nothing is held on a branch.**
+`0.1.2608152305`. Nothing is held on a branch.**
 
 The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
 review over generated key art, a thirty-second spatial shop, the next raid — and the league ends
