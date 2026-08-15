@@ -977,3 +977,38 @@ is the design. It has to be a mistake the player chooses, not one the caption wa
 playtesting says new players still drown their first party, the next lever is a door on the
 entrance — an actual valve — rather than a cap on the verb.
 
+
+## 2026-08-15 — D27. The rivals were priced against a raid that does not exist
+
+`GoodRun` read **500** for most of the project, documented as "what a really good raid harvests".
+Nothing has ever harvested it. The four play-styles in `RunProgressionTests` bank **226 to 434**
+across a season for a mean of **308**, and the single best round ever recorded is **502** on a
+late-season five-room dungeon.
+
+So the rival ceiling — ninety per cent of a good raid — sat at 450, **above the game's own typical
+maximum**. That quietly inverted the promise D20 and D25 are both built on. "Play a genuinely good
+raid and no rival can have beaten it" was arithmetically false: there was no raid good enough.
+
+Corrected to the measured **430**. Best of four play-styles goes from round **7 to round 9** of ten,
+and now reaches the final rather than dying mid-table.
+
+**D25 stands.** The instinct was that `FinalistPressure` was the culprit — the player's harvest is
+flat across a season (341 in round one, 359 in round seven) while that dial lifts the rivals' floor
+from 22 to 407, which reads exactly like the thing ending runs. It was tried at 0.55 and **reverted**:
+correcting `GoodRun` alone reached round nine, and lowering `FinalistPressure` as well also reached
+round nine. It bought nothing, and it would have cost D25's "late on, a rival never has an off day".
+
+Two things worth keeping from that:
+
+- **A plausible story about a dial is not evidence that moving it does anything.** Both changes were
+  made together first and the pair looked like a success. Only measuring them apart showed one of
+  them was inert.
+- **Constants that describe the game go stale silently.** `GoodRun` was a measurement written down
+  once and then treated as a fact forever, while the thing it measured changed underneath it — most
+  recently when the run started opening on a single room. It is now labelled as measured, with
+  instructions to re-measure rather than re-choose.
+
+Still open, and the author's call: **nothing has won a season by playing it.** The bot contests the
+final and loses on cumulative score. D25 measured that winning needs ~400 a round against this bot's
+308, so the question is whether 400 is reachable by a human on a five-room dungeon, or whether
+`MaxRooms` or the wound curve has to move. That is a design question, not a stale constant.

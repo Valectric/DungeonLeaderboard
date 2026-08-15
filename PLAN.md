@@ -341,11 +341,16 @@ The author's four asks, and the three defects they uncovered. D31–D33 have the
       on the purse, and the collapse line was drawn in the winner's green
 - [x] Portrait screens added to the resolution sweep, which had been computing scale the landscape way
 - [x] itch page art and copy built from the game's own pixels (`Marketing/`)
-- [ ] **Open, and the author's call: the season is not winnable.** Best of four ways to play reaches
-      round 9 of 10. Rivals' floor climbs to 407 against a ceiling of 450 as the field shrinks, so
-      every survivor averages ~428 a round; a five-room dungeon on a sixty-second clock tops out
-      around 435. `RivalHandicap` / `FinalistPressure` / `MaxRooms` are the dials. D25 reasons about
-      that exact number, so it is not being changed here.
+- [x] **The rivals were priced against a raid the game cannot produce.** `GoodRun` read 500 and
+      nothing has ever harvested it, so the ceiling sat above the game's own maximum and inverted the
+      promise D20 and D25 rest on. Corrected to the measured 430: best of four play-styles went from
+      round 7 to round 9, and it now contests the final instead of dying mid-table. See D27.
+- [ ] **Still open, and the author's call: nothing has yet won a season by playing it.** The bot
+      reaches the final and loses on cumulative score. D25 measured that a player needs ~400 a round
+      to win and this bot averages 308, so the real question is whether 400 is reachable by a human
+      on a five-room dungeon, or whether `MaxRooms` or the wound curve has to move. `FinalistPressure`
+      was tried at 0.55 and reverted — measured, it changed nothing the `GoodRun` fix had not already
+      done, and it cost D25's "late on, a rival never has an off day".
 
 ---
 

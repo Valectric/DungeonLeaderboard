@@ -194,23 +194,23 @@ namespace Dungeon.LeagueManager
         /// </summary>
         /// <remarks>
         /// Short of 1 on purpose: at 1 the last rival would score exactly the same number every
-        /// round and the final would be an arithmetic check rather than a race.
+        /// round and the final would be an arithmetic check rather than a race. At 0.9, against the
+        /// corrected <see cref="GoodRun"/>, they roll roughly 351 to 387 in the final.
         /// <para>
-        /// <b>This is the dial that was ending runs, and the ceiling was not.</b> The player's
-        /// harvest is flat across a season — 341 in round one and 359 in round seven, measured — while
-        /// this climb lifted the rivals' floor from 22 to 407. At 0.9 the final field rolled a mean of
-        /// 428 against a player mean of 308, so the last third of every season was arithmetically
-        /// lost however well it was played, and the four play-styles in <c>RunProgressionTests</c>
-        /// died in rounds five, six, seven and seven.
+        /// <b>Tried at 0.55 and reverted, because it bought nothing.</b> The reasoning looked sound —
+        /// the player's harvest is flat across a season, 341 in round one against 359 in round seven,
+        /// while this climb lifts the rivals' floor, so it reads like the dial that ends runs.
+        /// Measured, it is not: correcting <see cref="GoodRun"/> alone took the best of four
+        /// play-styles from round seven to round nine, and lowering this as well left it at nine.
+        /// The stale ceiling was doing the damage on its own.
         /// </para>
         /// <para>
-        /// At 0.55 the final field rolls roughly 223 to 387 for a mean of 305, against that same
-        /// player mean of 308 — dead level, which is what "winnable but only with a genuinely good
-        /// raid" has to mean when written as arithmetic. Raise it again only alongside a dungeon that
-        /// earns more late than it does early; while the harvest is flat, this dial is a countdown.
+        /// So D25 stands unchanged — only the floor rises, and late on a rival never has an off day.
+        /// Reach for this dial only after a change that makes it earn its keep, and measure it alone,
+        /// because a plausible story about a dial is not evidence that moving it does anything.
         /// </para>
         /// </remarks>
-        public const float FinalistPressure = 0.55f;
+        public const float FinalistPressure = 0.9f;
 
         /// <summary>
         /// How strong the surviving rivals are right now, from 0 in the opening round to
