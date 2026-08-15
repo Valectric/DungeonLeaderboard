@@ -281,7 +281,28 @@ namespace Dungeon.Game.Tests
                 + "screen's darkening they are the brightest thing on it");
         }
 
-        /// <summary>Names every party bar currently drawn.</summary>
+        /// <summary>
+        /// Every prefix belonging to a bar that only means something during a raid.
+        /// </summary>
+        /// <remarks>
+        /// The party's own bars were the ones found on the standings, but they are not the only
+        /// world-space overlay the raid draws: a monster's health, a door being forced, a trap being
+        /// disarmed and a shot in flight are all quads made the same way, by the same workshop, and
+        /// left enabled the same way. Checking only the four that were noticed would be repeating
+        /// the mistake that put the first fix on one screen out of two.
+        /// <para>
+        /// <c>buildable_</c> is deliberately absent — those markers belong to the shop, which is not
+        /// a raid but is the one phase where they are correct.
+        /// </para>
+        /// </remarks>
+        private static readonly string[] RaidOnlyBars =
+        {
+            "hpfill", "hpback", "manafill", "manaback",
+            "mobhpfill", "mobhpback", "disarmfill", "disarmback",
+            "doorworkfill", "doorworkback", "shot_"
+        };
+
+        /// <summary>Names every raid-only bar currently drawn.</summary>
         /// <returns>The enabled bar renderers, by name.</returns>
         private static System.Collections.Generic.List<string> LitBars()
         {
@@ -289,11 +310,18 @@ namespace Dungeon.Game.Tests
             foreach (SpriteRenderer bar in Object.FindObjectsByType<SpriteRenderer>(
                 FindObjectsSortMode.None))
             {
-                bool isBar = bar.name.StartsWith("hpfill") || bar.name.StartsWith("hpback")
-                    || bar.name.StartsWith("manafill") || bar.name.StartsWith("manaback");
-                if (isBar && bar.enabled)
+                if (!bar.enabled)
                 {
-                    lit.Add(bar.name);
+                    continue;
+                }
+
+                foreach (string prefix in RaidOnlyBars)
+                {
+                    if (bar.name.StartsWith(prefix))
+                    {
+                        lit.Add(bar.name);
+                        break;
+                    }
                 }
             }
 
