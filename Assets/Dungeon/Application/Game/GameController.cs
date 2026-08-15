@@ -121,6 +121,16 @@ namespace Dungeon.Game
         /// <summary>Whether the adventurers' review of the last raid is on screen.</summary>
         public bool IsReviewing => _phase == Phase.Reviewing;
 
+        /// <summary>
+        /// Whether the run has ended with the player as the last dungeon standing.
+        /// </summary>
+        /// <remarks>
+        /// The ending the game is played for, and until now the only phase with no way to ask about
+        /// it from outside. That is exactly why nothing had ever checked it was reachable: a state a
+        /// test cannot observe is a state no test asserts.
+        /// </remarks>
+        public bool HasWon => _phase == Phase.Won;
+
         /// <summary>Builds the dungeon and starts the first raid.</summary>
         private void Awake()
         {
