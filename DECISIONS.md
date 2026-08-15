@@ -1231,3 +1231,35 @@ still a poor score. What changes is the size of the number, and that a figure qu
 never itself been checked. That is the third time in one day, and the shape is identical each time:
 the instrument was believed because it produced a number, not because anyone asked what the number
 was measuring.
+
+## 2026-08-16 — D33. The shipped build can be played now, and the first play found something
+
+The itch page runs the game in a **cross-origin iframe**, which synthetic input cannot reach. So
+automation could confirm the build booted and photograph the title screen, and could not press a
+single button — the raid loop, which is the game, had never been exercised in the shipping renderer
+by anything but a human.
+
+`Tools/serve-build.py` fixes that. The build is **brotli-compressed with no decompression fallback**,
+so it needs a server sending `Content-Encoding: br`; Python's stock `http.server` does not, and the
+loader fails with an error that reads like a corrupt build. Served from localhost the page is
+same-origin and the whole loop is drivable. Verified end to end: loading screen, standings, a raid
+with the clock running and the rate at 4.7/s, and the adventurers' review at three stars.
+
+### What the first play found
+
+**The party walks through the opening instruction.** At the itch viewport the three-line headline sits
+low enough that the party's sprites and health bars are drawn across its third line — "TOO MANY AND
+THEY DIE" struck through by an archer and a green bar.
+
+This is not the chest-tag collision fixed earlier the same night; that one is gone. It is the party
+itself, and the code comment above the block says it is placed "high enough to clear the party walking
+through it", which is true at 1280x720 and false at the viewport the build actually runs in
+(~1040x512, scale 0.71). **Every editor capture was 1280x720**, which is why nothing saw it.
+
+`ResolutionSweepTests` covers ten sizes including the itch embed, but it checks geometry
+analytically — that rects are on screen and big enough. It has no notion of a sprite being drawn over
+a label, because nothing in it renders.
+
+Not fixed here: the block's placement interacts with camera framing, room size and scale together, and
+changing it wants a photograph at several viewports rather than one arithmetic tweak. The serving tool
+now makes that possible, which it was not this morning.
