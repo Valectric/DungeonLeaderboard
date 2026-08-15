@@ -1,6 +1,39 @@
 # Handover
 
-**State: M1–M13 built, tested and SHIPPED. `main` is green at 331 tests and itch is serving
+## Three decisions waiting for you — nothing else is blocked
+
+Every milestone is built, tested and shipped, and the suite is green at 333 tests across five
+assemblies. These three are judgements rather than work, and each is now as well-evidenced as
+measurement can make it.
+
+**1. Buy a tileset, or keep grading this one.** `Tools/grade-walls.py` hits both moodboard ratios
+exactly — wall/floor 0.98, rim/wall 1.94 — and the result **looks worse**, flatter and less legible
+(`Screenshots/grade-compare.png`). That is the evidence that the ratio is necessary and not
+sufficient: the reference holds wall and floor at one value *and* keeps them readable, using hue and
+drawn masonry this stone does not carry. See **D32**. Candidates, both verified by downloading and
+looking: **Szadi Rogue Fantasy Castle, $3.20**, 16x16, PSD, licence explicitly public-domain so the
+PNGs can live in this repo; or **0x72 `dungeontileset-ii`, CC0**, whose file list carries named
+boundary pieces (`wall_outer_front`, `wall_edge_left`, `doors_leaf_open/closed`). **Do not buy
+Seliel** — best art in the survey, and the Mana Seed licence forbids use alongside AI-generated
+content, which this project is.
+
+**2. What to do about two inert halls.** The party reaches exactly **three rooms in sixty seconds**
+whatever the dungeon's size and whoever walks in — confirmed across three seeds, identical harvest to
+the pound at 3, 4, 5 and 6 rooms. `MaxRooms` is 5 against one starting room, so the shop sells four
+halls and two of them cannot affect the score. See **D29** and its addendum. The three fixes point in
+opposite directions: `MaxRooms` down to 3 makes the shop honest and shrinks the game; a faster party
+or longer clock changes the sixty seconds the title is about; a depth multiplier rewards building
+forward but is a **new rule**, which SPEC.md forbids until the three verbs are proven.
+
+**3. Is a quarter the right win rate?** Across three seeded seasons and four play-styles the bot wins
+**3 of 12** and reaches round 9 or 10 in every one. That number was chosen by nobody — it fell out of
+pricing the rivals against what the game can actually produce (**D27**, re-proved properly in
+**D31**). The bot is explicitly "a floor on competence, not a good player", so a human should beat a
+quarter. Whether that is the shape you want is yours.
+
+---
+
+**State: M1–M13 built, tested and SHIPPED. `main` is green at 333 tests and itch is serving
 `0.1.2608152305`. Nothing is held on a branch.**
 
 The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
