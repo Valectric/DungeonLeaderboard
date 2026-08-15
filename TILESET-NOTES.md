@@ -55,3 +55,23 @@ the same *material* as the wall run: L 53.1 / sat 40.9% / B−G +18.5 against th
   watching while moving three I was not.
 - Codex cannot save into a read-only workspace. It still generates; read the path it prints and copy
   the file out.
+
+## Addendum — a tile-aligned archway attempt
+
+`C:/Users/JohanHoltby/Documents/dungeon-keyart/arch-128x64.png` — a narrow regeneration asking for
+the arch alone at exactly 128x64 (4x2 tiles), rather than another whole sheet.
+
+It looks right: stone reaches both left and right edges, the opening is centred, the rim runs along
+the top. **But it is not verified**, and two things are known wrong:
+
+- The generator produced **1774x887**, not the requested 128x64 (nor the 1792x896 it claimed). So the
+  downscale is a resample, not an integer reduction, and the result is slightly soft. For pixel art
+  that matters. A clean version needs the source drawn at an exact multiple, or the arch cut by hand.
+- My geometry check was too crude to confirm the opening is centred on x=64: it flagged the entire
+  lower half as "opening", because the wall's lower courses are legitimately dark too. Anyone
+  continuing this should measure the opening against the stone, not against darkness.
+
+**The cheaper path, if this keeps failing:** cut the arch by hand out of `tileset-final.png` rather
+than regenerating it. The material is already correct there — measured L 53.1 / sat 40.9% / B-G +18.5
+against the wall's 53.0 / 43.6% / +18.3, indistinguishable. Only the geometry is wrong, and geometry
+is the one thing a human fixes faster than a generator does.
