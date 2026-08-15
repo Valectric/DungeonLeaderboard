@@ -475,3 +475,48 @@ honest number and the baseline any replacement must beat.
 
 `tiles-from-room` carries the sampler experiments, the sliced tiles and the relief prototype.
 `tileset-dcss` is the violet recolour, superseded. Neither should be merged as-is.
+
+## Open defect, found 2026-08-15: pale bands across every room
+
+Two pale lavender bands render across the top and bottom of the room interior, in **world space**, in
+the build published as `0.1.2608151950`. Visible in `Screenshots/01-raid-opening.png`; cropped and
+magnified at `Screenshots/bar-diagnosis.png`.
+
+Measured, so the next person does not start from scratch:
+
+```
+extent      x = 499..851 (353 px, ~5.5 cells), IDENTICAL on both bands
+top band    y = 112..136   luminance 90..126
+bottom band y = 536..542   luminance ~132
+colour      rgb ~ (140,134,166), pale lavender
+```
+
+The brickwork shows through, so it is a translucent overlay rather than an opaque sprite. Short
+vertical segments appear at the right-hand end of each band.
+
+### Ruled out, with the evidence
+
+- **Not UI, and not the first-raid hints.** `RaidE2E.Capture` renders through `camera.Render()` into a
+  RenderTexture, which excludes IMGUI entirely — and the bands are present there, byte-identical to
+  the `ScreenCapture` version. Hint text colour `(0.88, 0.86, 0.95)` is a near match for the band's
+  hue, which makes this a tempting wrong answer; the capture path rules it out.
+- **Not doors.** `door-a.png` is dark red at mean (54,38,32). Its only bright rows are the gold bands
+  at 30/31 and 46/47, which are yellow, not lavender. PPU is 64 on a 64px sprite, so no scaling fault.
+- **Not the decoration props.** All six are 64x64 and dark, means from (68,32,81) to (92,69,52).
+- **Not the generated glow.** Radial, soft-edged, scaled 1.7–2.1 (about one tile). The bands are hard
+  edged and 5.5 cells wide.
+- **Not the wall tiles' lit cap.** Those measure 51–59 luminance; the bands are 90–132.
+- **Not the reverted §13 rim highlight.** No such code remains in `DungeonScenery` — grep for
+  rim/highlight/strip/glow finds only the glow.
+- **No sprite in `Assets/Art/Resources` matches**, either by mean colour (nothing within 28 of the
+  band) or by containing a bright full-width row (only the two doors, and those are gold).
+
+### Where to look next
+
+It is a world-space renderer, so a runtime dump is the way in: enumerate every `SpriteRenderer` under
+the scenery root with its name, bounds, colour and sorting order, and find the one whose bounds match
+x = 499..851. Everything cheaper than that has been tried above.
+
+**Do not assume this is the answer to the author's wall complaint.** It is a real defect found while
+looking for that, which is not the same thing — see D28 for what happened last time those two got
+conflated.
