@@ -211,5 +211,61 @@ namespace Dungeon.Game.Tests
             Assert.Less(_game.League.Entries.Count, LeagueTable.Size,
                 "the field never shrank, so this photographed the opening table");
         }
+
+        /// <summary>
+        /// The league screen shows no health bars, because nobody on it is raiding.
+        /// </summary>
+        /// <remarks>
+        /// A regression test for a fault found in the shipped WebGL build rather than in the editor,
+        /// on the one screen SPEC.md calls the ten-second hook. The league draws the player's own
+        /// dungeon behind the standings and darkens it with a quad at 82% opacity. Masonry near
+        /// luminance 0.12 falls to about 0.02 under that; a saturated bar at 0.90 green keeps about
+        /// 0.16. So the brightest thing on the title screen was a health bar for a party that is not
+        /// raiding, lying across the standings rows.
+        /// <para>
+        /// Asserts the renderers rather than the pixels. A pixel threshold on a screen that also
+        /// draws torchlight would be the kind of measurement that passes for the wrong reason.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        [Test]
+        public async UniTask TheLeagueScreen_ShowsNoHealthBars(CancellationToken ct)
+        {
+            // Deliberately NO Advance() here. Advance is what LEAVES the standings for the raid, so
+            // pressing it first walks straight past the screen under test -- which is how the first
+            // version of this test failed. The loading screen enters the standings by itself once it
+            // has held itself for its few seconds.
+            for (int frame = 0; frame < 20 && !_game.IsShowingStandings; frame++)
+            {
+                await UniTask.WaitForSeconds(0.5f, cancellationToken: ct);
+            }
+
+            Assert.IsTrue(_game.IsShowingStandings,
+                "the run never reached the standings, so this proves nothing either way");
+
+            await UniTask.NextFrame(ct);
+            await Capture("10-league-screen", ct);
+
+            SpriteRenderer[] bars = Object.FindObjectsByType<SpriteRenderer>(
+                FindObjectsSortMode.None);
+            var lit = new System.Collections.Generic.List<string>();
+            foreach (SpriteRenderer bar in bars)
+            {
+                bool isBar = bar.name.StartsWith("hpfill") || bar.name.StartsWith("hpback")
+                    || bar.name.StartsWith("manafill") || bar.name.StartsWith("manaback");
+                if (isBar && bar.enabled)
+                {
+                    lit.Add(bar.name);
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"league screen: {lit.Count} party bars still drawn "
+                + (lit.Count > 0 ? string.Join(", ", lit) : "(none)"));
+
+            Assert.IsEmpty(lit,
+                $"{lit.Count} party health/mana bars are drawn over the standings, and under the "
+                + "screen's darkening they are the brightest thing on it");
+        }
     }
 }

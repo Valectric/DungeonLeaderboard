@@ -78,6 +78,17 @@ namespace Dungeon.Game
         /// <param name="layout">Dungeon to draw.</param>
         public void BuildStatic(DungeonLayout layout) => _scenery.Build(layout);
 
+        /// <summary>
+        /// Hides the party's health and mana bars, for screens that are not a raid.
+        /// </summary>
+        /// <remarks>
+        /// The dungeon keeps being drawn behind the standings on purpose — it is the player's own
+        /// dungeon and that is the joke — but the bars are the one part of it that survives the
+        /// screen's darkening, because they are saturated where the masonry is not. See
+        /// <see cref="PartyBars.HideAll"/> for the measured reason.
+        /// </remarks>
+        public void HidePartyBars() => _bars.HideAll();
+
         /// <summary>Marks every tile the player may build on, for the shop.</summary>
         /// <param name="layout">Dungeon to mark up.</param>
         public void MarkBuildableTiles(DungeonLayout layout) => _scenery.MarkBuildableTiles(layout);

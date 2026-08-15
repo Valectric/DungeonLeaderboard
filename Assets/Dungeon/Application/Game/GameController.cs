@@ -122,6 +122,16 @@ namespace Dungeon.Game
         public bool IsReviewing => _phase == Phase.Reviewing;
 
         /// <summary>
+        /// Whether the league table is on screen, which is also this game's title screen.
+        /// </summary>
+        /// <remarks>
+        /// Note the remark on <see cref="IsRaiding"/>: a raid runs behind this screen so the
+        /// standings have a dungeon to sit over, so asking the raid is not the same as asking the
+        /// phase. That difference is exactly what a health bar drawn across the standings was.
+        /// </remarks>
+        public bool IsShowingStandings => _phase == Phase.Standings;
+
+        /// <summary>
         /// Whether the run has ended with the player as the last dungeon standing.
         /// </summary>
         /// <remarks>
@@ -650,6 +660,15 @@ namespace Dungeon.Game
             _ratePulse += Time.deltaTime;
             _shift = Mathf.Min(1f, _shift + (Time.deltaTime / ShiftSeconds));
             _view.Refresh(_raid, Time.deltaTime);
+
+            // Nobody is raiding on the standings, so a health bar there reads as a stray sprite --
+            // and it is the brightest thing on the screen, because the darkening quad the league
+            // draws takes the masonry down eight times harder than it takes a saturated bar. Cleared
+            // after Refresh, which is what puts them back every frame.
+            if (_phase == Phase.Standings)
+            {
+                _view.HidePartyBars();
+            }
 
             if (_phase == Phase.Shopping)
             {

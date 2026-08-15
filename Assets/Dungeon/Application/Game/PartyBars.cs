@@ -45,6 +45,28 @@ namespace Dungeon.Game
             }
         }
 
+        /// <summary>
+        /// Hides every bar, for a screen where nobody's health means anything.
+        /// </summary>
+        /// <remarks>
+        /// The league screen draws the player's own dungeon behind the standings and darkens it with
+        /// a quad at 82% opacity. Masonry near luminance 0.12 falls to about 0.02 under that, but a
+        /// bar is saturated — 0.90 green, 1.0 blue — and keeps roughly 0.16, some eight times the
+        /// wall it sits on. So the brightest thing on the title screen was a health bar for a party
+        /// that is not raiding, laid across the standings rows.
+        /// <para>
+        /// Found in the shipped WebGL build rather than in the editor, on the one screen SPEC.md
+        /// calls the ten-second hook.
+        /// </para>
+        /// </remarks>
+        public void HideAll()
+        {
+            for (int i = 0; i < _backs.Count; i++)
+            {
+                Hide(i);
+            }
+        }
+
         /// <summary>Width of an adventurer's health bar, in world units.</summary>
         public const float BarWidth = 0.62f;
 
