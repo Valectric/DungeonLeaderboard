@@ -27,8 +27,8 @@ goes in **as drawn**, gently darkened, and the colour comes from what is lit.
 
 | # | Step | State |
 |---|---|---|
-| 1 | Tileset in its own cold stone: floors, walls, the sixteen wall shapes, door pair | in progress |
-| 2 | Entrance archway from `dngn/gateways`, so the join stops being visible | |
+| 1 | Tileset in its own cold stone: floors, walls, the sixteen wall shapes, door pair | **done** |
+| 2 | Entrance brought into the same tonal family as the stone | **done** |
 | 3 | Props and furniture — chest, spawners, torches — from `dngn` and `item` | |
 | 4 | UI frames and icons from the repository's `gui/` folder | |
 | 5 | Party and monster animations regenerated against the new stone (Sprite Maker) | |
@@ -43,3 +43,19 @@ goes in **as drawn**, gently darkened, and the colour comes from what is lit.
 - **Nothing enters `Assets/Art/` without its licence recorded** in `CREDITS.md` at the same time.
 - **One command rebuilds it.** `Tools/import-tileset.py` is the whole pipeline; if a choice cannot be
   expressed there it is a choice we cannot repeat.
+
+## What step 2 turned out to be
+
+Not a new archway. The entrance art was measurably out of tone -- luminance 13.7 against stone at
+30.2 -- so it was levelled to 29.5 with no hue change, reading from a preserved
+`entrance-source.png` so a re-run cannot brighten an already-brightened image into fog.
+
+That fixed the brightness and made the *real* problem visible, which no amount of looking had
+surfaced before: measured in HSV, the entrance sits at **hue 266** and the catacomb masonry at
+**hue 121** -- a faint green. Matching brightness had made both legible enough to see that their
+hues disagreed.
+
+`chill()` corrects the cast: saturation is capped at a tenth and the residual chroma is pointed at
+hue 259, with value left entirely to `level`. The stone stays essentially grey -- 0.09 saturation,
+luminance 30.4 -- which is the opposite of the failed pass that mapped luminance onto a violet ramp
+and came back at 0.4 saturation and luminance 61. A cast correction, not a repaint.

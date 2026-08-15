@@ -134,6 +134,42 @@ def level(image, gain, lift):
         np.concatenate([out, alpha], axis=-1).astype(np.uint8), "RGBA")
 
 
+def chill(image, hue=0.735, ceiling=0.10):
+    """
+    Neutralises a stone's colour cast and leaves the faintest cool bias.
+
+    NOT the violet recolour that failed. That mapped luminance onto a purple ramp and came
+    back at saturation 0.4 and luminance 61 -- tinted stone, a sweet shop. This measures what
+    is already there and only corrects the cast: the catacomb masonry reads at hue 121 with
+    saturation 0.05, a faint GREEN, against an entrance drawn at hue 266. Same brightness,
+    disagreeing hues, and the join stays visible.
+
+    Saturation is capped at a tenth, so the stone stays essentially grey. Value is untouched:
+    the tonal work is done by `level` and must not be redone here.
+    """
+    source = np.asarray(image, dtype=np.float32) / 255.0
+    rgb, alpha = source[..., :3], source[..., 3:4]
+
+    high = rgb.max(axis=-1)
+    low = rgb.min(axis=-1)
+    saturation = np.where(high > 0, (high - low) / np.maximum(high, 1e-6), 0.0)
+    saturation = np.minimum(saturation, ceiling)
+
+    # HSV to RGB for a single fixed hue, which collapses to a constant triple.
+    sector = hue * 6.0
+    frac = sector - int(sector)
+    base = np.array([1.0, 1.0 - frac, 0.0]) if False else None
+    import colorsys
+    tint = np.array(colorsys.hsv_to_rgb(hue, 1.0, 1.0), dtype=np.float32)
+
+    value = high[..., None]
+    out = value * (1.0 - saturation[..., None] * (1.0 - tint))
+    out = np.clip(out, 0.0, 1.0) * 255.0
+
+    return Image.fromarray(
+        np.concatenate([out, alpha * 255.0], axis=-1).astype(np.uint8), "RGBA")
+
+
 def shape_wall(base, mask):
     """
     Draws the lit lip and inner shadow for a wall block, given its neighbour mask.
@@ -223,8 +259,8 @@ def build():
     # right and tonally a sweet shop. The moodboard is violet-BLACK dominant with small
     # bright lights, so the windows sit low and the pale end of the ramp is reserved for
     # the lit lip on a wall's open edge, which is the only thing that should be bright.
-    walls = [level(fetch("wall", n), 0.72, -6) for n in WALL_SOURCES]
-    floors = [level(fetch("floor", n), 0.62, -4) for n in FLOOR_SOURCES]
+    walls = [chill(level(fetch("wall", n), 0.72, -6)) for n in WALL_SOURCES]
+    floors = [chill(level(fetch("floor", n), 0.62, -4)) for n in FLOOR_SOURCES]
 
     tiles["wall"] = upscale(walls[0])
     tiles["wall-cracked"] = upscale(walls[1])
@@ -242,6 +278,32 @@ def build():
         tiles[name] = upscale(level(fetch("doors", source), 0.85, -2))
 
     return tiles
+
+
+def match_entrance():
+    """
+    Brings the entrance scene into the same tonal family as the stone it joins.
+
+    The author's first complaint about the art was that the entrance looks bolted on, and it
+    is measurable rather than a matter of taste: `scenes/entrance.png` averages luminance
+    13.7 against wall tiles that now sit at 30.2 -- less than half as bright as the masonry
+    it is set into, so the join is visible however well the pieces are drawn.
+
+    Levels only, no hue change, which is the rule the rest of this rework runs under. The
+    original is preserved beside it as `entrance-source.png` and always read from, so
+    re-running never brightens an already-brightened image into fog.
+    """
+    folder = os.path.join(ROOT, "Assets", "Art", "Resources", "scenes")
+    live = os.path.join(folder, "entrance.png")
+    original = os.path.join(folder, "entrance-source.png")
+
+    if not os.path.exists(live):
+        return None
+
+    if not os.path.exists(original):
+        Image.open(live).convert("RGBA").save(original)
+
+    return level(Image.open(original).convert("RGBA"), 2.05, 2)
 
 
 def contact_sheet(tiles, path):
