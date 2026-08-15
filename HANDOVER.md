@@ -426,3 +426,52 @@ check any change against, and takes about a minute to run.
   carries the restraint — *TAP THE SLIME PIT TO HOLD THEM — TOO MANY AND THEY DIE* — rather than the
   game removing the mistake, because being able to make it is the mechanic. If playtesting says new
   players still drown their first party, the next lever is a door on the entrance, not a cap.
+
+## 2026-08-15 (evening) — the tileset thread, and what it actually taught
+
+Main is at `ce5e8e6`, 96/96 green, working tree clean. **Itch is unchanged at `0.1.2608151041`** —
+nothing was published today, deliberately, because nothing in the art thread reached a shippable
+state.
+
+### Start here
+
+`TILESET-SEARCH.md` §7–13 is the record, with sources. The conclusion five independent searches
+converge on: **the tileset is the wrong problem.** We spent the day asking a generator for sixteen
+images whose correctness lives in their *relationships* — which is the one thing an image model
+cannot hold — and `TILESET-NOTES.md:18` had already named the real cue days earlier: the moodboard
+*"does not separate wall from floor by value… it separates them with the rim highlight"*. A rim is a
+pure function of the grid. Code draws it perfectly; a generator draws it differently every run.
+
+### The route, if picking this up
+
+1. Get **one** seamless full-bleed stone fill. Gates: border/body luminance 1.0 ± 0.05, wrap-seam
+   ratio ≈ 1.0, unique colours ≤ 32.
+2. Derive the sixteen pieces from it by compositing quadrants — joining becomes arithmetic.
+3. Draw the depth in code: rim first, then front face, shadow, AO. `DungeonScenery.DrawRelief` on
+   branch `tiles-from-room` is a working first cut; §13 says exactly what to change (thinner, much
+   lower alpha, modulated per block, only the north rim bright).
+4. Generate at **16 or 32 px per cell**, never 64 — that is our true logical resolution, and it is
+   inside every pixel-art model's limit where 64 is not.
+
+### Three traps that cost real time today
+
+- **Every generation ran blind.** `grep -c referenced_image_paths` returns 0 on every run log. The
+  references were shown to the agent, which described them back in prose that reads exactly like it
+  used them. CLAUDE.md documents this in capitals; the instruction was in every prompt and was
+  ignored every time. **The instruction is worthless; the check is everything.**
+- **`git push origin main` from a branch pushes the local main ref** and reports success while
+  shipping nothing. It did that four times before I noticed. Run `git branch --show-current` first.
+- **A measurement that cannot see the defect is worse than none**, because it gets quoted as
+  evidence of health. Seam continuity passed a tile carrying a 3px black frame, because a symmetric
+  frame is perfectly wrap-continuous.
+
+### The state of the art, measured
+
+`python Tools/validate-tileset.py` — **main's own tiles score 68 gate failures**; the branch's score
+79. Main's art does not pass main's gate. The gate is new and the art predates it, but that is the
+honest number and the baseline any replacement must beat.
+
+### Branches
+
+`tiles-from-room` carries the sampler experiments, the sliced tiles and the relief prototype.
+`tileset-dcss` is the violet recolour, superseded. Neither should be merged as-is.
