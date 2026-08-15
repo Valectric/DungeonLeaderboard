@@ -1156,3 +1156,32 @@ to a mean, and that is worth finishing before anyone installs it.
 **Deliberately not installed.** The author reserved approval on this specific question — "I'll
 approve once it looks good as the mood board" — and a measurement agreeing with a target is not the
 same as a person liking a picture. `Screenshots/grade-compare.png` is before-and-after for that call.
+
+### D32 addendum — the targets are now hit exactly, and the picture got worse
+
+The rim gain is solved by bisection rather than algebra (the needed gain is *below* one, and ramping
+a reduction over six rows lets the brightest pixel migrate down the ramp, so two closed forms
+overshot at 2.56 and 2.16). Measured now:
+
+```
+wall / floor   0.98   target 0.98
+rim  / wall    1.94   target 1.93
+```
+
+**And the room reads flatter than before.** With wall and floor at the same value the only separation
+left is texture — brick against cobble — which at this darkness is very subtle, and the rim pulled
+down to 1.93x no longer reads as a lit edge. `Screenshots/grade-compare.png`.
+
+CLAUDE.md warned about exactly this, in these words: *"A run that hit every stated figure exactly
+produced flat, featureless slabs with no masonry at all. Metrics constrain; they do not compose.
+Always look at the output."* This is that, and the file had said so before the attempt.
+
+What it does **not** invalidate is the diagnosis. wall/floor at 1.46 against a reference 0.98 is still
+a real, measured deviation, and it still describes "pattern tiles in different colours" better than
+anything else proposed. What the grade shows is that the ratio is **necessary and not sufficient**:
+the reference holds wall and floor at one value while keeping them legible, and it does that with
+hue, saturation and drawn masonry detail our source stone does not carry. Grading cannot add those.
+
+So the honest reading is that this points at the **source art**, not at a filter — which is the same
+conclusion §12 of TILESET-SEARCH.md reached from the other direction, and the reason the two bought
+tilesets are worth the $3.20. Do not install this grade expecting it to answer the complaint.

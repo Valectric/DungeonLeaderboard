@@ -80,7 +80,7 @@ def measure(walls, floors):
     return floor_mean, body, rim
 
 
-def grade(walls, floor_mean, body, rim):
+def grade(walls, floors, floor_mean, body, rim):
     """
     Brings the wall body to the floor's value and the rim to 1.93x that, per tile.
 
@@ -92,23 +92,40 @@ def grade(walls, floor_mean, body, rim):
     target_rim = target_body * RIM_OVER_WALL
 
     body_gain = target_body / body if body > 0 else 1.0
-    # The rim needs its own gain, applied on top of the body's, or grading the body down drags the
-    # rim with it and the one cue that carries height goes with it.
-    rim_gain = (target_rim / (rim * body_gain)) if rim * body_gain > 0 else 1.0
 
-    out = {}
-    for mask, tile in walls.items():
-        rgb, alpha = tile[..., :3].copy(), tile[..., 3:4]
-        rgb *= body_gain
+    def apply(gain):
+        """Grades every tile at a given rim gain, so the result can be measured rather than solved."""
+        graded = {}
+        for mask, tile in walls.items():
+            rgb, alpha = tile[..., :3].copy(), tile[..., 3:4]
+            rgb *= body_gain
 
-        # Ramp the extra rim gain out over the rim rows so there is no hard seam where it stops.
-        for row in range(RIM_ROWS):
-            fade = 1.0 - (row / RIM_ROWS)
-            rgb[row, :] *= 1.0 + ((rim_gain - 1.0) * fade)
+            # Ramp the rim gain out so there is no seam where it stops.
+            for row in range(RIM_ROWS):
+                fade = 1.0 - (row / RIM_ROWS)
+                rgb[row, :] *= 1.0 + ((gain - 1.0) * fade)
 
-        out[mask] = np.concatenate([np.clip(rgb, 0, 255), alpha], axis=-1)
+            graded[mask] = np.concatenate([np.clip(rgb, 0, 255), alpha], axis=-1)
+        return graded
 
-    return out
+    # SOLVED BY BISECTION, not by algebra, and the reason is worth keeping. The gain needed here is
+    # BELOW one -- the rim is too loud at 3.04 and has to come down -- and ramping a reduction out
+    # over six rows dims the deeper rows LESS than the top one. So the brightest pixel simply
+    # migrates down the ramp, and any closed form written against the original peak overshoots:
+    # 2.56 on the first attempt, 2.16 on a second that tried to correct for the ramp's mean.
+    #
+    # Measuring what was actually produced sidesteps all of it, costs a handful of passes over
+    # sixteen 64x64 tiles, and stays correct if the ramp shape ever changes.
+    low, high = 0.05, 3.0
+    for _ in range(30):
+        mid = 0.5 * (low + high)
+        _, mid_body, mid_rim = measure(apply(mid), floors)
+        if mid_rim / mid_body > RIM_OVER_WALL:
+            high = mid
+        else:
+            low = mid
+
+    return apply(0.5 * (low + high))
 
 
 def room(walls, floors, path):
@@ -149,7 +166,7 @@ def main():
           f"wall/floor {body / floor_mean:4.2f} (target {WALL_OVER_FLOOR})  "
           f"rim/wall {rim / body:4.2f} (target {RIM_OVER_WALL})")
 
-    graded = grade(walls, floor_mean, body, rim)
+    graded = grade(walls, floors, floor_mean, body, rim)
     floor_mean2, body2, rim2 = measure(graded, floors)
     print(f"AFTER   floor {floor_mean2:5.2f}  wall {body2:5.2f}  rim {rim2:5.2f}   "
           f"wall/floor {body2 / floor_mean2:4.2f}  rim/wall {rim2 / body2:4.2f}")
