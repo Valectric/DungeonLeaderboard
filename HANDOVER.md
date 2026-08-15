@@ -26,10 +26,26 @@ nothing. `MaxRooms` is 5 against one starting room, which means the shop sells f
 are inert**. `RoomsPayTests` is the instrument. Not fixed, because the three candidate fixes point in
 opposite directions and one of them is a new rule SPEC.md forbids until the three verbs are proven.
 
-**Two corrections were made to this file's own claims on 2026-08-15, both worth reading before
-trusting a measurement here:** D28 (a tileset gate that ranked the fix below the fault, and was
-"confirmed" by a second method that was the same method) and the closed pale-bands section at the
-bottom (a defect measured out of a screenshot that the test suite was overwriting between reads).
+**A season is reproducible at last — D31.** `GameController.SeedOverride`. The seed was threaded
+correctly through the league, the party chain and combat, and there was no way to *set* it, so every
+season-long measurement was a different season while reading as if it were not: unchanged code
+returned best-of-four rounds of **7, 9, 9, 10 and 10** across five runs. **Treat any single-season
+figure written before D31 as an anecdote.** Re-measured properly on three seeded seasons, D27 holds —
+`GoodRun` 500 gives 8/7/8 and no wins in twelve, 430 gives 10/9/10 and three.
+
+**Three corrections were made to this file's own claims on 2026-08-15, and they share one shape.**
+D28 (a tileset gate that ranked the fix below the fault, "confirmed" by a second method that was the
+same method), the closed pale-bands section at the bottom (a defect measured out of a screenshot the
+suite was overwriting between reads), and D31 above. In each, **the instrument was never asked to
+prove it could tell two known-different cases apart** — which costs one command and would have caught
+all three.
+
+**And the same for fixes: fix the class, not the screen you photographed.** The raid's world-space
+overlays were found lying across the standings, and it took three passes to finish — first the
+party's bars on the league screen, then the collapse screen the first fix had named its way past,
+then four monster health bars on the winning ending. That last one hid because the widened check
+lived in `PhaseLookTests` and the winning ending is only reachable from `RunProgressionTests`, so the
+check never ran there. `DungeonView.HideRaidOverlays` now takes every collection there is.
 
 **Read first, before diagnosing anything:** the RaidManager and ShopManager suites now need ~1600s,
 not 800s, because raids that used to end early run the full clock. And when a "performance
