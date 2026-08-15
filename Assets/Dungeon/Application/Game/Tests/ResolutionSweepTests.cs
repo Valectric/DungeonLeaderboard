@@ -235,6 +235,46 @@ namespace Dungeon.Game.Tests
         }
 
         /// <summary>
+        /// The standings — the game's title screen — are legible at every size, including upright.
+        /// </summary>
+        /// <remarks>
+        /// SPEC.md calls this screen the ten-second hook: a new player reads it and understands "I
+        /// am 14th, 16th is death, I need to climb". At a portrait phone's 0.30 scale, a row was
+        /// eight pixels tall carrying five-pixel text, which is not a hook, it is a smudge — and no
+        /// test could have said so, because the sweep computed scale the landscape way and the only
+        /// assertion about this screen was whether a rectangle fell inside the canvas.
+        /// </remarks>
+        [Test]
+        public void TheStandings_AreLegibleAtEverySize()
+        {
+            foreach (Vector2Int size in Sizes)
+            {
+                float scale = UiScaleAt(size);
+                float rowHeight = LeagueScreen.RowHeight(scale, size.y);
+                float table = rowHeight * (LeagueManager.LeagueTable.Size + 7);
+
+                MooseRunnerFacade.Log(
+                    $"{size.x}x{size.y}: standings row {rowHeight:F1}px, whole table "
+                    + $"{table:F0}px of {size.y}");
+
+                Assert.LessOrEqual(table, size.y + 0.5f,
+                    $"{size.x}x{size.y}: the table and its furniture need {table:F0}px of "
+                    + $"{size.y} and do not fit");
+
+                // Twenty legible rows need 405 pixels, so a canvas shorter than that cannot have
+                // them however the layout is written -- 523x293 is the itch embed as configured
+                // today, and the honest fix there is the page's viewport setting rather than a
+                // smaller font. Everything with the room is held to the floor.
+                if (size.y >= 420)
+                {
+                    Assert.GreaterOrEqual(rowHeight, 15f,
+                        $"{size.x}x{size.y}: a standings row is {rowHeight:F1}px tall on a canvas "
+                        + "with room for more, so the title screen cannot be read");
+                }
+            }
+        }
+
+        /// <summary>
         /// The first raid's coaching text has room to be read at every size.
         /// </summary>
         /// <remarks>

@@ -69,9 +69,40 @@ namespace Dungeon.Game
         /// <param name="width">Canvas width in pixels.</param>
         /// <param name="height">Canvas height in pixels.</param>
         /// <returns>The prompt's rectangle in GUI space.</returns>
+        /// <summary>
+        /// Height of one standings row, with a floor.
+        /// </summary>
+        /// <remarks>
+        /// The UI scale is the smaller of the two axes, so a phone held upright reports about 0.3 —
+        /// and 26 times that is an eight-pixel row carrying five-pixel text. The standings are this
+        /// game's <b>title screen</b>: the first thing anybody sees, and the screen SPEC calls the
+        /// ten-second hook. It cannot be the one drawn too small to read.
+        /// <para>
+        /// Portrait has vertical room to spare — twenty floored rows and the furniture come to about
+        /// 360 pixels of an 844-pixel phone — so the floor costs nothing where it does not bite. It
+        /// is here rather than inlined because <see cref="PromptRect"/> and <see cref="Draw"/> must
+        /// agree to the pixel, and they have drifted before.
+        /// </para>
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>The row height in pixels.</returns>
+        public static float RowHeight(float scale, float height)
+        {
+            // Never taller than the canvas can hold. Twenty legible rows want 405 pixels, and the
+            // itch embed is 293 tall -- flooring without this ceiling pushed the table off the
+            // bottom of the page the game actually ships on, which is the failure this screen has
+            // already had once. Where there is room, the floor applies; where there is not, the
+            // rows fit and the page settings are the fix rather than the layout.
+            // 7.6 rather than the 7 the layout budgets: the prompt's own row ends at about 27.1
+            // rows, so dividing by exactly 27 fills the canvas to the pixel and pushes the last
+            // line -- the one telling the player how to start -- six pixels off the bottom.
+            return Mathf.Min(Mathf.Max(15f, 26f * scale), height / (LeagueTable.Size + 7.6f));
+        }
+
         public static Rect PromptRect(float scale, bool hasNextParty, float width, float height)
         {
-            float rowHeight = 26f * scale;
+            float rowHeight = RowHeight(scale, height);
             float top = Mathf.Max(8f * scale,
                 (height - (rowHeight * (LeagueTable.Size + 7))) * 0.5f);
             float listTop = top + (rowHeight * 2.6f);
@@ -89,7 +120,7 @@ namespace Dungeon.Game
         {
             float width = Mathf.Min(Screen.width * 0.9f, 620f * scale);
             float left = (Screen.width - width) * 0.5f;
-            float rowHeight = 26f * scale;
+            float rowHeight = RowHeight(scale, Screen.height);
 
             // Twenty rows plus the title, the relegation warning, the next-party announcement and
             // the prompt. Budgeting for four spare rows instead of seven pushed the prompt clean off
@@ -108,7 +139,7 @@ namespace Dungeon.Game
 
             var title = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(30 * scale),
+                fontSize = Mathf.Max(15, Mathf.RoundToInt(30 * scale)),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -117,7 +148,7 @@ namespace Dungeon.Game
 
             var caption = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(13 * scale),
+                fontSize = Mathf.Max(9, Mathf.RoundToInt(13 * scale)),
                 alignment = TextAnchor.MiddleCenter
             };
             // Nothing left to eliminate. Said plainly, because the alternative is what the winning
@@ -177,7 +208,7 @@ namespace Dungeon.Game
             // side of it you choose. Two attempts collided before this one.
             var warn = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(12 * scale),
+                fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)),
                 alignment = TextAnchor.MiddleCenter
             };
             warn.normal.textColor = RelegationRed;
@@ -201,7 +232,7 @@ namespace Dungeon.Game
             {
                 var partyStyle = new GUIStyle(GUI.skin.label)
                 {
-                    fontSize = Mathf.RoundToInt(15 * scale),
+                    fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.MiddleCenter
                 };
@@ -211,7 +242,7 @@ namespace Dungeon.Game
 
                 var warnStyle = new GUIStyle(GUI.skin.label)
                 {
-                    fontSize = Mathf.RoundToInt(12 * scale),
+                    fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)),
                     alignment = TextAnchor.MiddleCenter
                 };
                 warnStyle.normal.textColor = Ink;
@@ -222,7 +253,7 @@ namespace Dungeon.Game
 
             var promptStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(16 * scale),
+                fontSize = Mathf.Max(11, Mathf.RoundToInt(16 * scale)),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -251,7 +282,7 @@ namespace Dungeon.Game
 
             var rank = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(15 * scale),
+                fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
                 alignment = TextAnchor.MiddleRight
             };
             rank.normal.textColor = doomed && !entry.IsPlayer ? RelegationRed : Dim;
@@ -260,7 +291,7 @@ namespace Dungeon.Game
 
             var name = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(15 * scale),
+                fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
                 fontStyle = entry.IsPlayer ? FontStyle.Bold : FontStyle.Normal
             };
             name.normal.textColor = ink;
@@ -269,7 +300,7 @@ namespace Dungeon.Game
 
             var score = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(15 * scale),
+                fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
                 alignment = TextAnchor.MiddleRight,
                 fontStyle = entry.IsPlayer ? FontStyle.Bold : FontStyle.Normal
             };
@@ -307,7 +338,7 @@ namespace Dungeon.Game
             float x = Screen.width - width - (16f * scale);
             float y = 96f * scale;
 
-            var label = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(11 * scale) };
+            var label = new GUIStyle(GUI.skin.label) { fontSize = Mathf.Max(9, Mathf.RoundToInt(11 * scale)) };
             label.normal.textColor = Dim;
             GUI.Label(new Rect(x, y - (16f * scale), width, rowHeight), "STANDINGS", label);
 
@@ -317,7 +348,7 @@ namespace Dungeon.Game
                 bool doomed = i >= rows - league.EliminationsThisRound;
                 var row = new Rect(x, y + ((i - first) * rowHeight), width, rowHeight);
 
-                var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(12 * scale) };
+                var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)) };
                 style.normal.textColor = entry.IsPlayer ? PlayerGreen : doomed ? RelegationRed : Dim;
 
                 float shown = entry.IsPlayer ? entry.Score + liveScore : entry.Score;
