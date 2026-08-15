@@ -511,11 +511,35 @@ vertical segments appear at the right-hand end of each band.
 - **No sprite in `Assets/Art/Resources` matches**, either by mean colour (nothing within 28 of the
   band) or by containing a bright full-width row (only the two doors, and those are gold).
 
+### The runtime dump, and what it did and did not settle
+
+`SceneryDumpTests.EveryWideRenderer_IsNamed` now exists and names every renderer. Results:
+
+- **Exactly one renderer is wider than two cells** — `approach` (the entrance backdrop), 13.84 x 6.91
+  at centre x = -6.32, i.e. outside the room entirely. **So the bands are not a wide sprite.** Every
+  tile is 1x1 and every one renders untinted white.
+- **Rendering is faithful.** A floor patch measures 18.9 on screen against a source `floor-plain.png`
+  of 19.5, so there is no gamma fault, no post-processing (the scene holds no Volume or Bloom) and no
+  double sRGB encode. What is on screen is what is in the PNG.
+- **And that is the contradiction.** The band measures 100.1, while the brightest pixel in ANY wall
+  tile is 63.4 (`wall-14`, row 2; `wall-11` peaks at 47.0). Nothing in the tile art can render as 100
+  at 1:1.
+
+**Do not trust the screen-to-world mapping in that test.** It converts the band's screenshot
+coordinates into a cell and reports `tile_3_6` / `wall-11`, which looks like an answer and is not one:
+the mapping assumes the dump run and the `RaidE2E` screenshot were framed identically, and that was
+never checked. The luminance contradiction above is the evidence it is wrong.
+
 ### Where to look next
 
-It is a world-space renderer, so a runtime dump is the way in: enumerate every `SpriteRenderer` under
-the scenery root with its name, bounds, colour and sorting order, and find the one whose bounds match
-x = 499..851. Everything cheaper than that has been tried above.
+Make the dump and the screenshot the same frame, which removes the assumption that broke this:
+capture the PNG *inside* the dump test, immediately after enumerating, and log
+`camera.orthographicSize`, `camera.transform.position` and the screen rect of a named tile alongside
+it. Then the band's pixels and the renderer list describe one frame and can be compared directly.
+
+Worth checking early: whether anything draws with a **material** rather than a sprite colour — the
+dump reads `SpriteRenderer.color`, so an additive or emissive material would show as white (1,1,1,1)
+and be invisible to this diagnostic while rendering far brighter than its texture.
 
 **Do not assume this is the answer to the author's wall complaint.** It is a real defect found while
 looking for that, which is not the same thing — see D28 for what happened last time those two got
