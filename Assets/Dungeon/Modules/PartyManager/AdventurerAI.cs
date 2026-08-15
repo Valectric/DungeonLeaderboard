@@ -502,8 +502,37 @@ namespace Dungeon.PartyManager
         private static Vector2 HealerGoal(Adventurer self, Perception view)
         {
             Vector2? nearest = Nearest(self.Position, view.Threats);
-            if (!nearest.HasValue ||
-                Vector2.Distance(self.Position, nearest.Value) > HealerFleeRange)
+            if (!nearest.HasValue)
+            {
+                return Idle(self, view);
+            }
+
+            // HOLD a distance rather than switching between two opposite goals.
+            //
+            // This used to be binary: inside HealerFleeRange walk away, outside it walk back to
+            // formation. Those are opposite directions either side of one line, so a healer sitting
+            // near that line flipped between them every tick -- the author saw it as the sprite
+            // "flipping ultra fast" mid-fight. Raising the range from 1.0 to 2.6 did not create the
+            // oscillation, it just moved the healer onto the boundary and made it constant.
+            //
+            // StandOff has no such edge: it walks to a point at the requested distance, so a healer
+            // already at that distance simply stays put. It also clamps to the room, so the healer
+            // keeps its distance without backing out of the fight it is healing.
+            return StandOff(
+                self.Position, nearest.Value, Spacing(self, HealerFleeRange), view);
+        }
+
+        /// <summary>The healer's old bias-toward-the-party retreat, kept for reference.</summary>
+        /// <remarks>
+        /// Unused since the healer began holding a distance instead of fleeing across a threshold.
+        /// </remarks>
+        /// <param name="self">The healer.</param>
+        /// <param name="view">What it can see.</param>
+        /// <returns>Where it would have fled to.</returns>
+        private static Vector2 HealerRetreat(Adventurer self, Perception view)
+        {
+            Vector2? nearest = Nearest(self.Position, view.Threats);
+            if (!nearest.HasValue)
             {
                 return Idle(self, view);
             }

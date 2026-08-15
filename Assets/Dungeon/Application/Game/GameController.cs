@@ -816,7 +816,7 @@ namespace Dungeon.Game
                 return;
             }
 
-            float scale = Screen.height / 720f;
+            float scale = UiScale;
 
             if (ShopScreen.HitReady(screenPosition, scale))
             {
@@ -1047,6 +1047,23 @@ namespace Dungeon.Game
         /// cannot fail in a WebGL build the way a missing dynamic font silently can, and the whole
         /// HUD stays in one readable place next to the state it displays.
         /// </remarks>
+        /// <summary>
+        /// How much to scale the interface, from the TIGHTER of the two axes.
+        /// </summary>
+        /// <remarks>
+        /// Height alone was wrong, and a phone in portrait shows why: the viewport is tall and
+        /// narrow, so <c>height / 720</c> returns a LARGER scale exactly where there is less width
+        /// to draw into. The author photographed the result -- the title clipped and wrapped
+        /// mid-word, "DUNGEON" over "LEAGUE" with both lines cut off at the top and bottom.
+        /// <para>
+        /// Taking the minimum makes the interface shrink to whichever dimension is actually short,
+        /// which is the one that clips. Every caller uses this, so the fix reaches the HUD, the
+        /// shop, the review card and the startup screen at once.
+        /// </para>
+        /// </remarks>
+        private static float UiScale =>
+            Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
+
         private void OnGUI()
         {
             if (_raid == null || _league == null)
@@ -1054,7 +1071,7 @@ namespace Dungeon.Game
                 return;
             }
 
-            float scale = Screen.height / 720f;
+            float scale = UiScale;
 
             // Before anything else, and returning immediately: the loading screen is the whole
             // frame for its two seconds, and drawing the standings underneath it would show through
