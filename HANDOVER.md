@@ -535,17 +535,26 @@ pure function of the grid. Code draws it perfectly; a generator draws it differe
 
 ### The state of the art, measured
 
-`python Tools/validate-tileset.py` — **main's own tiles score 36 gate failures** (the branch's 79 was
+`python Tools/validate-tileset.py` — **main's own tiles score 18 gate failures** (the branch's 79 was
 measured on the old gate and is not comparable). Main's art does not pass main's gate. The gate is
 new and the art predates it, but that is the honest number and the baseline any replacement must
 beat.
 
-**This read 68 until 2026-08-16, and 68 was wrong.** `side_coverage` asked luminance a question about
+**This read 68 until 2026-08-16, and 50 of those 68 were the instrument, not the art.** Two gates
+were miscalibrated and neither had ever been checked. `side_coverage` asked luminance a question about
 transparency, so every wall pixel darker than the mean floor counted as missing art — about 32 of
 those 68 were that one false positive, and it is quoted as evidence in D28. The gate now measures
 alpha and is calibrated both ways: a transparent 4px margin scores 0% and fails, an opaque tile with
-a drawn shadow scores 100% and passes. Treat any validator figure written before that date as
-inflated.
+a drawn shadow scores 100% and passes.
+
+`flat_cells` was the second. It used a fixed 4px block, which asks whether the art is drawn at 16px
+in a 64px tile rather than whether it is on a grid at all — and these tiles are a clean x2 point-scale
+of 32px source, so they measured **0% at block 4 and 100% at block 2**. Eighteen tiles were failing
+for being drawn at the wrong size rather than for being wrong. It detects the native block now, and
+fails only when no integer grid fits: bicubic-resampled art lands at 1px, 1% flat, 916 colours.
+
+The 18 that remain are real — 187 to 272 colours against a target of 32, which is what art resampled
+from DCSS carries. **Treat any validator figure written before 2026-08-16 as inflated.**
 
 ### Branches
 

@@ -189,17 +189,36 @@ def encodes_shape(walls):
 
 
 def flat_cells(path, block=4):
-    """
-    Share of blocks that are a single colour.
-
-    Catches art that has been resampled off the pixel grid or anti-aliased -- a failure this
-    project has already shipped once, when a crop made a vertical resample non-integer.
-    """
+    """Share of block x block cells that are a single colour."""
     a = np.asarray(Image.open(path).convert("RGB"))
     h, w, _ = a.shape
     h, w = h - (h % block), w - (w % block)
     b = a[:h, :w].reshape(h // block, block, w // block, block, 3)
     return float((b.min(axis=(1, 3)) == b.max(axis=(1, 3))).all(axis=-1).mean())
+
+
+def native_block(path):
+    """
+    The largest pixel size the art is actually drawn at, and how flat it is there.
+
+    ASK WHICH GRID, DO NOT ASSUME ONE. The fault worth catching is art resampled OFF the pixel grid --
+    anti-aliased or scaled by a non-integer factor -- which this project shipped once when a crop made
+    a vertical resample fractional. That shows up as no block size giving flat cells at all.
+
+    A fixed block of 4 does not ask that. It asks whether the art is drawn at 16px in a 64px tile, and
+    answers "no" for anything else. Measured on this project's own set: 0% flat at block 4 and
+    **100% at block 2**, because the tiles are a clean x2 point-scale of 32px source. Eighteen tiles
+    were failing a gate for being drawn at the wrong size rather than for being wrong.
+
+    Returns (block, flatness). Block 1 is always trivially flat, so a set that only manages 1 is one
+    where every pixel differs from its neighbours -- which is the actual defect.
+    """
+    for block in (8, 4, 2):
+        flat = flat_cells(path, block)
+        if flat >= 0.9:
+            return block, flat
+
+    return 1, flat_cells(path, 2)
 
 
 def self_test():
@@ -259,15 +278,15 @@ def main():
     print(f"{len(walls)} wall tiles, {len(floors)} floor tiles, floor level {floor_level:.1f}\n")
 
     failures = 0
-    print(f"{'tile':16s} {'frame':>6s} {'edge0':>6s} {'inner':>6s} {'flat':>6s} {'cols':>6s}  "
-          "sides that must be solid")
+    print(f"{'tile':16s} {'frame':>6s} {'edge0':>6s} {'inner':>6s} {'grid':>5s} "
+          f"{'flat':>5s} {'cols':>6s}  sides that must be solid")
     for path in walls:
         name = os.path.basename(path)
         stem = name[len("wall-"):-len(".png")]
         lum = luminance(path)
 
         has_frame, edge, inner = framed(lum)
-        flat = flat_cells(path)
+        block, flat = native_block(path)
 
         # Only the sides the mask says continue into more wall have to be solid.
         required = []
@@ -285,13 +304,17 @@ def main():
 
         if has_frame:
             failures += 1
-        if flat < 0.9:
+
+        # Block 1 means no integer grid fits at all, which is the resampling fault. A tile drawn at
+        # 2px in a 64px canvas is on-grid and fine; the old fixed block of 4 called it broken.
+        if block <= 1:
             failures += 1
         if colours > 32:
             failures += 1
 
         print(f"{name:16s} {'YES' if has_frame else 'no':>6s} {edge:6.1f} {inner:6.1f} "
-              f"{flat:6.0%} {colours:6d}  {' '.join(required) if required else '-'}")
+              f"{block:3d}px {flat:5.0%} {colours:6d}  "
+              f"{' '.join(required) if required else '-'}")
 
     shaped, best, per_side = encodes_shape(walls)
     if not shaped:
