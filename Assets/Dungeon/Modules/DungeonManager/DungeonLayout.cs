@@ -291,6 +291,35 @@ namespace Dungeon.DungeonManager
         }
 
         /// <summary>
+        /// Wraps an already-carved grid as a layout, for tooling that builds geometry by hand.
+        /// </summary>
+        /// <remarks>
+        /// Every other entry point here starts from a <see cref="RoomPlan"/>, which places rooms on
+        /// a lattice — and a lattice cannot produce a wall stub, an isolated pillar, or an outer
+        /// corner jutting into open floor. Those are exactly the wall shapes the art has never been
+        /// asked to draw, because nothing could build a dungeon containing one.
+        /// <para>
+        /// This exists so a sampler grid can be drawn by the normal view code and photographed. It
+        /// is not for the game: the layout it returns has no plan, no furnishing and no lattice
+        /// anchor, so the shop cannot extend it and the party's exploration rules would find no
+        /// room centres to visit.
+        /// </para>
+        /// </remarks>
+        /// <param name="grid">A grid whose cells are already carved.</param>
+        /// <param name="entrance">Where a party would enter.</param>
+        /// <param name="boss">The deepest cell.</param>
+        /// <returns>A layout drawing that grid and nothing else.</returns>
+        public static DungeonLayout FromGrid(
+            DungeonGrid grid, Vector2Int entrance, Vector2Int boss)
+        {
+            return new DungeonLayout(
+                grid, entrance, boss,
+                new List<Vector2Int> { boss },
+                new List<Vector2Int>(), new List<Vector2Int>(), new List<Vector2Int>(),
+                new List<int>());
+        }
+
+        /// <summary>
         /// Builds a horizontal run of rooms joined by doors.
         /// </summary>
         /// <param name="roomCount">How many rooms, at least two.</param>
