@@ -163,7 +163,51 @@ def flat_cells(path, block=4):
     return float((b.min(axis=(1, 3)) == b.max(axis=(1, 3))).all(axis=-1).mean())
 
 
+def self_test():
+    """
+    Proves the shape gate can tell a real mask set from sixteen copies of one tile.
+
+    THE STEP THAT WAS MISSING. The first version of this gate compared whole tiles and scored a set
+    built specifically to encode boundaries at 0.33x -- WORSE than the broken set it had just
+    condemned at 1.47x -- and that verdict was written into three files and pushed before anyone
+    checked whether the measure could rank a known-good case above a known-bad one. It could not.
+
+    A gate nobody has calibrated is an opinion with a number attached. This runs both cases every
+    time, so the question cannot go unasked again.
+    """
+    import shutil
+    import tempfile
+
+    real = sorted(glob.glob(os.path.join(TILES, "wall-*.png")))
+    if not real:
+        print("self-test skipped: no installed tiles to calibrate against")
+        return 0
+
+    good, _, _ = encodes_shape(real)
+
+    staging = tempfile.mkdtemp(prefix="tileset-selftest-")
+    try:
+        source = os.path.join(TILES, "wall-15.png")
+        if not os.path.exists(source):
+            source = real[0]
+        for mask in range(16):
+            shutil.copyfile(source, os.path.join(staging, f"wall-{mask}.png"))
+
+        bad, bad_best, _ = encodes_shape(sorted(glob.glob(os.path.join(staging, "wall-*.png"))))
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+    ok = good and not bad
+    print(f"self-test: installed set {'passes' if good else 'FAILS'}, "
+          f"sixteen-copies set {'FAILS as it should' if not bad else f'PASSES at {bad_best:.1f} -- '
+          'the gate cannot see the fault it exists for'}")
+    return 0 if ok else 1
+
+
 def main():
+    if "--self-test" in sys.argv:
+        return self_test()
+
     folder = sys.argv[1] if len(sys.argv) > 1 else TILES
     walls = sorted(glob.glob(os.path.join(folder, "wall-*.png")))
     floors = sorted(glob.glob(os.path.join(folder, "floor-*.png")))
