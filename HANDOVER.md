@@ -1,8 +1,8 @@
 # Handover
 
-## Three decisions waiting for you — nothing else is blocked
+## Four decisions waiting for you — nothing else is blocked
 
-Every milestone is built, tested and shipped, and the suite is green at 333 tests across five
+Every milestone is built, tested and shipped, and the suite is green at 336 tests across five
 assemblies. These three are judgements rather than work, and each is now as well-evidenced as
 measurement can make it.
 
@@ -31,9 +31,18 @@ pricing the rivals against what the game can actually produce (**D27**, re-prove
 **D31**). The bot is explicitly "a floor on competence, not a good player", so a human should beat a
 quarter. Whether that is the shape you want is yours.
 
+**4. Should round one be able to punish a player at random?** Measured across five seeds
+(**D34**): the survival threshold is 35–75, an opening board played competently is worth 342 and
+survives on **5 of 5**, and doing nothing banks 51 and survives on **3 of 5**. So D20's "round one is
+sudden death" is half right — it is not death for anyone who touches a spawner, with a 4.5x margin.
+What it is instead is an unreliable lesson: the player who most needs to learn that an untouched
+dungeon earns almost nothing learns it on a coin toss. If the first round is meant to teach, the
+lever is raising the floor slightly rather than protecting the player from it. `OpeningRoundTests` is
+the instrument.
+
 ---
 
-**State: M1–M13 built, tested and SHIPPED. `main` is green at 333 tests and itch is serving
+**State: M1–M13 built, tested and SHIPPED. `main` is green at 336 tests and itch is serving
 `0.1.2608160325`. Nothing is held on a branch.**
 
 The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
