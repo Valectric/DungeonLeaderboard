@@ -115,8 +115,42 @@ namespace Dungeon.PartyManager
         /// </remarks>
         public const float LootReach = 0.8f;
 
-        /// <summary>Distance in cells between one member and the next in the marching order.</summary>
+        /// <summary>Distance in cells between one rank and the next in the marching order.</summary>
         public const float FollowSpacing = 0.62f;
+
+        /// <summary>Distance in cells between two members standing abreast in the same rank.</summary>
+        /// <remarks>
+        /// Tighter than <see cref="FollowSpacing"/> because sideways room is the scarce one: a
+        /// corridor is a single cell wide, so anything wider than this puts the flanks in rock and
+        /// falls back to single file every time it matters.
+        /// </remarks>
+        public const float AbreastSpacing = 0.5f;
+
+        /// <summary>
+        /// How many members walk abreast, for a party of the given size.
+        /// </summary>
+        /// <remarks>
+        /// <b>One up to four, so nothing about the opening party changes.</b> Parties only grow past
+        /// four from raid six onwards, and single file is the shape the whole game was tuned against.
+        /// <para>
+        /// Above that it is a question of how far back the tail sits. Single file puts member nine at
+        /// eight times <see cref="FollowSpacing"/> — <b>4.96 cells</b>, a whole room — behind the
+        /// tank, so a player filling the room the party is in is spending mobs on a fight half the
+        /// party has not arrived at, and the wound curve that is meant to pay them is being applied
+        /// to four people out of nine. Three abreast puts the last rank 1.86 cells back instead.
+        /// </para>
+        /// </remarks>
+        /// <param name="size">Living members in the party — a decimated party tightens up again.</param>
+        /// <returns>Members per rank, at least one.</returns>
+        public static int AbreastFor(int size)
+        {
+            if (size <= 4)
+            {
+                return 1;
+            }
+
+            return size <= 6 ? 2 : 3;
+        }
 
         /// <summary>
         /// Mana each healer brings.
@@ -418,7 +452,7 @@ namespace Dungeon.PartyManager
                 RecordTrail(leader.Position);
                 for (int rank = 1; rank < living.Count; rank++)
                 {
-                    Glide(living[rank], PositionBehind(rank * FollowSpacing), deltaTime);
+                    Glide(living[rank], FormationSlotFor(rank), deltaTime);
                 }
 
                 ForceDoors(leader, deltaTime, threats.Count);
@@ -457,7 +491,7 @@ namespace Dungeon.PartyManager
                     Grid = _grid,
                     Objective = view.Objective,
                     Traps = traps,
-                    FormationSlot = PositionBehind(rank * FollowSpacing),
+                    FormationSlot = FormationSlotFor(rank),
                     TankTarget = view.TankTarget
                 };
 
@@ -1327,7 +1361,7 @@ namespace Dungeon.PartyManager
             var living = Living.ToList();
             for (int rank = 1; rank < living.Count; rank++)
             {
-                living[rank].Position = PositionBehind(rank * FollowSpacing);
+                living[rank].Position = FormationSlotFor(rank);
             }
         }
 
@@ -1336,21 +1370,81 @@ namespace Dungeon.PartyManager
         /// <returns>A position on the trail, or its oldest point if the trail is too short.</returns>
         private Vector2 PositionBehind(float distance)
         {
+            return PositionBehind(distance, out _);
+        }
+
+        /// <summary>
+        /// Walks back along the leader's trail, reporting the direction of travel there too.
+        /// </summary>
+        /// <param name="distance">How far back along the trail to stand, in cells.</param>
+        /// <param name="heading">
+        /// Unit direction the party is travelling at that point, pointing forwards. Zero when the
+        /// trail is too short to have a direction, which is the caller's cue not to fan out.
+        /// </param>
+        /// <returns>The point that far back along the trail.</returns>
+        private Vector2 PositionBehind(float distance, out Vector2 heading)
+        {
+            heading = Vector2.zero;
             float remaining = distance;
             for (int i = _trail.Count - 1; i > 0; i--)
             {
                 float segment = Vector2.Distance(_trail[i], _trail[i - 1]);
                 if (segment >= remaining)
                 {
-                    return segment <= 0.0001f
-                        ? _trail[i - 1]
-                        : Vector2.Lerp(_trail[i], _trail[i - 1], remaining / segment);
+                    if (segment > 0.0001f)
+                    {
+                        heading = (_trail[i] - _trail[i - 1]) / segment;
+                        return Vector2.Lerp(_trail[i], _trail[i - 1], remaining / segment);
+                    }
+
+                    return _trail[i - 1];
                 }
 
                 remaining -= segment;
             }
 
             return _trail.Count > 0 ? _trail[0] : _entranceCell;
+        }
+
+        /// <summary>
+        /// Where the member at this place in the marching order should stand.
+        /// </summary>
+        /// <remarks>
+        /// Ranks of <see cref="AbreastFor"/> members walk abreast, so the party gets wider rather
+        /// than longer as it grows. <b>The lateral offset is given up rather than forced</b>: a
+        /// flanker whose cell is rock falls back onto the centre line, so a party three abreast in a
+        /// room becomes single file in a corridor without anyone standing inside a wall. That check
+        /// is why this is worth having as a method rather than a formula at the call sites.
+        /// </remarks>
+        /// <param name="rank">Place in the order, where zero is the leader.</param>
+        /// <returns>The point that member should be moving towards.</returns>
+        private Vector2 FormationSlotFor(int rank)
+        {
+            int abreast = AbreastFor(Living.Count());
+            if (abreast <= 1)
+            {
+                return PositionBehind(rank * FollowSpacing);
+            }
+
+            int row = (rank - 1) / abreast;
+            int column = (rank - 1) % abreast;
+            Vector2 centre = PositionBehind((row + 1) * FollowSpacing, out Vector2 heading);
+
+            if (heading == Vector2.zero)
+            {
+                return centre;
+            }
+
+            float offset = (column - ((abreast - 1) * 0.5f)) * AbreastSpacing;
+            if (Mathf.Abs(offset) < 0.0001f)
+            {
+                return centre;
+            }
+
+            var sideways = new Vector2(-heading.y, heading.x);
+            Vector2 flank = centre + (sideways * offset);
+            var flankCell = new Vector2Int(Mathf.RoundToInt(flank.x), Mathf.RoundToInt(flank.y));
+            return _grid.IsWalkable(flankCell) ? flank : centre;
         }
     }
 }
