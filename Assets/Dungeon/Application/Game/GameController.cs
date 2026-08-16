@@ -1217,8 +1217,12 @@ namespace Dungeon.Game
                     ? "EVERY RIVAL HAS COLLAPSED.  YOURS IS THE LAST DUNGEON STANDING."
                     : _phase == Phase.Destroyed
                     ? $"YOUR DUNGEON COLLAPSED IN {Ordinal(_finalPosition)}.  PRESS ANY KEY TO BEGIN AGAIN"
+                    // The rule the game is built on, said BEFORE the first party walks in rather
+                    // than over the top of them once it is already going wrong. The author missed it
+                    // in play, and the reason is plain in hindsight: it was only ever drawn during
+                    // the raid, competing with a clock, a rate, a party and a spawner tag.
                     : _league.Round == 0
-                        ? "PRESS ANY KEY  -  THE FIRST PARTY ENTERS"
+                        ? "DON'T KILL THEM  -  PRESS ANY KEY, THE FIRST PARTY ENTERS"
                         : "PRESS ANY KEY  -  SPEND WHAT YOU HAVE LEFT";
 
                 LeagueScreen.Draw(_league, scale, _shift, prompt,

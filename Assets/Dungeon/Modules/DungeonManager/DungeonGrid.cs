@@ -252,6 +252,28 @@ namespace Dungeon.DungeonManager
             return door;
         }
 
+        /// <summary>
+        /// Opens a cell permanently, with no door in it.
+        /// </summary>
+        /// <remarks>
+        /// The way into the first room. A <see cref="CellKind.Doorway"/> is walkable and belongs to
+        /// no room, which is exactly right for a threshold — and because no <see cref="Door"/> is
+        /// registered here, nothing can shut it. That is the point: an entrance the player could
+        /// close is an entrance they could accidentally seal the party behind, losing the raid to
+        /// the idle rate before it starts.
+        /// </remarks>
+        /// <param name="cell">Cell to open.</param>
+        public void CarveOpening(Vector2Int cell)
+        {
+            if (!InBounds(cell))
+            {
+                return;
+            }
+
+            _cells[Index(cell)] = CellKind.Doorway;
+            _roomOf[Index(cell)] = NoRoom;
+        }
+
         /// <summary>Finds the door occupying a cell, if any.</summary>
         /// <param name="cell">Cell to test.</param>
         /// <returns>The door, or null.</returns>

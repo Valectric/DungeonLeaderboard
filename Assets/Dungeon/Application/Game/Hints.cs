@@ -33,6 +33,29 @@ namespace Dungeon.Game
         /// </remarks>
         public const float HeadlineSeconds = 18f;
 
+        /// <summary>
+        /// Whether the instruction should still be on screen.
+        /// </summary>
+        /// <remarks>
+        /// Two conditions, and the author asked for the second. It clears when the party **loots the
+        /// chest**, because that is the moment the opening lesson is over — they have crossed the
+        /// room, met the slime pit and found the thing worth stopping for, and the caption is now
+        /// covering the game rather than teaching it. The timer stays as a floor for a party that
+        /// never reaches the chest at all.
+        /// </remarks>
+        /// <param name="raid">The raid in progress.</param>
+        /// <returns>True while the instruction is still earning its place.</returns>
+        public static bool HeadlineWanted(Raid raid)
+        {
+            if (raid?.Party == null)
+            {
+                return false;
+            }
+
+            return raid.Party.LootedCount == 0
+                && (Raid.RaidSeconds - raid.TimeRemaining) < HeadlineSeconds;
+        }
+
         /// <summary>Seconds the headline spends fading out at the end of its life.</summary>
         private const float FadeSeconds = 2.5f;
 
@@ -71,7 +94,7 @@ namespace Dungeon.Game
             // Suppressed rather than moved, because the block is transient and the tags are not: a
             // tag nudged aside would stay nudged for the whole raid to dodge something that is gone
             // in a few seconds.
-            bool headlineUp = (Raid.RaidSeconds - raid.TimeRemaining) < HeadlineSeconds;
+            bool headlineUp = HeadlineWanted(raid);
             Rect block = headlineUp ? HeadlineBlock(camera, scale, layout) : new Rect();
 
             foreach (Vector2Int cell in layout.SpawnerCells)
@@ -122,7 +145,7 @@ namespace Dungeon.Game
         public static float BlockWidth(float scale, float screenWidth)
         {
             float room = Mathf.Max(32f, screenWidth - 16f);
-            return Mathf.Clamp(560f * scale, Mathf.Min(420f, room), room);
+            return Mathf.Clamp(760f * scale, Mathf.Min(500f, room), room);
         }
 
         /// <summary>
@@ -158,7 +181,7 @@ namespace Dungeon.Game
             Vector2 point = GuiPointOf(camera, anchor);
 
             float width = BlockWidth(scale, Screen.width);
-            float lineHeight = Mathf.Max(16f, 30f * scale);
+            float lineHeight = Mathf.Max(22f, 42f * scale);
             float blockHeight = lineHeight * 3f;
 
             // CLEARANCE MEASURED IN WORLD CELLS, NOT IN UI PIXELS. This used to sit 86 * scale above
@@ -204,7 +227,7 @@ namespace Dungeon.Game
             Raid raid, Camera camera, float scale, DungeonLayout layout)
         {
             float age = Raid.RaidSeconds - raid.TimeRemaining;
-            if (age >= HeadlineSeconds)
+            if (!HeadlineWanted(raid))
             {
                 return;
             }
@@ -226,14 +249,14 @@ namespace Dungeon.Game
             {
                 // Floored with a minimum: the itch embed runs at 0.4 scale, which is where an
                 // unfloored size once landed at eight-and-a-bit pixels and became unreadable.
-                fontSize = Mathf.Max(12, Mathf.RoundToInt(24 * scale)),
+                fontSize = Mathf.Max(17, Mathf.RoundToInt(34 * scale)),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
             var sub = new GUIStyle(headline)
             {
-                fontSize = Mathf.Max(9, Mathf.RoundToInt(14 * scale))
+                fontSize = Mathf.Max(13, Mathf.RoundToInt(20 * scale))
             };
 
             Write(new Rect(left, top, width, lineHeight),

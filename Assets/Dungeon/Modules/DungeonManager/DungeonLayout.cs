@@ -424,6 +424,22 @@ namespace Dungeon.DungeonManager
 
             var chestCells = new List<Vector2Int>();
 
+            // The way in is an OPENING carved through the west wall beside the entrance cell, so the
+            // first room reads as a place a party walks into rather than a sealed box with figures
+            // already inside it. Author's request.
+            //
+            // Carved as a Doorway but given NO Door, deliberately. A Door here would be tappable, and
+            // shutting the way in before the party arrives would strand them outside for the whole
+            // minute on the idle rate -- a way to lose the raid by pressing the thing the tutorial
+            // tells the player to press.
+            //
+            // ABOVE BOTH RETURNS, which is the point of its position. This method returns early
+            // whenever `placed` is non-null, and that is EVERY raid in the real game because
+            // furniture comes from the loadout. Carved after that branch it applied only to layouts
+            // built without placed furniture -- so it worked in the tests and did nothing in the
+            // game, and photographing the opening frame is what caught it.
+            grid.CarveOpening(new Vector2Int(margin - 1, midY));
+
             // The player pointed at these tiles, so they go exactly there and the scattering formula
             // below is skipped entirely. The room-bound check still applies: a hall the player later
             // stopped paying for would otherwise leave its furniture floating in the rock.
@@ -479,6 +495,7 @@ namespace Dungeon.DungeonManager
 
             var entrance = new Vector2Int(margin, midY);
             var boss = new Vector2Int(margin + interiorWidth - 1, midY);
+
             return Tagged(plan, latticeMin, new DungeonLayout(
                 grid, entrance, boss, centres, spawners, traps, chestCells, spawnerTiers));
         }

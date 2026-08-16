@@ -124,6 +124,18 @@ namespace Dungeon.Game
                     "dungeon/door-a", DungeonView.CellToWorld(door.Cell, 5f), 2);
             }
 
+            // The way in, stood open. It is a Doorway cell with no Door behind it, so it is drawn
+            // here rather than in the loop above -- there is nothing to toggle and nothing to tap,
+            // and door-b is the open leaf. Without this the first room was a sealed box that the
+            // party appeared inside, which is what the author asked to fix.
+            var opening = new Vector2Int(layout.EntranceCell.x - 1, layout.EntranceCell.y);
+            if (grid.InBounds(opening) && grid.KindAt(opening) == CellKind.Doorway
+                && grid.DoorAt(opening) == null)
+            {
+                _sprites.Make($"entrance_{opening.x}_{opening.y}", "dungeon/door-open",
+                    DungeonView.CellToWorld(opening, 5f), 2);
+            }
+
             // Different art per tier, so a player can tell at a glance which spawner will give them a
             // slime and which will give them a skeleton. They cost different money and buy different
             // amounts of time; making them look identical would hide the only thing worth knowing.

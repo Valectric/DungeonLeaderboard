@@ -37,8 +37,32 @@ namespace Dungeon.RaidManager
     /// </remarks>
     public sealed class Raid
     {
-        /// <summary>Hard cap on a raid, in seconds.</summary>
+        /// <summary>Hard cap on a raid, in seconds, before any room bonus.</summary>
         public const float RaidSeconds = 60f;
+
+        /// <summary>
+        /// Seconds added to the clock the first time the party walks into a room.
+        /// </summary>
+        /// <remarks>
+        /// The author's fix for D29, and it is the lever that makes a bought hall mean something.
+        /// Measured before this: the party reaches exactly three rooms in sixty seconds whatever the
+        /// dungeon's size — harvest identical to the pound at three, four, five and six rooms, across
+        /// three seeds — so <c>MaxRooms = 5</c> against one starting room meant the shop sold four
+        /// halls of which **two could not affect the score**.
+        /// <para>
+        /// Paid on entry rather than as a flat bonus per room owned, because it is the walking that
+        /// costs the time. A room the party never reaches pays nothing, so a player who builds
+        /// forward without keeping them alive to get there still gets nothing for it.
+        /// </para>
+        /// <para>
+        /// <b>Two seconds does not, on its own, make the fourth room reachable.</b> Measured across
+        /// three seeds: at 2 the party still reaches three rooms and harvest goes 446 to 454; at 8 it
+        /// reaches four and harvest reaches 483. Roughly six extra seconds buys one more room of
+        /// reach, so about 14 would open the fifth. The value here is the author's, and the figures
+        /// are recorded so raising it is a decision rather than a guess — see D29.
+        /// </para>
+        /// </remarks>
+        public const float NewRoomSeconds = 2f;
 
         /// <summary>
         /// How close a combatant must be to reach someone standing in a doorway.
@@ -142,6 +166,16 @@ namespace Dungeon.RaidManager
 
         /// <summary>Seconds left on the clock.</summary>
         public float TimeRemaining { get; private set; } = RaidSeconds;
+
+        /// <summary>
+        /// Seconds this raid has been granted for rooms walked into, for the HUD to announce.
+        /// </summary>
+        /// <remarks>
+        /// Tracked separately from the clock so the player can be told the clock went **up**. A
+        /// timer that silently gains two seconds reads as a bug or as nothing at all, and this is
+        /// the reward for the most expensive thing in the shop.
+        /// </remarks>
+        public float SecondsAwarded { get; private set; }
 
         /// <summary>Energy available to spend on verbs. Starts at <see cref="StartingEnergy"/>.</summary>
         public float TotalEnergy { get; private set; }
@@ -270,6 +304,14 @@ namespace Dungeon.RaidManager
             if (Party.JustEnteredNewRoom)
             {
                 Modifiers.RecordNewRoom();
+
+                // Walking a room costs time, so the clock is paid back for it. Without this a hall
+                // bought after the third was inert: the party reaches exactly three rooms in sixty
+                // seconds whatever the dungeon's size, measured identically at three, four, five and
+                // six rooms across three seeds, so the shop was selling two halls that could not
+                // affect the score. See D29.
+                TimeRemaining += NewRoomSeconds;
+                SecondsAwarded += NewRoomSeconds;
             }
 
             Modifiers.Tick(deltaTime, EnemiesFacingParty());
