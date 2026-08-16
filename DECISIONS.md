@@ -1955,3 +1955,35 @@ distances inward from the requested range and takes the first that is walkable *
 which in a five-wide room may simply have fewer valid answers along one axis than the other.
 
 Nothing changed on `main` or on the branch; both were restored.
+
+### D43 addendum 4 — the party flees LESS vertically, and walks instead
+
+Measuring behaviour rather than reading code, which is the lesson of addendum 3. Share of ticks each
+roster spends in each action under a maximal ambush, same seed both layouts:
+
+| roster | vertical | horizontal | outcome v / h |
+|---|---|---|---|
+| THE IRONCLADS | Fight 28, **Flee 32**, Walk 35 | Fight 19, **Flee 52**, Walk 25 | wiped / **survives** |
+| THE COVEN | Fight 0, **Flee 45**, Walk 38 | Fight 0, **Flee 63**, Walk 24 | wiped / **survives** |
+| THE BALANCED PARTY | Fight 13, Flee 34, Walk 30 | Fight 13, Flee 35, Walk 31 | wiped / wiped |
+| THE PHALANX | Fight 35, Flee 16, Walk 47 | Fight 46, Flee 14, Walk 38 | wiped / wiped |
+
+**The two rosters that survive horizontally flee about twenty points more there than they do
+vertically, and spend precisely that time Walking instead.** The two that die on both layouts are
+unchanged to within a point, which is what makes this the signal rather than noise.
+
+So the earlier phrasing — "cannot break away" — was close but wrong in an important way. It is not
+that fleeing fails. **The party enters the flee state less often** and falls back to ordinary walking,
+which does not shed pursuit.
+
+**Next place to look, and this one demonstrably runs**, unlike the standoff fallback that was refuted:
+`Party` line ~425 retreats with `MoveAlongPath(leader, refuge, ...)`, and `MoveAlongPath` returns
+immediately when `FindPath` comes back empty. This codebase has already been bitten by exactly that —
+the comment at line ~722 records a case where it "had nowhere to go, and the party STOOD STILL FOR
+THE REST OF THE RAID". If the refuge is chosen in a way that has fewer valid answers in a tall narrow
+grid than a wide flat one, the retreat silently degrades into a walk, and the numbers above are what
+that looks like from outside.
+
+Not pursued further: the branch is parked, the author has not seen the flip at all yet, and this is
+now three layers of inference deep. Recorded so the next session starts from a measurement instead of
+from the top.
