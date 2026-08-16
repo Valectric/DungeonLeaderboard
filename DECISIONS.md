@@ -2155,3 +2155,31 @@ done.
 
 So the picture is: a real geometric difference is visible and plausible, and the case that would
 prove it is still open. Recorded at that, rather than rounded up into a conclusion.
+
+### D43 addendum 10 — the recording harness is harsher than the measurement, and cannot reach the case
+
+The discriminating roster is THE IRONCLADS: in the fixed-tick measurement it survives to the clock
+horizontally with 434 harvested, and dies vertically. Forced through `GameController.NextParty` and
+recorded on the horizontal layout, it **wipes** — nobody alive, 240 harvested.
+
+Same layout, same roster, opposite outcome. **The harnesses are not the same experiment.**
+
+- the measurement ticks a bare `Raid` at a fixed 0.02s and spawns once per tick: **50 spawns a second**
+- the recording drives the live scene and spawns once per frame: **about 60 a second**
+
+Twenty percent more monsters, and it is enough to turn a survivor into a corpse.
+
+**So addendum 9's frames cannot be read against the 434-and-0 figures.** The two recordings are
+consistent with each other — same harness both sides — and the wall-of-monsters difference between
+layouts is real within that harness. What is not supported is the step from there to "and this is why
+`KillingTheParty_NeverPaysBest` fails", because the recording harness kills the horizontal party too
+and so never contains the case the test is about.
+
+Fixing it is straightforward and not done here: drive the recording at a fixed step, or spawn on a
+timer rather than per frame, so the recorded raid is the same experiment as the measured one.
+
+**This is the tenth addendum and the sixth thing in it that turned out to be measuring something
+adjacent to the question.** The pattern across all of them is one thing: two numbers were compared
+without checking that everything else about how they were produced was the same. Peak versus mean.
+Whole raids of different lengths. A branch that never runs. And now two harnesses at different spawn
+rates. Every one looked like a finding until the second question was asked.
