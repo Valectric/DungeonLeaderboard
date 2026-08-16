@@ -2054,3 +2054,43 @@ more, not one that was overwhelmed at the door.
 Three hypotheses were built and killed here, and the cost was mostly in the framing rather than the
 runs: each was a plausible story about the first half of a raid whose second half nobody had looked
 at. The instrument that finally settled it — measure the same window on both sides — cost one run.
+
+### D43 addendum 7 — walking the clock: it is a sudden collapse, and the 434 is one dying body
+
+Addendum 6 said to stop guessing and look at the second half of the raid. Sampling every ten seconds
+under the maximal ambush, THE IRONCLADS on both layouts:
+
+```
+vertical      10s: 4 @ 99%   20s: 4 @ 80%   -> WIPED at 26s
+horizontal    10s: 4 @ 93%   20s: 4 @ 51%   30s: 1 @ a sliver   ... TimeExpired at 64s
+```
+
+Monster counts at each mark are within one of each other, so this is not a density difference.
+
+**Two things fall out, and both change the shape of the problem.**
+
+**1. It is not a grind, it is a collapse.** The vertical party is healthier at *every* sample — 99
+against 93, then 80 against 51 — and then goes from four bodies at 80% to wiped inside about six
+seconds. Nothing about "ground down from the start", "cannot break away" or "faces more monsters"
+describes that. Every hypothesis in addenda 2 through 4 was a story about attrition, and this is not
+attrition.
+
+**2. The 434 the whole test hinges on is a single dying adventurer.** Horizontally the party does not
+survive in any ordinary sense: three die by thirty seconds and the fourth is pinned at a sliver of
+health for the remaining thirty-four. That body is worth an enormous amount — the wound curve pays
+8x and more below 5% health, which is the design working exactly as intended — and it is the entire
+difference between `bestSurvival = 434` and `bestSurvival = 0`.
+
+So `KillingTheParty_NeverPaysBest`, in this scenario, turns on whether one nearly-dead body happens
+to outlive the clock. That is a real property of the game and a very thin thread for a layout change
+to be judged on. **The test is not wrong** — the rule it defends is the one the whole design rests on
+— but the maximal-ambush scenario is a poor instrument for it, because the outcome is decided by a
+single body's last few seconds rather than by whether the dungeon pays for keeping a party alive.
+
+**What this means for the flip.** The remaining failure is real but far narrower than it has looked:
+vertical parties collapse suddenly around twenty to twenty-six seconds where horizontal ones bleed out
+slowly and leave a survivor. The next question is what happens in those six seconds, and it should be
+asked with a *recording* rather than another aggregate — this ledger now has four dead hypotheses
+built from summary statistics and one finding that came from looking at a frame.
+
+Investigation stopped here. The branch is unchanged and unmerged; `main` is untouched.
