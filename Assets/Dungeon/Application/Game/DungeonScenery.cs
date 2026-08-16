@@ -53,6 +53,22 @@ namespace Dungeon.Game
 
         private readonly SpriteWorkshop _sprites;
         private readonly Dictionary<Vector2Int, SpriteRenderer> _doorViews = new();
+
+        /// <summary>Upper halves of the doorframes, drawn over the party. Empty when the art is absent.</summary>
+        private readonly Dictionary<Vector2Int, SpriteRenderer> _doorTops = new();
+
+        /// <summary>Resources path of the upper half of a doorframe.</summary>
+        private const string DoorTopSprite = "dungeon/door-top";
+
+        /// <summary>
+        /// Sorting order of the upper half of a doorframe.
+        /// </summary>
+        /// <remarks>
+        /// <b>Must stay above the party's 20</b>, which is the whole point of the piece: it is what
+        /// makes an adventurer pass behind the frame instead of over it. <c>DoorOcclusionTests</c>
+        /// fails if this stops exceeding the party's own layer.
+        /// </remarks>
+        private const int DoorTopOrder = 25;
         private readonly Dictionary<Vector2Int, SpriteRenderer> _chestViews = new();
         private Sprite _glow;
 
@@ -65,6 +81,12 @@ namespace Dungeon.Game
 
         /// <summary>The door sprites, so the view can open and shut them.</summary>
         public IReadOnlyDictionary<Vector2Int, SpriteRenderer> DoorViews => _doorViews;
+
+        /// <summary>Upper doorframe halves by cell. Empty when the two-part art is not installed.</summary>
+        public IReadOnlyDictionary<Vector2Int, SpriteRenderer> DoorTops => _doorTops;
+
+        /// <summary>Sorting order the upper doorframe halves are drawn at.</summary>
+        public static int DoorTopSortingOrder => DoorTopOrder;
 
         /// <summary>The chest sprites, so the view can show them looted.</summary>
         public IReadOnlyDictionary<Vector2Int, SpriteRenderer> ChestViews => _chestViews;
@@ -122,6 +144,21 @@ namespace Dungeon.Game
             {
                 _doorViews[door.Cell] = _sprites.Make($"door_{door.Cell.x}_{door.Cell.y}",
                     "dungeon/door-a", DungeonView.CellToWorld(door.Cell, 5f), 2);
+
+                // The UPPER half of the frame, drawn above the party so adventurers pass BEHIND it.
+                // A door drawn as one sprite can only ever be behind them, which reads as the party
+                // walking over the doorway rather than through it.
+                //
+                // Optional on purpose: loaded quietly and skipped when the art is absent, so the
+                // game keeps working on the single-piece Crawl doors it ships with. The two-part art
+                // the author asked for is the Pipoya set, which cannot be committed to this public
+                // repo -- see CREDITS.md -- so a clone without it must not break.
+                if (_sprites.Load(DoorTopSprite, quiet: true) != null)
+                {
+                    _doorTops[door.Cell] = _sprites.Make(
+                        $"doortop_{door.Cell.x}_{door.Cell.y}", DoorTopSprite,
+                        DungeonView.CellToWorld(door.Cell, 4f), DoorTopOrder);
+                }
             }
 
             // The way in, stood open. It is a Doorway cell with no Door behind it, so it is drawn

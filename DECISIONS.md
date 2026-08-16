@@ -1768,3 +1768,40 @@ easy finish.
 the first measurement was not noise, it was a **precise measurement of the wrong thing**, and it looked
 authoritative. What caught it was not a better instrument but noticing that 35.1 was a number this
 project had already written down somewhere else, for a case nobody had asked about.
+
+## 2026-08-16 — D44. A recorded raid, read by Gemini, and what it says about parties of nine
+
+The author asked for a SessionRecorder capture analysed by Gemini. Done: `RaidRecordingTests` records
+a raid into `.mooserunner/Recordings/`, and `recording_extract_and_analyze` sends a segment out.
+
+Most of the verdict is a clean bill of health, and usefully specific about things that have been
+faults here before: the adventurers **walk through the doorways rather than sliding over them**, none
+of them **stand inside the solid walls**, the HUD text and the review screen are legible, and there
+are no rendering artefacts. Wall violations and overlay bleed have both been real defects in this
+project, so a direct look confirming they are absent is worth more than the assertions that already
+covered them.
+
+**The finding that matters is the one nobody had asked about:**
+
+> "there is significant character overlapping… their sprites merge into a single, dense cluster…
+> it makes it difficult to distinguish the individual characters"
+>
+> "[health bars] overlap and stack on top of one another when the party bunches up, creating a
+> slightly cluttered visual pile"
+
+That is a party of **four**.
+
+**Today's ramp sends nine** (D39, D42). Four already merges into a pile the model could not read
+individual figures out of; nine will be materially worse, and it lands on the one piece of feedback
+the author has already asked for twice. D8 exists because the party's state could not be read and
+deaths were arriving unseen — *"wtf, I did not see that"* — and the answer was per-member health
+bars. Nine bars stacked in a bunched column is that problem returning by a different route.
+
+Nothing has been changed for it. The measurement is a four-body raid and the claim would be about a
+nine-body one, and this ledger has enough entries about believing a plausible story before checking
+it. **The next step is a recording of a late-season raid**, which needs the party ramp driven to nine
+through the league rather than a raid built by hand.
+
+Candidate answers, if it does reproduce: fan the formation out laterally as it grows rather than
+lengthening the column; draw bars only for the wounded; or one party-wide bar with a count. All three
+are cheap. Which is right depends on what the frame actually looks like.
