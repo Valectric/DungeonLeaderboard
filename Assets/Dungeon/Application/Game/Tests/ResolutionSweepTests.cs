@@ -292,13 +292,17 @@ namespace Dungeon.Game.Tests
         [Test]
         public void TheOpeningHints_FitAtEverySize()
         {
-            const string longest = "TAP THE SLIME PIT TO HOLD THEM  -  TOO MANY AND THEY DIE";
+            // Read from Hints, not copied. This test carried its own "14 * scale" and the game
+            // raised the size to 20 on 2026-08-16, so it spent the day measuring a font nothing
+            // draws -- understating the width needed by nearly half again, and able to pass while
+            // the real line overflowed. Same fault the world tags had, in the widget next door.
+            string longest = Hints.LongestHintLine;
 
             foreach (Vector2Int size in Sizes)
             {
                 float scale = UiScaleAt(size);
                 float width = Hints.BlockWidth(scale, size.x);
-                float fontSize = Mathf.Max(9, Mathf.RoundToInt(14 * scale));
+                float fontSize = Hints.HintSubFontSize(scale);
                 float needed = longest.Length * fontSize * 0.55f;
 
                 MooseRunnerFacade.Log(

@@ -165,6 +165,41 @@ namespace Dungeon.Game
         /// </remarks>
         public const string LongestTag = "SLIME PIT - TAP TO SPAWN";
 
+        /// <summary>The longest line the three-line opening instruction ever draws.</summary>
+        public const string LongestHintLine =
+            "TAP THE SLIME PIT TO HOLD THEM  -  TOO MANY AND THEY DIE";
+
+        /// <summary>Font size of the instruction's smaller lines, in pixels.</summary>
+        /// <remarks>
+        /// Exposed for the same reason <see cref="TagFontSize"/> is. The resolution sweep used to
+        /// carry its own copy of this number, and when the sizes were raised on 2026-08-16 the test
+        /// kept computing with the old 14 -- so it was measuring a font the game had stopped using
+        /// and could have passed while the real line overflowed by nearly half again.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>The font size.</returns>
+        public static int HintSubFontSize(float scale)
+        {
+            // The floor is 11 and not 13, and the two pixels are load-bearing on a phone held
+            // upright. Raising this line from 14 to 20 on 2026-08-16 took the floor from 9 to 13,
+            // and at 360x780 the block is 344px against a longest line then wanting 400 -- so the
+            // instruction the whole tutorial rests on overflowed on exactly the device most likely
+            // to meet it. The stale copy of "14" in the resolution sweep hid it for the day.
+            //
+            // 11 is the largest floor the narrowest shipped size fits, measured rather than picked:
+            // 55 characters at 0.55 of the font size is 333px into 344px. Everything at 800x480 and
+            // above is far away from the floor and keeps the full 20 * scale the author asked for.
+            return Mathf.Max(11, Mathf.RoundToInt(20f * scale));
+        }
+
+        /// <summary>Font size of the instruction's headline, in pixels.</summary>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>The font size.</returns>
+        public static int HintHeadlineFontSize(float scale)
+        {
+            return Mathf.Max(17, Mathf.RoundToInt(34f * scale));
+        }
+
         /// <summary>Width of a world tag's box, in pixels.</summary>
         /// <param name="scale">UI scale.</param>
         /// <param name="screenWidth">Canvas width in pixels.</param>
@@ -296,14 +331,14 @@ namespace Dungeon.Game
             {
                 // Floored with a minimum: the itch embed runs at 0.4 scale, which is where an
                 // unfloored size once landed at eight-and-a-bit pixels and became unreadable.
-                fontSize = Mathf.Max(17, Mathf.RoundToInt(34 * scale)),
+                fontSize = HintHeadlineFontSize(scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
             var sub = new GUIStyle(headline)
             {
-                fontSize = Mathf.Max(13, Mathf.RoundToInt(20 * scale))
+                fontSize = HintSubFontSize(scale)
             };
 
             Write(new Rect(left, top, width, lineHeight),
