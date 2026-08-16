@@ -1278,3 +1278,13 @@ is the branch working, not a compromise. The lines land about 32px clear of the 
 The residual: at the itch embed's 523x293 that fallback has much less room, and nothing has
 photographed it there. `ResolutionSweepTests` will not catch it either — it checks rects
 analytically, and this whole class of fault is one drawn thing landing on another.
+
+**Tried and did not work: resizing the browser.** `resize_window` reports success and the capture
+comes back at the full window size with the game unchanged, so the viewport under test never actually
+changes. Two approaches in, and worth writing down so the next attempt starts somewhere else.
+
+The route that would work: serve a modified `index.html` pinning the canvas to 523x293.
+`serve-build.py` already owns the serving, so it is a small addition rather than a new idea — from a
+**copy** of `Builds/`, never by editing the shipped one.
+
+So the fix is verified at ~1040x512, the size the build runs at locally, and unverified at the embed.
