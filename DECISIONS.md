@@ -1926,3 +1926,32 @@ these two means. If IRONCLADS and COVEN come back to 1.1 and 0.3, the flip is fi
 
 Recorded rather than acted on because the branch is parked and this is one more change on top of a
 change the author has not seen yet.
+
+### D43 addendum 3 — the StandOff suspect was wrong, and why it was never plausible
+
+Addendum 2 named a suspect for the vertical layout's sustained contact: `AdventurerAI.StandOff` falls
+back to a hardcoded `Vector2.left` when a body is standing on a monster, which is a retreat down an
+east-west corridor and a walk into the wall of a north-south one. Good story, clear mechanism.
+
+**Tested and refuted.** Replacing the fallback with "back away from where the party is heading"
+changed *nothing*: THE IRONCLADS stayed at a mean 3.0 in contact and wiped, THE COVEN at 1.1 and
+wiped, every roster's figures identical to the digit.
+
+**The reason is visible in the line itself, and should have been checked before the run.** The
+fallback is guarded by `offset.sqrMagnitude < 0.0001f` — it fires only when a body is at *exactly*
+zero distance from a monster. That is a measure-zero case in continuous space; it essentially never
+executes. The branch was read for what it said and not for how often it runs.
+
+That is the D28 shape once more, and cheaply caught this time because the prediction was specific
+enough to fail: 3.0 and 1.1 were supposed to fall to 1.1 and 0.3, and they did not move at all. A
+vaguer claim — "this should help disengagement" — would have survived the same result.
+
+**So the mechanism is still open.** What is known: peak contact is identical across layouts, so it is
+not crowding; sustained contact differs, and only for the two rosters that survive horizontally; and
+it is not the standoff fallback. The next places to look are the ones that actually run every tick —
+`Spacing`, the room clamp inside `StandOff` that stops a body backing out of its room, and the
+retreat in `Party` that picks a refuge. The room clamp is the most promising: it walks candidate
+distances inward from the requested range and takes the first that is walkable *and in the same room*,
+which in a five-wide room may simply have fewer valid answers along one axis than the other.
+
+Nothing changed on `main` or on the branch; both were restored.
