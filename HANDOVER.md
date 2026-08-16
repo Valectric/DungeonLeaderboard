@@ -523,6 +523,14 @@ check any change against, and takes about a minute to run.
   game removing the mistake, because being able to make it is the mechanic. If playtesting says new
   players still drown their first party, the next lever is a door on the entrance, not a cap.
 
+  **Updated 2026-08-16 — read this before acting on that last sentence.** The entrance wall is now
+  carved through (D39), but deliberately as a `Doorway` with **no `Door`**. Putting a real door there
+  is not the small step it sounds like: the player could shut it and lock the party out for the whole
+  minute, losing the raid by pressing the thing the tutorial tells them to press. The doorless carve
+  is also what keeps the opening off the walkable grid, so it is load-bearing for containment, not
+  cosmetic — `EntranceOpeningTests` will fail if a door is registered on it. A retreat door belongs on
+  an interior threshold, which is what round two onward already has.
+
 ## 2026-08-15 (evening) — the tileset thread, and what it actually taught
 
 Main is at `ce5e8e6`, 96/96 green, working tree clean. **Itch is unchanged at `0.1.2608151041`** —

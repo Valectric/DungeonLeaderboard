@@ -1622,3 +1622,30 @@ time is the fix and the number is the author's.
 **deterministic pixel renderer, not ImageGen**, so the moodboard never reached an image model
 (`referenced_image_paths` logged zero). It reads correctly in place. Only the `terrain tileset` and
 `effect` harnesses forward references, so genuinely generated art here needs a different route.
+
+### D39 addendum — the carve does not let anything out, and it is not just scenery
+
+The opening was carved into the *outer* wall, so it belongs to no room, and a wounded party retreats
+*toward* the entrance. That is a way to lose a raid which did not exist before this change, and it was
+worth checking rather than assuming: if a body can path onto the opening it is off the grid, and if a
+monster can, the room-bounded pursuit rule the whole retreat valve rests on is broken.
+
+It cannot. `DungeonGrid.IsWalkable` passes a `Doorway` only when a door exists and is open —
+`door != null && door.IsOpen` — so a **doorless** doorway is passable to nobody. The property that
+makes the opening safe is the same one chosen to stop the player shutting the party out. That is why
+no containment suite moved when the carve landed, and it is luck rather than design, so it is pinned
+now: `EntranceOpeningTests`.
+
+**The first guess after that was wrong, and measuring corrected it.** "Not walkable" reads as "the
+opening is decorative", and it is not. Across twelve seeded raids, adventurers register **on** the
+opening for the first **1.6 seconds** — the party spawns west of the entrance and walks east, and a
+body's cell is its rounded continuous position, so the arriving party genuinely walks in through the
+hole in the wall. It just cannot walk back out. Both halves are asserted.
+
+Over the same twelve seeds: **zero** monsters on the opening at any time, and **zero** adventurers
+after the arrival window. The window is set at 3s against a measured worst case of 1.6s, and it was
+verified to have teeth — tightening it to 1s turns the test red, so it is a gate and not a formality.
+
+This is the cheap version of the guard adopted after D28 and D36–D38: the failure mode in every one of
+those was **a plausible story about a measurement, believed before it was checked**. "Nothing can walk
+there, so nothing does" was exactly such a story, and it was half wrong.

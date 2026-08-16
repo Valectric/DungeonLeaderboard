@@ -45,8 +45,16 @@ namespace Dungeon.RaidManager
         /// <summary>Seconds the disarm bonus lasts.</summary>
         public const float DisarmBonusSeconds = 7f;
 
-        /// <summary>Seconds the new-room bonus lasts.</summary>
-        public const float NewRoomBonusSeconds = 3f;
+        /// <summary>
+        /// Seconds the "you just gained two seconds" notice stays up after a new room.
+        /// </summary>
+        /// <remarks>
+        /// This is the length of the <i>notice</i>, not of the bonus. The rate bonus a room pays is
+        /// permanent for the raid and stacks — see <see cref="RoomsEntered"/>. It used to be this
+        /// timer that gated the bonus itself, and the author replaced that: a room is a lasting
+        /// gain now, not a three-second flourish.
+        /// </remarks>
+        public const float NewRoomNoticeSeconds = 3f;
 
         /// <summary>
         /// Seconds of unbroken combat before the same fight starts paying less.
@@ -95,8 +103,24 @@ namespace Dungeon.RaidManager
         /// <summary>Seconds of the disarm bonus still to run.</summary>
         private float _disarmLeft;
 
-        /// <summary>Seconds of the new-room bonus still to run.</summary>
-        private float _newRoomLeft;
+        /// <summary>Seconds the new-room notice still has to run.</summary>
+        private float _newRoomNoticeLeft;
+
+        /// <summary>
+        /// Rooms the party has walked into this raid, each paying <see cref="Bonus"/> for good.
+        /// </summary>
+        /// <remarks>
+        /// The author's rule: <b>"after entering a new room the team gains +2/s for the rest of the
+        /// run per room."</b> A count rather than a timer, because the bonus no longer expires — a
+        /// party three rooms deep is earning +6/s from depth alone, on top of whatever it is doing
+        /// there.
+        /// <para>
+        /// This is the first modifier that only ever grows, which is deliberate: it makes pushing
+        /// the party <i>onward</i> pay, where every other bonus rewards what is happening right now.
+        /// It is also why the room bonus is not eased away by a quiet corridor.
+        /// </para>
+        /// </remarks>
+        private int _roomsEntered;
 
         /// <summary>Seconds the party has been in unbroken combat.</summary>
         private float _fightingFor;
@@ -159,9 +183,17 @@ namespace Dungeon.RaidManager
                 parts.Add("+ DISARM");
             }
 
-            if (_newRoomLeft > 0f)
+            if (_roomsEntered > 0)
             {
-                parts.Add("+ NEW ROOM");
+                // Two states for one cause, because a room pays twice and the payments have
+                // different lifetimes. For three seconds it announces the arrival and names the
+                // CLOCK gain -- without that number the timer visibly counts up while the player
+                // watches it count down, which reads as a glitch, not a reward. After that it
+                // settles into the running total, so the player can see that depth is still paying
+                // long after the moment has passed.
+                parts.Add(_newRoomNoticeLeft > 0f
+                    ? $"+ NEW ROOM +{Raid.NewRoomSeconds:0}s"
+                    : $"+ ROOMS x{_roomsEntered}");
             }
 
             if (_extraEnemies > 0)
@@ -185,10 +217,19 @@ namespace Dungeon.RaidManager
         }
 
         /// <summary>Records that the party reached a room it had not seen this raid.</summary>
+        /// <remarks>
+        /// Two effects with different lifetimes, which is why the count and the notice are separate
+        /// fields: the rate bonus is permanent and stacks, the notice is three seconds of the HUD
+        /// saying so.
+        /// </remarks>
         public void RecordNewRoom()
         {
-            _newRoomLeft = NewRoomBonusSeconds;
+            _roomsEntered++;
+            _newRoomNoticeLeft = NewRoomNoticeSeconds;
         }
+
+        /// <summary>Rooms walked into this raid. Each pays <see cref="Bonus"/> for the rest of it.</summary>
+        public int RoomsEntered => _roomsEntered;
 
         /// <summary>
         /// Advances every timer by one tick.
@@ -198,7 +239,10 @@ namespace Dungeon.RaidManager
         public void Tick(float deltaTime, int enemiesFacing)
         {
             _disarmLeft = Mathf.Max(0f, _disarmLeft - deltaTime);
-            _newRoomLeft = Mathf.Max(0f, _newRoomLeft - deltaTime);
+
+            // Only the NOTICE runs down. _roomsEntered is not touched here -- the bonus it carries
+            // lasts the whole raid, which is the point of it.
+            _newRoomNoticeLeft = Mathf.Max(0f, _newRoomNoticeLeft - deltaTime);
             _extraEnemies = Mathf.Max(0, enemiesFacing - 1);
 
             if (enemiesFacing > 0)
@@ -251,10 +295,8 @@ namespace Dungeon.RaidManager
                 total += Bonus;
             }
 
-            if (_newRoomLeft > 0f)
-            {
-                total += Bonus;
-            }
+            // Every room the party has ever walked into this raid, permanently. Depth pays.
+            total += Bonus * _roomsEntered;
 
             // Every monster past the first. A crowd is more interesting than a duel and pays for it.
             total += Bonus * _extraEnemies;

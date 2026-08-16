@@ -171,11 +171,33 @@ namespace Dungeon.RaidManager
         /// Seconds this raid has been granted for rooms walked into, for the HUD to announce.
         /// </summary>
         /// <remarks>
-        /// Tracked separately from the clock so the player can be told the clock went **up**. A
-        /// timer that silently gains two seconds reads as a bug or as nothing at all, and this is
-        /// the reward for the most expensive thing in the shop.
+        /// Tracked separately from the clock so the raid's running total is available without
+        /// subtracting one moving constant from another — <see cref="Elapsed"/> is built on it.
+        /// <para>
+        /// It is <b>not</b> what tells the player, and this doc claimed it was until the claim was
+        /// checked: nothing in the UI reads this property. The telling is done by
+        /// <c>RateModifiers.Summary()</c>, which names the seconds in its "+ NEW ROOM +2s" line for
+        /// three seconds after each new room. A timer that silently gains two seconds reads as a bug
+        /// or as nothing at all, and this is the reward for the most expensive thing in the shop.
+        /// </para>
         /// </remarks>
         public float SecondsAwarded { get; private set; }
+
+        /// <summary>Seconds this raid has actually been running.</summary>
+        /// <remarks>
+        /// <b>Use this, not <c>RaidSeconds - TimeRemaining</c>.</b> Those were the same number until
+        /// the room bonus started adding time, and the difference is easy to miss because it is
+        /// silent: <see cref="TimeRemaining"/> can now exceed <see cref="RaidSeconds"/>, so the old
+        /// expression runs *backwards* — it reports a raid getting younger every time the party
+        /// walks into a room, and goes negative in the first second of every raid, since the party
+        /// walks into its first room immediately.
+        /// <para>
+        /// Nothing throws when that happens, which is why it wants a named property rather than a
+        /// comment. The one caller that had it — the first-raid instruction — simply outstayed its
+        /// welcome by however much time the party had earned.
+        /// </para>
+        /// </remarks>
+        public float Elapsed => RaidSeconds + SecondsAwarded - TimeRemaining;
 
         /// <summary>Energy available to spend on verbs. Starts at <see cref="StartingEnergy"/>.</summary>
         public float TotalEnergy { get; private set; }
