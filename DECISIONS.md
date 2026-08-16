@@ -1528,3 +1528,32 @@ superseded rule was still written as binding; here, a live supersession was neve
 
 D8 got this right and is the model — its title is literally *"Health bars on adventurers, superseding
 SPEC.md §3"*. A change that contradicts the spec needs an entry that names the section it overrides.
+
+### D38 addendum — the rest of SPEC.md checked, and only the curve was unrecorded
+
+Every concrete number in the spec was verified against the code:
+
+| SPEC says | code | |
+|---|---|---|
+| hard 60-second raid | `Raid.RaidSeconds = 60f` | ✓ |
+| 30-second shop | `Shop.ShopSeconds = 30f` | ✓ |
+| 20 dungeons | `LeagueTable.Size = 20` | ✓ |
+| player starts around 14th | `PlayerStartPosition = 14` | ✓ |
+| relegation line under the bottom two | `RelegationCount = 2` | ✓ |
+| exactly three verbs, no mob recall | `ToggleDoor`, `SpawnMob`, `FireTrap` | ✓ |
+| leaderboard is the title screen | photographed at two viewports | ✓ |
+
+The spec has **three** places where the shipped game deliberately differs, and two were already
+recorded:
+
+- **§3 "never show a number for adventurer HP"** → D8, titled as superseding it outright.
+- **§6 "a new name takes the slot"** → D20. The spec describes a persistent league that refills;
+  the game is a knockout where the eliminated are not replaced and the last dungeon standing wins.
+  D20 records that as the author's design.
+- **§3 the energy formula** → nothing, until D38 above.
+
+So the ledger was two-for-three, and the gap was on the mechanic the spec calls "the whole design".
+Worth noting *why* that one slipped while the other two did not: D8 and D20 were both decisions taken
+in response to a problem, and got written up as decisions. The curve changed as one bullet inside a
+seven-item milestone the author directed in a single session — it read as work delivered rather than
+as a rule overturned, and only the milestone log caught it.
