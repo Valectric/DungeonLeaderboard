@@ -1,8 +1,56 @@
 # Handover
 
+## Read this first — the 2026-08-16 session
+
+**Everything you asked for is built, tested and live on itch except the dungeon flip**, which is on a
+branch and explained below. `main` is green at **357 tests** across five assemblies.
+
+| you asked | state |
+|---|---|
+| +2 seconds per room entered | shipped |
+| an open door into the first room | shipped |
+| bigger tutorial text, clearing when the chest is looted | shipped |
+| "don't kill them" shown before the raid | shipped |
+| teams vary more; skirmishers later | shipped — nine rosters, gated to raid 5+ |
+| party grows to 5 / 6 / 9 through the season | shipped |
+| chest tag clears once grabbed; both tags twice the size | shipped |
+| +2/s per room, permanent | **built, held on `room-bonus-permanent`** — D40 |
+| dungeon runs bottom to top | **built, held on `flip-vertical-wip`** — D43 |
+| Pipoya tileset, credited with a direct link | credited; **cannot be committed**, see CREDITS.md |
+| record a raid, read it with Gemini | shipped, and it found a real defect — D44, D45 |
+
+**Three things need your judgement, in order of how much they matter.**
+
+**A. A late-season raid now lands on the rivals' ceiling (D42).** Growing the party to nine takes a
+worked raid from **240 to 433**, and `LeagueTable.GoodRun` is **430**. D20 handicaps rivals a tenth
+below your range so a good raid cannot be beaten by luck; that holds at raid one and has no room left
+by raid eighteen. Levers: raise `GoodRun`, cap growth below nine, or let it stand.
+
+**B. Nine adventurers cannot wear their health bars on their heads (D45).** Your ramp reintroduced
+the exact problem D8 was written to fix. Measured on video: only **3 or 4 of 9** bars readable, a
+wound mid-cluster "masked", a death "completely obscured". Bars now stagger by marching rank, which
+makes them readable and drifts them off their owners. Three options in D45 — keep it, a HUD roster
+panel, or fan the formation laterally. The frame is the thing to look at.
+
+**C. The permanent room bonus inverts a design rule (D40).** Implemented faithfully; it takes the
+stall-versus-stroll ratio to **2.09x against a 2.5x floor** — the party that walks through and leaves
+gains 3x where the party that stays and bleeds gains 2x. The recommendation is to pay it only while
+the party is engaged, which is the one option leaving both rules standing.
+
+**One thing worth knowing even though nothing is blocked on it.** Turning the dungeon vertical
+exposed **four bugs that were already there**, all hidden by the dungeon happening to run east: the
+follower trail seeded westward, traps sitting off the party's route (wounds fell to **0%** while 166
+of 168 tests stayed green), a test pinning monster positions on X, and a pathfinder returning
+staircases for any non-eastward goal. It is not merged because parties still do not survive a maximal
+ambush going north. **The most useful thing learned all day: the shipped balance depends on monsters
+pathing inefficiently** — straightening it for everything inverted the central rule on the
+*horizontal* layout too, which is how it was proved to be the pathfinder and not the port.
+
+---
+
 ## Four decisions waiting for you — nothing else is blocked
 
-Every milestone is built, tested and shipped, and the suite is green at 338 tests across five
+Every milestone is built, tested and shipped, and the suite is green at 357 tests across five
 assemblies. These three are judgements rather than work, and each is now as well-evidenced as
 measurement can make it.
 
