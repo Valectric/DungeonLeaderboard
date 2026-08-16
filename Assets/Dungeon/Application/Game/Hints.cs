@@ -158,6 +158,43 @@ namespace Dungeon.Game
             return Mathf.Clamp(760f * scale, Mathf.Min(500f, room), room);
         }
 
+        /// <summary>The longest world tag the game ever draws.</summary>
+        /// <remarks>
+        /// Kept beside the width and font-size below so a resolution test can ask the real question
+        /// -- does the longest label fit the box it is given -- instead of a proxy for it.
+        /// </remarks>
+        public const string LongestTag = "SLIME PIT - TAP TO SPAWN";
+
+        /// <summary>Width of a world tag's box, in pixels.</summary>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="screenWidth">Canvas width in pixels.</param>
+        /// <returns>The box width.</returns>
+        public static float TagWidth(float scale, float screenWidth)
+        {
+            // A FLOOR as well as a ceiling, for the same reason BlockWidth has one, and it is not
+            // decoration: the font stops shrinking at 18px while a purely scaled box keeps going, so
+            // on a narrow canvas the box outruns the text it has to hold.
+            //
+            // Measured across the six sizes the game ships at: a portrait phone gave a 124-134px box
+            // for a label needing about 238px, so roughly HALF of "SLIME PIT - TAP TO SPAWN" was cut
+            // off -- the label telling a new player what to tap first, on the form factor most likely
+            // to meet it through the itch embed.
+            //
+            // Pre-existing rather than new. Doubling the tags on 2026-08-16 doubled the box with the
+            // font and left the overflow ratio at 1.78x either way; what was new is that anything
+            // measured it at all.
+            float room = Mathf.Max(32f, screenWidth - 16f);
+            return Mathf.Clamp(440f * scale, Mathf.Min(300f, room), room);
+        }
+
+        /// <summary>Font size a world tag is drawn at, in pixels.</summary>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>The font size.</returns>
+        public static int TagFontSize(float scale)
+        {
+            return Mathf.Max(18, Mathf.RoundToInt(24f * scale));
+        }
+
         /// <summary>
         /// Where the three-line instruction block sits, so a tag can avoid landing on it.
         /// </summary>
@@ -305,7 +342,7 @@ namespace Dungeon.Game
                 // Twice the old 12, at the author's request -- they were legible on a monitor and
                 // not on a phone, which is where this game is played. The floor doubles with it,
                 // because the itch embed runs at 0.4 scale and that is what the floor is for.
-                fontSize = Mathf.Max(18, Mathf.RoundToInt(24 * scale)),
+                fontSize = TagFontSize(scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -317,7 +354,7 @@ namespace Dungeon.Game
             // The box doubles with the text. Doubling the font alone would have kept the old 220
             // and quietly clipped "SLIME PIT - TAP TO SPAWN" instead, which is the same defect the
             // clamp above exists to prevent.
-            float width = Mathf.Min(440f * scale, Screen.width);
+            float width = TagWidth(scale, Screen.width);
             float left = Mathf.Clamp(point.x - (width * 0.5f), 0f, Mathf.Max(0f, Screen.width - width));
 
             // Above the thing it names, except in the top third of the screen, where the headline

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Dungeon.ShopManager;
 using MooseRunner;
 using NUnit.Framework;
@@ -310,6 +311,50 @@ namespace Dungeon.Game.Tests
                     $"{size.x}x{size.y}: the longest hint needs about {needed:F0}px and has "
                     + $"{width:F0}px, so the first thing a new player is told is cut off");
             }
+        }
+
+        /// <summary>
+        /// The world tags over spawners, chests and doors are not cut off at any size.
+        /// </summary>
+        /// <remarks>
+        /// New, and it closes a real gap: the tags were doubled in size on 2026-08-16 at the
+        /// author's request and <b>nothing measured them</b>. The hint test above checks the
+        /// three-line instruction BLOCK, which is a different thing with a different width.
+        /// <para>
+        /// The awkward case is the itch embed. The box is <c>440 * scale</c> but the font has a
+        /// FLOOR of 18px, so as the canvas shrinks the box keeps shrinking and the text stops. At
+        /// 523x293 that is a 180px box holding a label that wants far more, and the label in
+        /// question is the one the tutorial leans on -- the first thing a new player is told to tap.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheWorldTags_FitAtEverySize()
+        {
+            var tooNarrow = new List<string>();
+
+            foreach (Vector2Int size in Sizes)
+            {
+                float scale = UiScaleAt(size);
+                float width = Hints.TagWidth(scale, size.x);
+                int fontSize = Hints.TagFontSize(scale);
+
+                // 0.55 of the font size per character, the same rule of thumb the hint test uses,
+                // so the two figures can be read against each other.
+                float needed = Hints.LongestTag.Length * fontSize * 0.55f;
+
+                MooseRunnerFacade.Log(
+                    $"{size.x}x{size.y}: tag box {width:F0}px at {fontSize}px, "
+                    + $"\"{Hints.LongestTag}\" needs about {needed:F0}px");
+
+                if (needed > width)
+                {
+                    tooNarrow.Add($"{size.x}x{size.y} ({needed:F0}px into {width:F0}px)");
+                }
+            }
+
+            Assert.IsEmpty(tooNarrow,
+                "the longest world tag is cut off at these sizes, and it is the label telling a new "
+                + "player what to tap first: " + string.Join("; ", tooNarrow));
         }
 
         /// <summary>
