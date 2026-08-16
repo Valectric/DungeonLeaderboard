@@ -2094,3 +2094,36 @@ asked with a *recording* rather than another aggregate — this ledger now has f
 built from summary statistics and one finding that came from looking at a frame.
 
 Investigation stopped here. The branch is unchanged and unmerged; `main` is untouched.
+
+### D43 addendum 8 — the frame, at last, and what it shows
+
+Four hypotheses about the vertical collapse were built from summary statistics and all four died.
+Addendum 7 said the next question should be asked with a recording. It was, and the answer is visible
+in a single frame at nine seconds:
+
+**Seven slimes spanning the full width of the corridor, sitting on the party, which is pinned at the
+bottom against the entrance.** Damage numbers in that one moment read -98, -45, -19, -8, -8, -4, and
+the HUD shows `+ CROWD x7`.
+
+That is not attrition, not disengagement, and not pathing. It is a **wall of monsters across a
+corridor the party cannot go around, with the party backed against the one wall it cannot pass
+through** — and the wall behind them is the carved entrance from this same session, which is a
+`Doorway` with no `Door` and therefore, by `IsWalkable`, passable to nobody. A party pushed back to
+the entrance in a vertical dungeon has literally nowhere to stand.
+
+**This is a hypothesis with a picture rather than a proof**, and the honest test is whether the
+horizontal layout pins the party the same way — if it does, the collapse is about the ambush scenario
+rather than the axis, and the flip is exonerated. That comparison has not been run.
+
+But the shape of the day is worth keeping regardless. Five attempts at this mechanism:
+
+| attempt | built from | outcome |
+|---|---|---|
+| crowding | peak contact counts | refuted, peaks identical |
+| the standoff fallback | reading a branch | refuted, the branch never runs |
+| fleeing less | whole-raid action shares | refuted, confounded by raid length |
+| ground down early | shares again | reversed, the party is HEALTHIER early |
+| a wall of slimes at the entrance | **one frame** | the first that explains the numbers |
+
+The project's own doctrine says green tests hide a broken rate and to photograph the game. Four of
+these five were aggregates over a simulation nobody had watched, and the fifth took one look.
