@@ -51,10 +51,14 @@ manages rather than a multiplier they wait for.
   central regret and it costs no new verb.
 - **Mob pathing must respect room boundaries** — mobs do not pursue past a threshold. The retreat
   valve above depends on it, so it is load-bearing, not polish.
-- **Never show a number for adventurer HP.** Wounded state is communicated by limping, blood,
-  slowed movement, the healer panicking. Coarse three-state (healthy/hurt/critical) is the fallback
-  if playtesting says it is unreadable. Ambiguity between "nearly dead" and "dead in one hit" is
-  where the tension lives.
+- ~~**Never show a number for adventurer HP.**~~ **SUPERSEDED BY D8 — the game ships continuous,
+  colour-coded health bars, and that is correct.** The original constraint was that wounded state be
+  read from limping, blood and the healer panicking, with coarse three-state as the fallback. The
+  author played it, could not read the party's state, and deaths were arriving unseen — *"wtf, I did
+  not see that"*. SPEC.md anticipated exactly this and offered the three-state fallback; the playtest
+  verdict went further. **Do not remove the bars.** They are the author's decision, not drift, and
+  this line said otherwise until 2026-08-16. Wounded state is still *also* carried by limping,
+  slowed movement and panic — the bar is in addition, not instead.
 - **The leaderboard is the title screen.** No menu, no logo. The game opens on the standings with
   the player highlighted around 14th and a red relegation line under the bottom two.
 - **WebGL build, published to itch.io** for jam voting traffic. No GitHub Pages for this project.

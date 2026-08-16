@@ -1448,3 +1448,29 @@ trusting it.
 section listing a module that has never existed. The pattern is consistent enough to name: this
 project's *code* has been kept honest by its tests, and its *prose* has not been kept honest by
 anything. Everything asserted in a document here is worth checking against the thing it describes.
+
+## 2026-08-16 — D37. A "hard constraint" that D8 had already overturned
+
+CLAUDE.md's **Hard constraints (do not break)** listed:
+
+> **Never show a number for adventurer HP.** … Coarse three-state (healthy/hurt/critical) is the
+> fallback if playtesting says it is unreadable.
+
+**D8 overturned that on 2026-08-13**, three days earlier, and the game has shipped continuous
+colour-coded health bars ever since — visible in every screenshot taken tonight. The constraint was
+still written as inviolable, with no note that it had been superseded.
+
+This is the most dangerous of the four documentation defects found in this audit, because the others
+mislead and this one **instructs**. An agent reading a section headed "do not break" would treat the
+health bars as drift and remove them — deleting the fix the author asked for after playing the game
+and finding deaths arrived unseen. *"wtf, I did not see that"* were the author's words.
+
+Struck through and rewritten to say what shipped and why, including that limping, slowed movement and
+panic still carry wounded state as well — the bar is in addition, not instead.
+
+The other three constraints in that section were checked at the same time and **hold as written**:
+exactly three verbs on `Raid` (`ToggleDoor`, `SpawnMob`, `FireTrap`, with no recall or call-off
+anywhere), the leaderboard is the title screen, and the build ships to itch as WebGL.
+
+**Fourth documentation defect in four audit rounds.** A file that says "do not break" earns more
+scrutiny than one that says "here is the layout", and it had received less.
