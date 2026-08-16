@@ -1987,3 +1987,38 @@ that looks like from outside.
 Not pursued further: the branch is parked, the author has not seen the flip at all yet, and this is
 now three layers of inference deep. Recorded so the next session starts from a measurement instead of
 from the top.
+
+### D43 addendum 5 — addendum 4 is CONFOUNDED, and the confound is large
+
+Addendum 4 concluded that the party "enters the flee state less often" vertically, from action shares
+of 52% against 32% for THE IRONCLADS and 63% against 45% for THE COVEN. **That conclusion is not
+established, and the reason is visible in one column that was never logged: raid length.**
+
+Horizontal durations, same run:
+
+```
+THE IRONCLADS   64.0s  TimeExpired     THE BALANCED PARTY  24.4s  wiped
+THE COVEN       64.0s  TimeExpired     THE PILGRIMAGE      24.3s  wiped
+                                       THE PHALANX         25.7s  wiped
+                                       everything else  17-19s   wiped
+```
+
+The two rosters the whole finding rests on are exactly the two whose raids run **three times longer**.
+Their action shares are measured over a 64-second window; the vertical raids they die in are a
+fraction of that. A party that survives to the clock accumulates a long tail of alive-and-fleeing
+ticks that a party dying at twenty seconds never reaches.
+
+So the direction of causation is unresolved. **Fleeing more may keep them alive, or living longer may
+simply give them more time to flee** — the data cannot distinguish those, and addendum 4 asserted the
+first.
+
+What survives from addendum 4: fleeing shares differ, and the two rosters that die on both layouts are
+unchanged. What does not survive: any claim about why.
+
+**The fix for the measurement is to compare like windows** — the first eighteen seconds, which every
+raid on both layouts has — rather than whole-raid shares. That is one run and it was not done here.
+
+This is the third time today the same shape has appeared: D42's harvest figure was a precise
+measurement of walkthroughs rather than played raids, addendum 3's suspect was a branch that never
+runs, and this is a share computed over incomparable windows. The common factor is not carelessness
+about the number; it is failing to ask **what else differs between the two things being compared.**
