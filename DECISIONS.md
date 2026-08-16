@@ -1730,3 +1730,41 @@ no change to the picker at all.
 all" and THE SKIRMISHERS is "no tank"; those absences are the roster and are what the on-screen
 warning promises. Growing them with generic filler would have quietly made both warnings lies by raid
 nine. Asserted at every size from four to nine.
+
+## 2026-08-16 — D42. What growing the party costs the league, measured twice because the first was wrong
+
+Party size scales the economy because the energy rate sums **per member**. The size of that effect was
+guessed at 2.25x (nine over four, straight off the headcount), and guessing was wrong twice over.
+
+**First measurement: 1.26x.** Mean harvest across the nine rosters went 35.1 at four to 44.3 at nine.
+That figure is real and it is nearly meaningless, because the raids it came from used **no verbs** —
+the party strolls through and leaves. 35.1 sits almost exactly on D40's un-bonused strolled figure of
+38.5, which is the tell. A test named for a comparison with the rival ceiling was measuring the one
+case that never approaches it.
+
+**Second measurement, raids the player actually works** — doors shut, monsters fed in, built the way
+`RaidRulesTests` builds its stalled raid:
+
+| | raid 1, four | raid 9, six | raid 18, nine |
+|---|---|---|---|
+| strolled | 38 | 39 | 43 |
+| **held and fought** | **240** | **305** | **433** |
+
+**1.81x**, and the number that matters is the last cell: `LeagueTable.GoodRun` is **430**. A
+late-season raid played well now lands **on the rivals' ceiling**.
+
+**What that means, and it is the author's call.** D20 handicaps rivals a tenth below the player's own
+range so that a good raid cannot be beaten by luck. That promise is intact early — 240 against 430
+leaves plenty of room to lose. By raid eighteen there is none: a worked raid meets the best a rival
+can possibly roll, so the closing rounds stop being a contest and become a formality for a player who
+is still paying attention. Whether that is a satisfying crescendo or a flat ending is a judgement
+about how the game should *feel*, which is not a thing to settle from a test.
+
+Levers, cheapest first: raise `GoodRun` so the ceiling stays above a grown party; cap growth below
+nine; or let it stand, on the grounds that a player who has survived seventeen raids has earned an
+easy finish.
+
+**The lesson is the older one.** D31, D28 and the pale bands all have the same shape, and so does this:
+the first measurement was not noise, it was a **precise measurement of the wrong thing**, and it looked
+authoritative. What caught it was not a better instrument but noticing that 35.1 was a number this
+project had already written down somewhere else, for a case nobody had asked about.
