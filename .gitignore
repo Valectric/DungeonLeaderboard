@@ -78,3 +78,10 @@ nul
 # Python bytecode and run logs from the art tools in Tools/.
 __pycache__/
 Tools/*.log
+
+# Pipoya RPG Tileset 32x32 -- free and licence-compatible to USE, but its terms say
+# "Not redistribute or resell this assets" and this repository is public, so the raw
+# PNGs must not be committed. Downloaded by hand into Assets/Art/Pipoya/; the WebGL
+# build embeds them, which the licence allows. See CREDITS.md.
+Assets/Art/Pipoya/
+Assets/Art/Pipoya.meta

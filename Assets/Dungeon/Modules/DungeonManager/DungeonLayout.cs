@@ -412,21 +412,46 @@ namespace Dungeon.DungeonManager
             {
                 Vector2Int origin = PlanBuilder.OriginOf(
                     plan.Rooms[room], latticeMin, roomWidth, roomHeight);
-                spawners.Add(new Vector2Int(origin.x + roomWidth - 1, origin.y));
+                // The trap goes ON the party's route and the spawner beside it. That is the whole
+                // point of the pair: the party walks onto the trap, and the monster comes at them
+                // from off to one side.
+                //
+                // The route is the CENTRE COLUMN since the dungeon was turned to run bottom to top
+                // on 2026-08-16. These read (origin.x + 1, origin.y + roomHeight/2) -- the middle
+                // ROW -- and left alone they quietly moved every trap OFF the path, because the
+                // middle row is now something the party crosses in one stride rather than walks
+                // along. Nothing would have failed loudly; the dungeon would simply have stopped
+                // wounding anybody.
+                // TRANSPOSED, not re-guessed. The horizontal layout put the trap at (1, height/2)
+                // from the room origin and the spawner at (width-1, 0); swapping the axes gives
+                // (width/2, 1) and (0, height-1), which preserves both relationships exactly: the
+                // trap sits on the party's route two cells inside the door, and the spawner sits
+                // off the route in the far corner.
+                //
+                // Worth doing arithmetically rather than by eye. A first attempt moved the trap
+                // correctly and the spawner by guess, which took the suite from two failures to
+                // seven -- the trap was the fix and the spawner was noise on top of it.
+                spawners.Add(new Vector2Int(origin.x, origin.y + roomHeight - 1));
                 spawnerTiers.Add(1);
-                traps.Add(new Vector2Int(origin.x + 1, origin.y + (roomHeight / 2)));
+                traps.Add(new Vector2Int(origin.x + (roomWidth / 2), origin.y + 1));
             }
 
             Vector2Int firstOrigin = PlanBuilder.OriginOf(
                 plan.Rooms[0], latticeMin, roomWidth, roomHeight);
-            int midY = firstOrigin.y + (roomHeight / 2);
-            int interiorWidth = grid.Width - (margin * 2);
+
+            // VERTICAL since 2026-08-16, at the author's request: the party enters at the BOTTOM and
+            // charges up the screen. midX is the column running through room zero, and the entrance
+            // and boss sit on the bottom and top edges of that column rather than the left and right
+            // edges of a row. This was midY and interiorWidth until then.
+            int midX = firstOrigin.x + (roomWidth / 2);
+            int interiorHeight = grid.Height - (margin * 2);
 
             var chestCells = new List<Vector2Int>();
 
-            // The way in is an OPENING carved through the west wall beside the entrance cell, so the
+            // The way in is an OPENING carved through the SOUTH wall below the entrance cell, so the
             // first room reads as a place a party walks into rather than a sealed box with figures
-            // already inside it. Author's request.
+            // already inside it. Author's request. (West wall, until the dungeon was turned to run
+            // bottom to top on 2026-08-16.)
             //
             // Carved as a Doorway but given NO Door, deliberately. A Door here would be tappable, and
             // shutting the way in before the party arrives would strand them outside for the whole
@@ -438,7 +463,7 @@ namespace Dungeon.DungeonManager
             // furniture comes from the loadout. Carved after that branch it applied only to layouts
             // built without placed furniture -- so it worked in the tests and did nothing in the
             // game, and photographing the opening frame is what caught it.
-            grid.CarveOpening(new Vector2Int(margin - 1, midY));
+            grid.CarveOpening(new Vector2Int(midX, margin - 1));
 
             // The player pointed at these tiles, so they go exactly there and the scattering formula
             // below is skipped entirely. The room-bound check still applies: a hall the player later
@@ -447,23 +472,25 @@ namespace Dungeon.DungeonManager
             {
                 placed.ApplyTo(grid, spawners, spawnerTiers, traps, chestCells);
                 return Tagged(plan, latticeMin, new DungeonLayout(
-                    grid, new Vector2Int(margin, midY),
-                    new Vector2Int(margin + interiorWidth - 1, midY),
+                    grid, new Vector2Int(midX, margin),
+                    new Vector2Int(midX, margin + interiorHeight - 1),
                     centres, spawners, traps, chestCells, spawnerTiers));
             }
 
-            // Bought equipment goes into the rooms the party walks through. Placed on the rows above
-            // and below the party's route rather than on it, so a purchase never blocks the corridor
-            // the whole game depends on being walkable.
+            // Bought equipment goes into the rooms the party walks through. Rooms are indexed UP the
+            // Y axis since 2026-08-16, so y0 walks the stack; each placement below is the old
+            // horizontal formula with its axes transposed, which keeps every piece the same distance
+            // from the party's route as it was.
+            //
             // Two traps on one cell would draw over each other and be firable twice from a single
             // tap, so every placement below refuses a cell that is already taken.
             int extraSpawners = extraSlimeSpawners + extraSkeletonSpawners;
             for (int i = 0; i < extraSpawners; i++)
             {
                 int room = 1 + (i % Mathf.Max(1, roomCount - 1));
-                int x0 = margin + (room * (roomWidth + 1));
+                int y0 = margin + (room * (roomHeight + 1));
                 var cell = new Vector2Int(
-                    x0 + 1 + (i % Mathf.Max(1, roomWidth - 2)), margin + roomHeight - 1);
+                    margin + roomWidth - 1, y0 + 1 + (i % Mathf.Max(1, roomHeight - 2)));
                 if (!spawners.Contains(cell))
                 {
                     spawners.Add(cell);
@@ -474,8 +501,8 @@ namespace Dungeon.DungeonManager
             for (int i = 0; i < extraTraps; i++)
             {
                 int room = 1 + (i % Mathf.Max(1, roomCount - 1));
-                int x0 = margin + (room * (roomWidth + 1));
-                var cell = new Vector2Int(x0 + 2 + (i % Mathf.Max(1, roomWidth - 3)), midY);
+                int y0 = margin + (room * (roomHeight + 1));
+                var cell = new Vector2Int(midX, y0 + 2 + (i % Mathf.Max(1, roomHeight - 3)));
                 if (!traps.Contains(cell))
                 {
                     traps.Add(cell);
@@ -485,16 +512,16 @@ namespace Dungeon.DungeonManager
             for (int i = 0; i < chests; i++)
             {
                 int room = 1 + (i % Mathf.Max(1, roomCount - 1));
-                int x0 = margin + (room * (roomWidth + 1));
-                var cell = new Vector2Int(x0 + 1 + (i % 2), margin);
+                int y0 = margin + (room * (roomHeight + 1));
+                var cell = new Vector2Int(margin, y0 + 1 + (i % 2));
                 if (!chestCells.Contains(cell) && !spawners.Contains(cell))
                 {
                     chestCells.Add(cell);
                 }
             }
 
-            var entrance = new Vector2Int(margin, midY);
-            var boss = new Vector2Int(margin + interiorWidth - 1, midY);
+            var entrance = new Vector2Int(midX, margin);
+            var boss = new Vector2Int(midX, margin + interiorHeight - 1);
 
             return Tagged(plan, latticeMin, new DungeonLayout(
                 grid, entrance, boss, centres, spawners, traps, chestCells, spawnerTiers));

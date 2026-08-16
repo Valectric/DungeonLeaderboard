@@ -92,7 +92,7 @@ namespace Dungeon.RaidManager.Tests
             for (int seed = 0; seed < 12; seed++)
             {
                 DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: 3);
-                var opening = new Vector2Int(layout.EntranceCell.x - 1, layout.EntranceCell.y);
+                var opening = new Vector2Int(layout.EntranceCell.x, layout.EntranceCell.y - 1);
                 var raid = new Raid(layout, 0f, null, seed);
 
                 int guard = 0;
@@ -147,7 +147,7 @@ namespace Dungeon.RaidManager.Tests
         /// <param name="what">Human label for the build path, used in failure messages.</param>
         private static void AssertSceneryOpening(DungeonLayout layout, string what)
         {
-            var opening = new Vector2Int(layout.EntranceCell.x - 1, layout.EntranceCell.y);
+            var opening = new Vector2Int(layout.EntranceCell.x, layout.EntranceCell.y - 1);
             DungeonGrid grid = layout.Grid;
 
             MooseRunnerFacade.Log(
@@ -156,7 +156,7 @@ namespace Dungeon.RaidManager.Tests
                 + $"walkable={grid.IsWalkable(opening)}");
 
             Assert.AreEqual(CellKind.Doorway, grid.KindAt(opening),
-                $"{what}: the west wall beside the entrance was not carved, so the starting room "
+                $"{what}: the south wall below the entrance was not carved, so the starting room "
                 + "is a sealed box again");
             Assert.IsNull(grid.DoorAt(opening),
                 $"{what}: a Door was registered on the entrance opening, which makes it tappable -- "

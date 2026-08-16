@@ -26,6 +26,34 @@ mask bit.
 The Crawl project maintains a `TILES_UNDER_UNKNOWN_LICENSE.md` listing tiles whose provenance is
 unclear. Nothing on that list is used here.
 
+## Pipoya RPG Tileset 32x32 — requested, NOT yet in the repo, and it cannot be committed
+
+**Pipoya RPG Tileset 32x32** — <https://pipoya.itch.io/pipoya-rpg-tileset-32x32>
+
+Free (name-your-own-price). The licence, in the author's own words:
+
+> "For commercial or personal use." · "Use and edit freely." · **"Not redistribute or resell this
+> assets."** · "It can be used for game development and other productions."
+
+Attribution is not demanded; it is given here anyway, for the same reason as everything else in this
+file. Pipoya tag the pack **"No generative AI was used"** — that is a statement about how *they* made
+it, not a restriction on what it may sit beside, which is the opposite of the Mana Seed problem
+recorded in `HANDOVER.md`. So the licence is compatible with this project.
+
+**But it cannot live in `Assets/Art/`.** This repository is **public**, `Assets/Art/` is tracked, and
+publishing the raw PNGs on GitHub is redistribution however the game itself uses them. Shipping them
+compiled inside the WebGL build on itch is "use in a production" and is fine; committing the source
+tiles is not.
+
+So the arrangement is:
+
+- the pack is downloaded by hand into `Assets/Art/Pipoya/`, which is **gitignored**;
+- the WebGL build embeds it, which the licence allows;
+- a fresh clone therefore has no Pipoya tiles and falls back to the Crawl set above, and `Tools/`
+  should say so if a build ever depends on them.
+
+That last point is the cost of the arrangement and is worth knowing before it surprises somebody.
+
 ## Everything else
 
 | What | Source | Terms |

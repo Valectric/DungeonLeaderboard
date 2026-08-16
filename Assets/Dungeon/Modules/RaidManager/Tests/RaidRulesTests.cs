@@ -483,7 +483,7 @@ namespace Dungeon.RaidManager.Tests
             var raid = new Raid(Corridor());
             Advance(raid, 8f);
 
-            var byProgress = raid.Party.Living.OrderByDescending(m => m.Position.x).ToList();
+            var byProgress = raid.Party.Living.OrderByDescending(m => m.Position.y).ToList();
             MooseRunnerFacade.Log("order: " + string.Join(" -> ", byProgress.Select(m => m.Role)));
             Assert.AreEqual(AdventurerRole.Tank, byProgress.First().Role,
                 "the tank draws aggro, so it must walk in front");

@@ -118,7 +118,17 @@ namespace Dungeon.DungeonManager
             return found;
         }
 
-        /// <summary>Builds a plan that is a straight horizontal run, as the game shipped with.</summary>
+        /// <summary>Builds a plan that is a straight run away from the entrance.</summary>
+        /// <remarks>
+        /// <b>Vertical, at the author's request 2026-08-16</b> — the entrance is at the bottom and the
+        /// dungeon runs upward, so the party charges *forward* into the screen rather than sideways
+        /// across it. This read as <c>(i, 0)</c> until then and the dungeon ran left to right.
+        /// <para>
+        /// Nothing else in the builder needed to change for it: <see cref="PlanBuilder.OriginOf"/> is
+        /// symmetric in the two axes, and <c>PlanBuilder</c> already walks each room looking right and
+        /// up, so a stack of rooms gets its doors on the shared north walls without being asked.
+        /// </para>
+        /// </remarks>
         /// <param name="roomCount">How many rooms, at least one.</param>
         /// <returns>The plan.</returns>
         public static RoomPlan Corridor(int roomCount)
@@ -126,7 +136,7 @@ namespace Dungeon.DungeonManager
             var plan = new RoomPlan();
             for (int i = 1; i < Mathf.Max(1, roomCount); i++)
             {
-                plan.Add(new Vector2Int(i, 0));
+                plan.Add(new Vector2Int(0, i));
             }
 
             return plan;

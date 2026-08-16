@@ -1,10 +1,28 @@
 # Handover
 
-## Four decisions waiting for you — nothing else is blocked
+## Six decisions waiting for you — nothing else is blocked
 
-Every milestone is built, tested and shipped, and the suite is green at 338 tests across five
-assemblies. These three are judgements rather than work, and each is now as well-evidenced as
-measurement can make it.
+Every milestone is built, tested and shipped, and the suite is green at **353 tests** across five
+assemblies. These are judgements rather than work, and each is now as well-evidenced as measurement
+can make it.
+
+**The two newest are from your 2026-08-16 pass and are the ones to read first.**
+
+**A. The permanent room bonus is built but NOT shipped — `room-bonus-permanent`, D40.** You asked for
+"+2/s for the rest of the run per room" and it is implemented faithfully. It takes the
+stall-versus-stroll ratio to **2.09x against a 2.5x floor**: the party that walks through and leaves
+gains **3x** where the party that stays and bleeds gains 2x, because paying per room pays for
+*advancing* — the behaviour the door verb exists to prevent. That test was already narrowed once for
+this exact cause and its comment ends *"do not lower it twice"*, so it was not lowered. Three options
+in D40; the recommendation is **pay the bonus only while the party is engaged**, which is the one that
+leaves both rules standing. One small edit either way.
+
+**B. A late-season raid now lands on the rivals' ceiling — D42.** Growing the party to nine lifts a
+worked raid from **240 to 433**, and `LeagueTable.GoodRun` is **430**. D20 handicaps rivals a tenth
+below your range so a good raid cannot be beaten by luck; that holds at raid one and has no room left
+by raid eighteen. Levers: raise `GoodRun`, cap growth below nine, or let it stand because a player who
+survived seventeen raids has earned an easy finish. Nothing applied — how the endgame should *feel* is
+not settleable from a test.
 
 **1. Buy a tileset, or keep grading this one.** `Tools/grade-walls.py` hits both moodboard ratios
 exactly — wall/floor 0.98, rim/wall 1.94 — and the result **looks worse**, flatter and less legible

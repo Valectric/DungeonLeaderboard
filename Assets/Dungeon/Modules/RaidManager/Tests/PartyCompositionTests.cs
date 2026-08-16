@@ -196,7 +196,7 @@ namespace Dungeon.RaidManager.Tests
             {
                 DungeonLayout layout = DungeonLayout.BuildCorridor();
                 var raid = new Raid(layout, 0f, composition);
-                float startX = raid.Party.Position.x;
+                float startY = raid.Party.Position.y;
 
                 // No mobs at all, so there is nothing to fight and nothing to explain standing still.
                 for (int step = 0; step < 1000 && raid.IsRunning; step++)
@@ -204,7 +204,7 @@ namespace Dungeon.RaidManager.Tests
                     raid.Tick(0.02f);
                 }
 
-                float travelled = raid.Party.Position.x - startX;
+                float travelled = raid.Party.Position.y - startY;
                 MooseRunnerFacade.Log(
                     $"{composition.Name} travelled {travelled:F1} cells in twenty seconds");
 
@@ -242,13 +242,13 @@ namespace Dungeon.RaidManager.Tests
                 }
             }
 
-            float afterDeath = raid.Party.Position.x;
+            float afterDeath = raid.Party.Position.y;
             for (int step = 0; step < 600 && raid.IsRunning; step++)
             {
                 raid.Tick(0.02f);
             }
 
-            float travelled = raid.Party.Position.x - afterDeath;
+            float travelled = raid.Party.Position.y - afterDeath;
             MooseRunnerFacade.Log($"leaderless party travelled {travelled:F1} cells after the tank died");
             Assert.Greater(travelled, 3f, "the party stopped dead when its tank died");
         }

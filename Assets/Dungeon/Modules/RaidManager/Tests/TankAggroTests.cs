@@ -96,8 +96,15 @@ namespace Dungeon.RaidManager.Tests
 
             for (int step = 0; step < 400 && raid.IsRunning; step++)
             {
-                bully.Position = tank.Position + new Vector2(0.6f, 0f);
-                squishy.Position = tank.Position + new Vector2(0.75f, 0f);
+                // Offset ALONG THE CORRIDOR, which runs up the screen since 2026-08-16. These read
+                // (0.6f, 0f) while the dungeon ran left to right, and leaving them on X was not a
+                // cosmetic staleness: doors between stacked rooms sit in the centre column, so a
+                // party crossing a threshold is in a one-cell-wide gap and an eastward offset put
+                // the monster inside the rock beside it, where it cannot swing at anybody. The
+                // symptom was the tank losing exactly 0%, which reads as broken aggro rather than as
+                // a monster in a wall.
+                bully.Position = tank.Position + new Vector2(0f, 0.6f);
+                squishy.Position = tank.Position + new Vector2(0f, 0.75f);
                 raid.Tick(0.02f);
             }
 

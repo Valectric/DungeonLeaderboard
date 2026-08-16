@@ -345,9 +345,17 @@ namespace Dungeon.PartyManager
 
             // Seed the trail running back out of the entrance so the party starts strung out in
             // marching order rather than stacked on one square, and reads as walking in.
+            //
+            // DOWNWARD since the dungeon was turned to run bottom to top on 2026-08-16. This ran
+            // back along -X while the entrance was on the west wall, and leaving it there put the
+            // whole party's approach at right angles to the way in: followers were placed west of a
+            // south-facing entrance, which is solid rock. Eight tests failed on it, and the useful
+            // ones were not about geometry at all -- EveryComposition_ActuallyAdvances and
+            // Party_LeadsWithTheTankAndTrailsWithTheHealer, because a party whose breadcrumbs lead
+            // sideways cannot form up and therefore cannot set off.
             for (int step = 8; step >= 0; step--)
             {
-                _trail.Add(new Vector2(entranceCell.x - (step * 0.25f), entranceCell.y));
+                _trail.Add(new Vector2(entranceCell.x, entranceCell.y - (step * 0.25f)));
             }
 
             PlaceFollowers();

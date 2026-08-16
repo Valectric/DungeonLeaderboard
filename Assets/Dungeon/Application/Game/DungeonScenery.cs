@@ -53,6 +53,22 @@ namespace Dungeon.Game
 
         private readonly SpriteWorkshop _sprites;
         private readonly Dictionary<Vector2Int, SpriteRenderer> _doorViews = new();
+
+        /// <summary>Upper halves of the doorframes, drawn over the party. Empty when the art is absent.</summary>
+        private readonly Dictionary<Vector2Int, SpriteRenderer> _doorTops = new();
+
+        /// <summary>Resources path of the upper half of a doorframe.</summary>
+        private const string DoorTopSprite = "dungeon/door-top";
+
+        /// <summary>
+        /// Sorting order of the upper half of a doorframe.
+        /// </summary>
+        /// <remarks>
+        /// <b>Must stay above the party's 20</b>, which is the whole point of the piece: it is what
+        /// makes an adventurer pass behind the frame instead of over it. If the party's order ever
+        /// moves, this moves with it — `PartyOcclusionTests` fails if this stops exceeding it.
+        /// </remarks>
+        private const int DoorTopOrder = 25;
         private readonly Dictionary<Vector2Int, SpriteRenderer> _chestViews = new();
         private Sprite _glow;
 
@@ -65,6 +81,12 @@ namespace Dungeon.Game
 
         /// <summary>The door sprites, so the view can open and shut them.</summary>
         public IReadOnlyDictionary<Vector2Int, SpriteRenderer> DoorViews => _doorViews;
+
+        /// <summary>Upper doorframe halves by cell. Empty when the two-part art is not installed.</summary>
+        public IReadOnlyDictionary<Vector2Int, SpriteRenderer> DoorTops => _doorTops;
+
+        /// <summary>Sorting order the upper doorframe halves are drawn at.</summary>
+        public static int DoorTopSortingOrder => DoorTopOrder;
 
         /// <summary>The chest sprites, so the view can show them looted.</summary>
         public IReadOnlyDictionary<Vector2Int, SpriteRenderer> ChestViews => _chestViews;
@@ -122,13 +144,30 @@ namespace Dungeon.Game
             {
                 _doorViews[door.Cell] = _sprites.Make($"door_{door.Cell.x}_{door.Cell.y}",
                     "dungeon/door-a", DungeonView.CellToWorld(door.Cell, 5f), 2);
+
+                // The UPPER half of the frame, drawn above the party so adventurers pass BEHIND it.
+                // A door drawn as one sprite can only ever be behind them, which reads as the party
+                // walking over the doorway rather than through it.
+                //
+                // Optional on purpose: loaded quietly, and skipped entirely when the art is absent,
+                // so the game keeps working on the single-piece Crawl doors it ships with. The
+                // two-part art the author asked for is the Pipoya set, which cannot be committed to
+                // this public repo -- see CREDITS.md -- so a clone without it must not break.
+                if (_sprites.Load(DoorTopSprite, quiet: true) != null)
+                {
+                    _doorTops[door.Cell] = _sprites.Make(
+                        $"doortop_{door.Cell.x}_{door.Cell.y}", DoorTopSprite,
+                        DungeonView.CellToWorld(door.Cell, 4f), DoorTopOrder);
+                }
             }
 
             // The way in, stood open. It is a Doorway cell with no Door behind it, so it is drawn
             // here rather than in the loop above -- there is nothing to toggle and nothing to tap,
             // and door-b is the open leaf. Without this the first room was a sealed box that the
             // party appeared inside, which is what the author asked to fix.
-            var opening = new Vector2Int(layout.EntranceCell.x - 1, layout.EntranceCell.y);
+            // BELOW the entrance since the dungeon was turned to run bottom to top on 2026-08-16.
+            // This read (x - 1, y) while the way in was through the west wall.
+            var opening = new Vector2Int(layout.EntranceCell.x, layout.EntranceCell.y - 1);
             if (grid.InBounds(opening) && grid.KindAt(opening) == CellKind.Doorway
                 && grid.DoorAt(opening) == null)
             {
@@ -235,21 +274,31 @@ namespace Dungeon.Game
             renderer.sprite = scene;
             renderer.sortingOrder = -5;
 
+            // BELOW the entrance since the dungeon was turned to run bottom to top on 2026-08-16,
+            // and rotated a quarter turn with it: the art is drawn as a path arriving from the left,
+            // so turning it clockwise makes that same path arrive from below without redrawing it.
+            // The rotation is why the sprite's WIDTH is what gets measured against the vertical gap.
+            //
             // The sprite imports at 64 pixels per unit like everything else, so its world size
             // follows from its pixel size; place it by its own extents rather than a magic number.
             float halfWidth = scene.bounds.extents.x;
-            float entranceY = layout.EntranceCell.y * DungeonView.CellSize;
-            // Tucked slightly under the dungeon's left wall rather than butted against it. A gap
+            float entranceX = layout.EntranceCell.x * DungeonView.CellSize;
+            go.transform.rotation = Quaternion.Euler(0f, 0f, -90f);
+
+            // Tucked slightly under the dungeon's south wall rather than butted against it. A gap
             // here shows the empty camera background as a black seam between the two, which reads
             // as a rendering fault rather than as scenery meeting architecture.
-            go.transform.position = new Vector3(-halfWidth + 0.6f, entranceY, 12f);
+            go.transform.position = new Vector3(entranceX, -halfWidth + 0.6f, 12f);
 
             // Read into a local, grow it, assign back. Bounds is a struct, so calling Encapsulate
             // straight on the property mutates a temporary copy and silently does nothing -- which
             // is exactly what happened: the camera never widened to include the approach.
+            //
+            // The extents swap with the rotation: what was the sprite's width now reaches DOWN, and
+            // its height now reaches across.
             Bounds bounds = WorldBounds;
             bounds.Encapsulate(new Bounds(
-                go.transform.position, new Vector3(halfWidth * 2f, scene.bounds.size.y, 1f)));
+                go.transform.position, new Vector3(scene.bounds.size.y, halfWidth * 2f, 1f)));
             WorldBounds = bounds;
         }
 

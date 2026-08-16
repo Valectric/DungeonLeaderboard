@@ -410,5 +410,84 @@ namespace Dungeon.RaidManager.Tests
 
             Assert.Greater(furthestShot, 0f, "nobody shot at all, so nothing was measured");
         }
+
+        /// <summary>
+        /// A grown party is measured against the walls too, not just the four-strong templates.
+        /// </summary>
+        /// <remarks>
+        /// The headline instrument above walks <see cref="PartyComposition.All"/>, which is the
+        /// <b>templates</b> — every one of them four strong. Since the league started growing parties
+        /// to nine, that suite measures a party size the game no longer only sends, and it would stay
+        /// green however badly a nine-body column behaved.
+        /// <para>
+        /// Nine is the case worth checking rather than a bigger number for its own sake: the party
+        /// walks as a column in marching order and a room is five cells across, so a nine-long column
+        /// cannot fit inside one room. Whether the tail ends up in a doorway, in the previous room, or
+        /// inside the rock is exactly what "samples inside a wall" counts.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void GrownRosters_AreMeasuredAgainstTheWalls()
+        {
+            int fourInside = 0;
+            int fourSamples = 0;
+            int nineInside = 0;
+            int nineSamples = 0;
+            float worstRate = 0f;
+            string worstName = "nobody";
+
+            foreach (PartyComposition roster in PartyComposition.All)
+            {
+                Violations four = Play(roster, 4242);
+                Violations nine = Play(roster.Grown(PartyComposition.MaxSize), 4242);
+
+                fourInside += four.InsideWall;
+                fourSamples += four.Samples;
+                nineInside += nine.InsideWall;
+                nineSamples += nine.Samples;
+
+                float fourOne = four.InsideWall / (float)Mathf.Max(1, four.Samples);
+                float nineOne = nine.InsideWall / (float)Mathf.Max(1, nine.Samples);
+                if (nineOne > worstRate)
+                {
+                    worstRate = nineOne;
+                    worstName = roster.Name;
+                }
+
+                MooseRunnerFacade.Log(
+                    $"{roster.Name}: four {fourOne * 100f:F2}% ({four.InsideWall}/{four.Samples}), "
+                    + $"nine {nineOne * 100f:F2}% ({nine.InsideWall}/{nine.Samples})"
+                    + (fourOne > 0.0001f ? $"  [{nineOne / fourOne:F1}x]" : string.Empty));
+            }
+
+            float fourRate = fourInside / (float)Mathf.Max(1, fourSamples);
+            float nineRate = nineInside / (float)Mathf.Max(1, nineSamples);
+
+            MooseRunnerFacade.Log(
+                $"inside-wall rate: four {fourRate * 100f:F2}%, nine {nineRate * 100f:F2}%; "
+                + $"worst roster at nine is {worstName} on {worstRate * 100f:F2}%");
+
+            // The AGGREGATE hides the interesting part, which is why the worst roster is called out
+            // separately. Measured 2026-08-16: overall 1.43% -> 1.75%, which reads as nothing, while
+            // THE PILGRIMAGE went 0.16% -> 3.80% and THE PHALANX sits at 6.53%. The pattern is that
+            // melee and healer heavy rosters get WORSE and ranged and mage heavy rosters get BETTER --
+            // bodies that want to stand at the monster crowd the contact point and are pushed into
+            // rock, and bodies that hang back are not. Growth did not create that; it amplified it.
+            Assert.Less(worstRate, 0.12f,
+                $"{worstName} is inside a wall {worstRate * 100f:F2}% of samples at nine strong. The "
+                + "party has stopped fitting round its own fights, which is the defect the M9 wall "
+                + "work removed and this is it coming back through crowding rather than through "
+                + "pathing");
+
+            // Generous on purpose. The claim is that growing the party does not BREAK containment,
+            // not that a longer column is exactly as tidy as a short one -- a nine-long column
+            // genuinely cannot fit in a five-cell room and some crowding at doorways is expected.
+            // A formation that had blown out would show up as a multiple of this, not a fraction.
+            Assert.Less(nineRate, Mathf.Max(0.06f, fourRate * 2.5f),
+                $"a nine-strong party is inside a wall {nineRate * 100f:F2}% of samples against "
+                + $"{fourRate * 100f:F2}% for four -- growing the party has broken the formation, "
+                + "and bodies in the rock is the defect the wall work of M9 existed to remove");
+        }
+
     }
 }
