@@ -681,6 +681,18 @@ namespace Dungeon.Game
         private const int WalkFrames = 6;
 
         /// <summary>
+        /// Phase offset for a party slot, in frames, so members do not march in lockstep.
+        /// </summary>
+        /// <remarks>
+        /// Exposed so the number of DISTINCT phases a party gets can be asserted rather than
+        /// eyeballed. "Looks like puppets" is not testable; how many of the six frames a party of
+        /// nine actually occupies is.
+        /// </remarks>
+        /// <param name="slot">Place in the marching order.</param>
+        /// <returns>Frames to offset this member's cycle by.</returns>
+        public static float WalkPhaseOffset(int slot) => slot;
+
+        /// <summary>
         /// Seconds one frame of a walk cycle is held, at twelve frames a second.
         /// </summary>
         /// <remarks>
@@ -731,7 +743,14 @@ namespace Dungeon.Game
 
             if (member.Action == AdventurerAction.Walking && member.Wounds == WoundState.Healthy)
             {
-                int frame = Mathf.FloorToInt((_time / WalkFrameSeconds) + (slot * 2f));
+                // slot * 1, not slot * 2, and the arithmetic is the whole reason. The cycle is six
+                // frames, so doubling the slot lands on 0, 2, 4, 0, 2, 4 -- THREE distinct phases
+                // however many bodies there are. Four members read as three groups; nine read as
+                // three groups of three, which is what "one animation playing on puppets" looks
+                // like, and Gemini reported exactly that from a recording of nine.
+                //
+                // Stepping by one uses all six: four members get four phases, nine get six.
+                int frame = Mathf.FloorToInt((_time / WalkFrameSeconds) + WalkPhaseOffset(slot));
                 Sprite drawn = _sprites.Load(
                     $"party/walk/{role}-walk-{(frame % WalkFrames) + 1}", quiet: true);
                 if (drawn != null)
