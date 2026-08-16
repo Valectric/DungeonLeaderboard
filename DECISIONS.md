@@ -1263,3 +1263,18 @@ a label, because nothing in it renders.
 Not fixed here: the block's placement interacts with camera framing, room size and scale together, and
 changing it wants a photograph at several viewports rather than one arithmetic tweak. The serving tool
 now makes that possible, which it was not this morning.
+
+### D33 addendum — fixed, and verified where it was found
+
+The clearance is measured in world cells now and projected by the camera, so it holds at any zoom.
+Verified by playing the rebuilt artefact through `serve-build.py` at the viewport that exposed it:
+all three instruction lines fully legible, nothing drawn through them, and the chest's "THEY STOP TO
+LOOT" visible as well now that the block is not sitting on it.
+
+Worth knowing what the fix actually does at that size: there is **no room above**. Three cells up puts
+the block at y≈70 against a HUD zone ending at y≈102, so it takes the below-the-room fallback — which
+is the branch working, not a compromise. The lines land about 32px clear of the verb bar.
+
+The residual: at the itch embed's 523x293 that fallback has much less room, and nothing has
+photographed it there. `ResolutionSweepTests` will not catch it either — it checks rects
+analytically, and this whole class of fault is one drawn thing landing on another.
