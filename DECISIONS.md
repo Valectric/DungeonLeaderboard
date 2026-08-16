@@ -1313,3 +1313,25 @@ not show it wrong, twice.
 The general lesson is narrower than "photograph the game", which this project already knew. It is:
 **photograph it at the size it ships at.** For this game that is 523x293, and until tonight nothing
 had ever rendered a frame there.
+
+### D33 follow-through — the other screens photographed at 523x293
+
+Having learned to look at the size the game ships at, the rest of the loop was walked there on
+`0.1.2608160325`. **All clean:**
+
+- **Standings / title** — twenty rows, relegation line and "PRESS ANY KEY" all fit. That prompt is
+  the one this screen lost off the bottom once, and it is present.
+- **Raid** — HUD, standings strip, and the three instruction lines clear of the verb bar.
+- **Review** — stars, verdict, quote, harvest and the two-line coaching text, nothing clipped.
+- **Collapse** — twenty rows with scores and the full "YOUR DUNGEON COLLAPSED IN 19th. PRESS ANY KEY
+  TO BEGIN AGAIN".
+
+**A near-miss worth recording, because it is the third of its kind tonight.** The collapse line looked
+clipped — "…TO BEGIN" with "AGAIN" missing — and it was not: the capture region was 440px wide on a
+523px canvas, so the crop cut it, not the game. One wider capture settled it. The other two were a
+collapse-screen test that never reached the collapse screen, and a one-room board measured without
+the furniture the game puts in it. Every time, the setup was wrong and looked like a finding.
+
+Also observed, not a defect: harvesting 51 in round one finishes 19th and ends the run immediately.
+That is D20's "round one is sudden death", still open and still the author's call — but it is worth
+knowing it is trivially reproducible by doing nothing for sixty seconds.
