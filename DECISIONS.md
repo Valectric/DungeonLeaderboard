@@ -1335,3 +1335,30 @@ the furniture the game puts in it. Every time, the setup was wrong and looked li
 Also observed, not a defect: harvesting 51 in round one finishes 19th and ends the run immediately.
 That is D20's "round one is sudden death", still open and still the author's call — but it is worth
 knowing it is trivially reproducible by doing nothing for sixty seconds.
+
+## 2026-08-16 — D34. Round one measured: not sudden death, and not reliably a lesson either
+
+D20 left "round one is sudden death" open as a worry with three offered levers — seed a small opening
+score, exempt the first round, or leave it as a sharp lesson. Choosing needs the threshold, and
+nobody had measured it. `OpeningRoundTests` does, across five seeds:
+
+```
+survival threshold        35, 40, 50, 65, 75      worst 75
+doing nothing (51)        survives 3 of 5 seeds
+playing the board (342)   survives 5 of 5 seeds
+```
+
+**So D20 is half right, and the half that is wrong is the alarming half.** Round one is not sudden
+death for anyone who touches a spawner: the bar tops out at 75 against an opening board worth 342, a
+4.5x margin, and playing survives on every seed. What it also is not is a reliable lesson — an
+untouched dungeon banks 51 and **gets away with it three times in five**.
+
+That reframes the choice. The risk was never that a competent opening raid could be punished; it is
+that an incompetent one is punished at random, so the player who most needs to learn "an untouched
+dungeon earns nothing" learns it on a coin toss. If the first round is meant to teach, the lever is
+raising the floor slightly — not protecting the player from it.
+
+**Recorded because I got it wrong first.** Having watched the shipped build bank 51 and finish 19th, I
+reported that harvesting 51 ends the run. True of that seed, false in general, and I wrote a test
+asserting it before measuring — which failed, correctly. One observation generalised into a rule is
+the same fault as D28 and D31, in a third costume.
