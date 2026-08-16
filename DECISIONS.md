@@ -1885,3 +1885,44 @@ difference left is which way the corridor runs — so parties that survive a max
 do not survive going north, and that is a fact about the rooms rather than about the port.
 
 Nothing changed on `main`; this was a diagnostic and the working tree was restored.
+
+### D43 addendum 2 — it is not crowding, it is that the party cannot break away
+
+D43 left "why is a vertical room deadlier" unanswered. The obvious guess was that vertical geometry
+lets more monsters reach the party at once. **Measured, and that guess is wrong.** Peak monsters in
+contact, same seed, same rosters, maximal ambush:
+
+```
+BALANCED   7 / 7      GLASS CANNONS 5 / 5      PHALANX     10 / 10
+IRONCLADS  9 / 9      ARCHERY LINE  5 / 4      SKIRMISHERS  5 / 5
+PILGRIMAGE 10 / 9     UNSHRIVEN     7 / 5      COVEN        5 / 4
+                                               (vertical / horizontal)
+```
+
+Near-identical. Crowding is not the difference.
+
+**The difference is sustained contact**, and it appears in exactly the two rosters that survive the
+ambush horizontally and die vertically:
+
+| roster | mean in contact, vertical | mean, horizontal | horizontal outcome |
+|---|---|---|---|
+| THE IRONCLADS | 3.0 | **1.1** | TimeExpired, 434 harvested |
+| THE COVEN | 1.1 | **0.3** | TimeExpired, 189 harvested |
+
+Horizontally those two spend most of the raid **out** of contact — they break away and kite.
+Vertically they never get free, and a party that cannot disengage dies to an endless stream whatever
+its stats. Every other roster has near-identical means and dies on both layouts, which is what makes
+this two-roster split the whole signal rather than noise.
+
+**A concrete suspect, not yet confirmed.** `AdventurerAI.StandOff` picks the direction to back away
+in as `self - target`, and when a body is standing exactly on a monster it falls back to a hardcoded
+`Vector2.left`. On an east-west dungeon "left" is *back down the corridor the party came from* —
+a real retreat. On a north-south one it is *into the side wall*, two cells away, where the body stays
+in contact and keeps being hit.
+
+That is a hypothesis with a mechanism and it has not been tested. The honest next step is to try a
+fallback that means "away from where we are heading" rather than a compass direction, and re-measure
+these two means. If IRONCLADS and COVEN come back to 1.1 and 0.3, the flip is finished.
+
+Recorded rather than acted on because the branch is parked and this is one more change on top of a
+change the author has not seen yet.
