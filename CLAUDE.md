@@ -495,25 +495,27 @@ because `PhaseLookTests` cannot reach the winning ending, which only `RunProgres
 asserting *renderers* over pixels: a pixel threshold on a screen that also draws torchlight passes
 for the wrong reason.
 
-## `Builds/index.html` is written at the START of a WebGL build, not the end
+## Waiting for a WebGL build to finish — two ways to get it wrong
 
-A completion check that waits for `index.html` to change reports success in about **forty seconds**,
-while `Builds.framework.js.unityweb` is still the previous build's file. Pair that with a "no
-compilers running" test and it looks conclusive — there is a gap between build phases where the
-process count briefly hits zero, and the two conditions can be satisfied together long before the
-build is done. On 2026-08-16 that combination was one command away from publishing a half-written
-build to itch.
+**`Builds/index.html` is written at the START of the build.** A completion check waiting on its mtime
+reports success in about forty seconds. Pair that with "no compilers running" and it still lies —
+there is a gap between phases where the process count hits zero, so both conditions can be true long
+before the build is done. Caught on 2026-08-16 with `Builds.data.unityweb` visibly mid-write at
+8.1 MB against a finished 8.7 MB.
 
-Wait on **every artefact being newer than the build trigger, AND zero compilers**:
+**And the obvious fix is also wrong.** Requiring *every* artefact to be newer than the trigger never
+passes on an asset-only rebuild: change a PNG and nothing else, and Unity correctly **reuses the
+cached `Builds.wasm.unityweb` and `Builds.framework.js.unityweb`**, rewriting only `data.unityweb` and
+`loader.js`. That build is complete and correct with two files hours older than the trigger. A rule
+demanding all five would have spun until timeout and called a good build broken.
+
+What actually works:
 
 ```
-Builds/index.html
-Builds/Build/Builds.data.unityweb
-Builds/Build/Builds.framework.js.unityweb
-Builds/Build/Builds.wasm.unityweb
-Builds/Build/Builds.loader.js
+compilers idle  (clang | emcc | wasm-opt | il2cpp | bee_backend  == 0)
+AND Builds/Build/Builds.data.unityweb has stopped growing
 ```
 
-A real build takes **8-9 minutes** on this machine with Unity pinned to four cores. Anything under two
-minutes did not happen, whatever the file timestamps say — and `Builds.data.unityweb` growing
-(8.1 MB against a finished ~8.7 MB) is the clearest single tell that it is still going.
+`data.unityweb` carries the assets, so it is rewritten on every build including asset-only ones.
+Timing is a sanity check, not a test: **8-9 minutes** for a code change, well under a minute when only
+assets moved.
