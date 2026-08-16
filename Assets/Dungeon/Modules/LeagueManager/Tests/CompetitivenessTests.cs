@@ -121,7 +121,11 @@ namespace Dungeon.LeagueManager.Tests
             var curve = new List<string>();
             float firstWinning = -1f;
 
-            for (float perRaid = 25f; perRaid <= 500f; perRaid += 25f)
+            // Sweep the whole range the game can produce, not a hardcoded 500. This read
+            // "perRaid <= 500f" while GoodRun was 430, so it happened to cover the range; when
+            // GoodRun was re-measured to 690 the sweep would have stopped short of the top of the
+            // scale and reported a turning point from a window that no longer spans the question.
+            for (float perRaid = 25f; perRaid <= LeagueTable.GoodRun; perRaid += 25f)
             {
                 int won = WinsOverTwentySeeds(perRaid);
                 curve.Add($"{perRaid:F0}:{won}");
