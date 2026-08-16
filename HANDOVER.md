@@ -3,7 +3,7 @@
 ## Read this first — the 2026-08-16 session
 
 **Everything you asked for is built, tested and live on itch except the dungeon flip**, which is on a
-branch and explained below. `main` is green at **357 tests** across five assemblies.
+branch and explained below. `main` is green at **358 tests** across five assemblies.
 
 | you asked | state |
 |---|---|
@@ -36,6 +36,17 @@ panel, or fan the formation laterally. The frame is the thing to look at.
 stall-versus-stroll ratio to **2.09x against a 2.5x floor** — the party that walks through and leaves
 gains 3x where the party that stays and bleeds gains 2x. The recommendation is to pay it only while
 the party is engaged, which is the one option leaving both rules standing.
+
+**Two phone defects were found and fixed after that table was written**, both by exploratory
+testing rather than by anything failing. The world tags had **no resolution coverage at all** and
+`SLIME PIT - TAP TO SPAWN` was roughly half cut off on a phone held upright; and raising the tutorial
+text overflowed the opening instruction at 390x844, which the resolution sweep could not see because
+it carried its own stale copy of the old font size. Both now read the production functions, so a test
+and the game cannot drift apart again — which was the shape of all three faults found today.
+
+One thing left marginal rather than fixed: the staggered health bars reach 1.56 world units above a
+nine-strong party against 1.6 units of camera margin. It fits, and it is 0.04 from not fitting. A
+taller party or a smaller margin breaks it.
 
 **One thing worth knowing even though nothing is blocked on it.** Turning the dungeon vertical
 exposed **four bugs that were already there**, all hidden by the dungeon happening to run east: the
