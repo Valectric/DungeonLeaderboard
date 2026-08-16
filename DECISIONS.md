@@ -1557,3 +1557,25 @@ Worth noting *why* that one slipped while the other two did not: D8 and D20 were
 in response to a problem, and got written up as decisions. The curve changed as one bullet inside a
 seven-item milestone the author directed in a single session — it read as work delivered rather than
 as a rule overturned, and only the milestone log caught it.
+
+### D38 addendum 2 — the remaining documents audited
+
+**`Marketing/ITCH-PAGE.md` is accurate and needed no correction** — the first document tonight that
+did not. Every file it tells the author to upload exists, the five screenshots match its
+`screenshot-1..5-*.png` glob, `#15101D` is verifiably the camera background set in
+`GameController.cs:155`, and `#251B31` / `#50275E` / `#D75268` are CLAUDE.md's canonical palette.
+
+**`CREDITS.md`** was corrected earlier tonight — it claimed the sixteen wall shapes were sixteen
+shapes, which the D28 retraction then made wrong in the opposite direction; it now states what is
+measurable and the licensing, which was always sound.
+
+So the audit across five documents found defects in three of them, all in the two files that describe
+*how the project works* rather than *what to do with its output*. That is not a coincidence worth
+ignoring: CLAUDE.md and SPEC.md are the files a session reads and acts on, and they are the ones that
+drift, because the project changes underneath them while the documents that describe deliverables
+only change when the deliverables do.
+
+The cheapest guard, and the one this audit actually used: **every factual claim in a guidance document
+should be checkable in one command.** A version number, a file path, a constant, a class name. Where
+that was true the claim was either right or caught in seconds. Where a claim was a description — "the
+architecture is Facade/Router" — it went unchecked for weeks.
