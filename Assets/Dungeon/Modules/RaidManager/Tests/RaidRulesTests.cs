@@ -290,9 +290,20 @@ namespace Dungeon.RaidManager.Tests
                 door.IsOpen = false;
             }
 
-            Advance(raid, Raid.RaidSeconds + 1f);
+            // Advanced until the clock actually stops rather than for a fixed 61 seconds. A raid is
+            // no longer RaidSeconds long: walking into a room pays NewRoomSeconds back, and the party
+            // walks into its first room every time, so even a roster sealed behind shut doors runs 62
+            // seconds. Asserting against the constant tested an arithmetic identity; this tests the
+            // rule the name promises, which is that the clock runs out and ends the raid.
+            int guard = 0;
+            while (raid.IsRunning && guard++ < 4000)
+            {
+                Advance(raid, 0.05f);
+            }
+
             MooseRunnerFacade.Log(
-                $"ironclads behind shut doors: {raid.Outcome} at {raid.Party.Cell}");
+                $"ironclads behind shut doors: {raid.Outcome} at {raid.Party.Cell}, "
+                + $"{raid.SecondsAwarded:F0}s awarded for rooms entered");
             Assert.AreEqual(RaidOutcome.TimeExpired, raid.Outcome);
             Assert.AreEqual(0f, raid.TimeRemaining, 0.001f);
         }

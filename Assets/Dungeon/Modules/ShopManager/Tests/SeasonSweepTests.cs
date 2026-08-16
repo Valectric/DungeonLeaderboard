@@ -198,15 +198,22 @@ namespace Dungeon.ShopManager.Tests
             List<Vector2Int> path = stuffed.Grid.FindPath(stuffed.EntranceCell, stuffed.BossCell);
             Assert.Greater(path.Count, 0, "a fully-bought dungeon cannot be crossed at all");
 
+            // Bounded by ticks rather than by RaidSeconds. A raid outlasts that constant now:
+            // entering a room pays NewRoomSeconds back, so a five-room dungeon the party crosses runs
+            // up to ten seconds past sixty. Stopping at the constant meant this asserted the raid had
+            // ended while it was still legitimately running, and read as a hang that was not one.
             var raid = new Raid(stuffed);
             float elapsed = 0f;
-            while (raid.IsRunning && elapsed < Raid.RaidSeconds)
+            int guard = 0;
+            while (raid.IsRunning && guard++ < 8000)
             {
                 raid.Tick(0.02f);
                 elapsed += 0.02f;
             }
 
-            MooseRunnerFacade.Log($"fully-bought dungeon: {raid.Outcome} after {elapsed:F1}s");
+            MooseRunnerFacade.Log(
+                $"fully-bought dungeon: {raid.Outcome} after {elapsed:F1}s, "
+                + $"{raid.SecondsAwarded:F0}s of that awarded for rooms entered");
             Assert.IsFalse(raid.IsRunning, "a fully-bought dungeon hung the raid");
         }
 
