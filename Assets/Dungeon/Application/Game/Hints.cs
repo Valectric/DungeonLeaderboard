@@ -149,12 +149,25 @@ namespace Dungeon.Game
             float lineHeight = Mathf.Max(16f, 30f * scale);
             float blockHeight = lineHeight * 3f;
 
-            // Above the room, unless that is off the top of the screen or under the HUD, in which
-            // case below it. The HUD's own rows end around a fifth of the way down.
-            float top = point.y - (86f * scale) - blockHeight;
+            // CLEARANCE MEASURED IN WORLD CELLS, NOT IN UI PIXELS. This used to sit 86 * scale above
+            // the room centre, and that is the wrong unit: the UI scale follows the canvas size while
+            // the room and the party are sized by the CAMERA's zoom. The two agree at 1280x720, where
+            // every editor capture was taken, and disagree at the viewport the build actually runs
+            // in -- where the party walked straight through the third line, an archer and a health
+            // bar drawn across "TOO MANY AND THEY DIE". See D33.
+            //
+            // Three cells up clears the top wall of a five-tall room with a cell to spare, and it
+            // clears it at any zoom because the camera does the projecting.
+            Vector2 aboveRoom = GuiPointOf(camera, anchor + new Vector2Int(0, 3));
+
+            float top = aboveRoom.y - blockHeight - (8f * scale);
             if (top < Screen.height * 0.2f)
             {
-                top = Mathf.Min(point.y + (70f * scale), Screen.height - blockHeight - (8f * scale));
+                // Below the room instead, measured the same way, so a zoomed-in camera does not put
+                // the block back on top of the party it was moved to avoid.
+                Vector2 belowRoom = GuiPointOf(camera, anchor - new Vector2Int(0, 3));
+                top = Mathf.Min(belowRoom.y + (8f * scale),
+                    Screen.height - blockHeight - (8f * scale));
             }
 
             float left = Mathf.Clamp(
