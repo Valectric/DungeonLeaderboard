@@ -259,7 +259,23 @@ namespace Dungeon.PartyManager
         /// <returns>The next point to walk to.</returns>
         private static Vector2 Advance(Adventurer self, Perception view)
         {
-            List<Vector2Int> path = view.Grid.FindPath(self.Cell, view.Objective, view.Traps);
+            // preferStraight: TRUE here and nowhere else, and that asymmetry is deliberate.
+            //
+            // The search breaks ties by push order, so a fixed neighbour list made every path lean
+            // one way and come back as a staircase when the goal lay across that lean. Harmless
+            // while the dungeon ran east; a 25% slowdown once it ran north.
+            //
+            // Fixing it for EVERYTHING was measured and rejected. Monsters path with the same
+            // routine, so straightening it globally made the horde converge faster and no party
+            // survived a maximal ambush -- on the HORIZONTAL layout as well, which is what proved
+            // the pathfinder rather than the geometry was responsible. `KillingTheParty_NeverPaysBest`
+            // went from a best survival of 434 to zero, which is the game's central rule inverted.
+            //
+            // So the party gets the straight route it always should have had, and the monsters keep
+            // the pursuit they were tuned against. Making them cleverer is a balance decision and
+            // belongs to the author, not to a bug fix.
+            List<Vector2Int> path = view.Grid.FindPath(
+                self.Cell, view.Objective, view.Traps, preferStraight: true);
             if (path.Count == 0)
             {
                 return self.Position;

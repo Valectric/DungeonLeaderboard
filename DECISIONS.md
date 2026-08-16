@@ -1768,3 +1768,76 @@ easy finish.
 the first measurement was not noise, it was a **precise measurement of the wrong thing**, and it looked
 authoritative. What caught it was not a better instrument but noticing that 35.1 was a number this
 project had already written down somewhere else, for a case nobody had asked about.
+
+## 2026-08-16 — D43. Turning the dungeon vertical: four real bugs, and one open failure
+
+The author asked for the entrance at the bottom with rooms running forward instead of side to side.
+The layout change itself was four lines. What it **exposed** was not.
+
+**None of these were caused by the flip. All of them were already there**, aligned with an east-west
+dungeon so that nothing could see them.
+
+**1. The follower trail was seeded westward.** `Party` strung its column back along `-X` from the
+entrance so the party reads as marching in. With a south-facing entrance that put every follower in
+solid rock, so they could not form up and therefore could not set off. It surfaced as
+`EveryComposition_ActuallyAdvances` and `Party_LeadsWithTheTankAndTrailsWithTheHealer` — neither of
+which sounds like geometry.
+
+**2. Traps were placed on the old route.** The auto-furnish put a trap at `(1, height/2)` from each
+room origin: the middle ROW, which is what a party walking east walks along. A party walking north
+crosses that row in one stride, so every trap sat off the path and **nothing wounded anybody**.
+Nothing failed loudly. `deepest wound across all rosters` read **0%** while 166 of 168 tests were
+green, and with no wounds the economy collapses — the wound curve is where the money is. Fixed by
+transposing the offsets arithmetically rather than by eye; a first attempt moved the trap correctly
+and the spawner by guess and took the suite from two failures to seven.
+
+**3. `TankAggroTests` pinned positions on X.** It placed the monster at `tank.Position + (0.6, 0)` to
+mean "beside". Doors between stacked rooms sit in the centre column, so a party crossing a threshold
+is in a one-cell gap and an eastward offset put the monster **inside the rock**, where it cannot
+swing. The symptom was the tank losing exactly 0%, which reads as broken aggro.
+
+**4. The pathfinder had a horizontal bias, and this is the big one.** `DungeonGrid.Neighbours`
+yielded east, west, north, south. Steps cost the same, so ties break by push order: a goal due east
+came back straight, a goal due north came back a **staircase**. Manhattan length identical — which is
+why every pathfinding test passed — but the party walks in CONTINUOUS space, where a staircase is up
+to 1.41x longer. Measured against horizontal `main`:
+
+| rooms | horizontal | vertical, biased | vertical, fixed |
+|---|---|---|---|
+| 2 | 12.1s | 16.3s | **12.1s** |
+| 3 | 25.8s | 33.4s | **25.8s** |
+| 4 | 39.4s | 49.5s | **39.4s** |
+| 5 | 53.1s | never crossed | **53.1s** |
+
+Identical to the decimal, which is the claim: the vertical dungeon is now exactly as traversable as
+the horizontal one, not merely closer.
+
+### The finding worth keeping: the balance depends on monsters pathing badly
+
+Fixing the bias **for everything** was tried first and it inverted the game's central rule. Monsters
+path with the same routine, so straightening every path let the horde converge faster and no party
+survived a maximal ambush. `KillingTheParty_NeverPaysBest` went from a best survival of 434 to **0**.
+
+What proved it was not the flip: the same fix applied to the **horizontal** layout reproduced the
+failure exactly — 434 to 0 with no layout change at all. So making monsters cleverer is a difficulty
+increase wearing the clothes of a bug fix, and it belongs to the author rather than to a commit
+labelled "fix pathfinding".
+
+The party now opts into straight routing and monsters keep the pursuit they were tuned against.
+
+**Two wrong call sites were flagged before the right ones**, and the near-null results are what said
+so: `AdventurerAI.Advance` only decides a direction (33.4s to 32.5s), and `MoveAlongPath` turns out
+to serve retreats only. A fix that should have restored 12.1s and produced 32.5s is a fix applied
+next to the thing that matters.
+
+### What is still open, and why the flip is NOT shipped
+
+`KillingTheParty_NeverPaysBest` still fails on the vertical layout: **best wipe 173, best survival 0**,
+against 166 and 434 horizontally. Party speed and monster behaviour are both controlled now, so the
+remaining difference is the vertical geometry itself — parties that survive a maximal ambush going
+east do not survive going north.
+
+That is the one rule the whole design rests on, so **`flip-vertical-wip` is not merged**. `main` is
+green and shipped. The next question is why a vertical room is deadlier than a horizontal one of the
+same size with the same furniture at the same distances from the route — which is a real question
+about the game, not about the port.

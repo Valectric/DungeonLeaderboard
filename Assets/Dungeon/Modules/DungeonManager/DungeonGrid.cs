@@ -337,20 +337,23 @@ namespace Dungeon.DungeonManager
         /// </param>
         /// <returns>Cells to walk, excluding <paramref name="from"/>. Empty when no route exists.</returns>
         public List<Vector2Int> FindPath(
-            Vector2Int from, Vector2Int to, IReadOnlyCollection<Vector2Int> avoid)
+            Vector2Int from, Vector2Int to, IReadOnlyCollection<Vector2Int> avoid,
+            bool preferStraight = false)
         {
             // Hashed once here rather than scanned per candidate cell: the search tests every
             // neighbour it visits, so a linear lookup would be inside the hot loop.
             HashSet<Vector2Int> blocked =
                 avoid == null || avoid.Count == 0 ? null : new HashSet<Vector2Int>(avoid);
 
-            List<Vector2Int> route = Search(from, to, blocked);
-            return route.Count > 0 || blocked == null ? route : Search(from, to, null);
+            List<Vector2Int> route = Search(from, to, blocked, preferStraight);
+            return route.Count > 0 || blocked == null
+                ? route
+                : Search(from, to, null, preferStraight);
         }
 
         /// <summary>Runs one breadth-first search, optionally treating some cells as blocked.</summary>
         private List<Vector2Int> Search(
-            Vector2Int from, Vector2Int to, HashSet<Vector2Int> avoid)
+            Vector2Int from, Vector2Int to, HashSet<Vector2Int> avoid, bool preferStraight)
         {
             var result = new List<Vector2Int>();
             if (!IsWalkable(to) || !InBounds(from) || from == to)
@@ -371,7 +374,7 @@ namespace Dungeon.DungeonManager
                     return Reconstruct(cameFrom, from, to, result);
                 }
 
-                foreach (Vector2Int step in Neighbours(current, to))
+                foreach (Vector2Int step in Neighbours(current, to, preferStraight))
                 {
                     if (seen.Contains(step) || !IsWalkable(step))
                     {
@@ -423,7 +426,8 @@ namespace Dungeon.DungeonManager
         }
 
         /// <summary>Four-way neighbours of a cell. Diagonals are excluded so paths hug the grid.</summary>
-        private static IEnumerable<Vector2Int> Neighbours(Vector2Int cell, Vector2Int goal)
+        private static IEnumerable<Vector2Int> Neighbours(
+            Vector2Int cell, Vector2Int goal, bool preferStraight)
         {
             // The axis with the further to go is explored FIRST, and that ordering is the whole
             // point of this method.
@@ -443,12 +447,12 @@ namespace Dungeon.DungeonManager
             int dx = goal.x - cell.x;
             int dy = goal.y - cell.y;
 
-            if (Mathf.Abs(dx) >= Mathf.Abs(dy))
+            if (preferStraight && Mathf.Abs(dx) >= Mathf.Abs(dy))
             {
                 if (dx != 0) { yield return new Vector2Int(cell.x + (dx > 0 ? 1 : -1), cell.y); }
                 if (dy != 0) { yield return new Vector2Int(cell.x, cell.y + (dy > 0 ? 1 : -1)); }
             }
-            else
+            else if (preferStraight)
             {
                 if (dy != 0) { yield return new Vector2Int(cell.x, cell.y + (dy > 0 ? 1 : -1)); }
                 if (dx != 0) { yield return new Vector2Int(cell.x + (dx > 0 ? 1 : -1), cell.y); }

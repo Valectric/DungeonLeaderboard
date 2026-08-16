@@ -635,7 +635,7 @@ namespace Dungeon.PartyManager
             Vector2Int destination = NearestUnvisitedRoomCentre(leader)
                                      ?? (ReachedDepth ? _entranceCell : _bossCell);
 
-            List<Vector2Int> path = _grid.FindPath(leader.Cell, destination);
+            List<Vector2Int> path = _grid.FindPath(leader.Cell, destination, null, preferStraight: true);
             foreach (Vector2Int cell in path)
             {
                 if (_grid.KindAt(cell) == CellKind.Doorway)
@@ -691,7 +691,7 @@ namespace Dungeon.PartyManager
         /// <returns>The door to deal with, or null when the way is clear.</returns>
         private Door ShutDoorOnWayTo(Vector2Int destination, Adventurer leader)
         {
-            if (leader.Cell == destination || _grid.FindPath(leader.Cell, destination).Count > 0)
+            if (leader.Cell == destination || _grid.FindPath(leader.Cell, destination, null, preferStraight: true).Count > 0)
             {
                 return null;
             }
@@ -758,7 +758,7 @@ namespace Dungeon.PartyManager
                     return door;
                 }
 
-                List<Vector2Int> route = _grid.FindPath(leader.Cell, approach);
+                List<Vector2Int> route = _grid.FindPath(leader.Cell, approach, null, preferStraight: true);
                 if (route.Count > 0 && route.Count < shortest)
                 {
                     shortest = route.Count;
@@ -819,7 +819,16 @@ namespace Dungeon.PartyManager
             Adventurer member, Vector2Int target, float deltaTime,
             IReadOnlyCollection<Vector2Int> traps)
         {
-            List<Vector2Int> path = _grid.FindPath(member.Cell, target, traps);
+            // preferStraight: this is the party's ACTUAL walking, and it is where the straight
+            // route matters. AdventurerAI.Advance was flagged first and barely moved the figures --
+            // 33.4s to 32.5s across three rooms -- because the leader decides a direction there and
+            // covers the ground here.
+            //
+            // Monsters deliberately do NOT get this. They path with the same routine, and giving it
+            // to them was measured: no party survived a maximal ambush, on the horizontal layout as
+            // well as the vertical, which is the game's central rule inverted. See D43.
+            List<Vector2Int> path = _grid.FindPath(
+                member.Cell, target, traps, preferStraight: true);
             if (path.Count == 0)
             {
                 return;
@@ -1195,7 +1204,7 @@ namespace Dungeon.PartyManager
                     continue;
                 }
 
-                List<Vector2Int> route = _grid.FindPath(leader.Cell, _roomCentres[room]);
+                List<Vector2Int> route = _grid.FindPath(leader.Cell, _roomCentres[room], null, preferStraight: true);
                 if (route.Count > 0 && route.Count < shortest)
                 {
                     shortest = route.Count;
