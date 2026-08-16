@@ -1579,3 +1579,46 @@ The cheapest guard, and the one this audit actually used: **every factual claim 
 should be checkable in one command.** A version number, a file path, a constant, a class name. Where
 that was true the claim was either right or caught in seconds. Where a claim was a description — "the
 architecture is Facade/Router" — it went unchecked for weeks.
+
+## 2026-08-16 — D39. The author's pass, and what the room bonus costs elsewhere
+
+Five changes, all requested directly.
+
+**+2 seconds per room entered** (`Raid.NewRoomSeconds`), paid on first entry so a room the party never
+reaches pays nothing. This is the author's chosen lever for D29.
+
+It does **not**, on its own, make the fourth room reachable. Measured across three seeds: at +2 the
+party still reaches three rooms and harvest goes 446 to 454; at +8 it reaches four and harvest reaches
+483. Roughly six seconds buys one more room of reach, so about fourteen would open the fifth. The
+author's number stands and the figures sit beside the constant.
+
+**Two consequences worth stating plainly**, because neither was asked for and both follow:
+
+- The party walks into its **first** room too, so every raid is now 62 seconds rather than 60, and a
+  fully-bought five-room dungeon the party crosses runs **70**. That is a sixth added to the sixty
+  seconds the game is named after, and it only becomes visible once somebody buys enough halls.
+- **Two tests broke**, both with `Raid.RaidSeconds` baked in as the end of the raid — one advanced
+  exactly 61 seconds and asserted the clock had hit zero, the other looped to the constant and then
+  asserted the raid had ended, reporting a hang that was not one. Both now run until the raid actually
+  stops. They were testing an arithmetic identity against a constant that has since moved.
+
+**An open way in.** The west wall beside the entrance is carved through, so the first room is a place
+a party walks into rather than a sealed box they appear inside. Carved as a `Doorway` with **no
+`Door`**: a tappable door there would let the player shut the party out for the whole minute, losing
+the raid by pressing the thing the tutorial tells them to press.
+
+That carve was wrong first, and a photograph caught it. `DungeonLayout.Build` returns early whenever
+`placed` is non-null — which is every raid in the real game, because furniture comes from the loadout
+— so carving after that branch worked in tests and did nothing in the game.
+
+**The tutorial** is larger (headline 24→34px, body 14→20px) and now clears when the party **loots the
+chest** rather than purely on a timer. Measured: the starter chest is looted at about 4.7 seconds, so
+the in-raid instruction clears after roughly five. That is exactly as asked and it pulls against "I
+missed it" — the rule is therefore also stated **before** the raid, on the standings, as *"DON'T KILL
+THEM — PRESS ANY KEY, THE FIRST PARTY ENTERS"*. If the in-raid text should linger, a minimum display
+time is the fix and the number is the author's.
+
+**The door sprite** was generated at 64x64, ten colours, on palette — but Sprite Studio used its
+**deterministic pixel renderer, not ImageGen**, so the moodboard never reached an image model
+(`referenced_image_paths` logged zero). It reads correctly in place. Only the `terrain tileset` and
+`effect` harnesses forward references, so genuinely generated art here needs a different route.
