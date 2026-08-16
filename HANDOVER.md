@@ -81,7 +81,11 @@ lived in `PhaseLookTests` and the winning ending is only reachable from `RunProg
 check never ran there. `DungeonView.HideRaidOverlays` now takes every collection there is.
 
 **Read first, before diagnosing anything:** the RaidManager and ShopManager suites now need ~1600s,
-not 800s, because raids that used to end early run the full clock. And when a "performance
+not 800s, because raids that used to end early run the full clock. **And Dungeon.Game.Tests now needs
+~2400s**, because D31 made RunProgressionTests sweep three seeds against four play-styles -- twelve
+seasons where it used to play four. A run sitting silent for twenty-five minutes is that test, not a
+hang; the CLI client shows ~1 CPU second while it waits, which is how to tell the two apart before
+reaching for a reset. And when a "performance
 regression" or a "hang" appears, check whether the SIMULATION cost changed before believing it —
 three separate toolchain faults wore that disguise in one session (Safe Mode after a compile error
 that `force-recompile` reported as `[PASS]`, a CPU affinity left pinned after a build, and plain
