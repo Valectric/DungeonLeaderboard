@@ -1362,3 +1362,33 @@ raising the floor slightly — not protecting the player from it.
 reported that harvesting 51 ends the run. True of that seed, false in general, and I wrote a test
 asserting it before measuring — which failed, correctly. One observation generalised into a rule is
 the same fault as D28 and D31, in a third costume.
+
+## 2026-08-16 — D35. Five files are over the architecture's hard cap, and nothing had said so
+
+`ArchitectureGuidelines.md` §8 sets a **hard cap of 400 logical lines per file**, "everywhere". Nothing
+in `DECISIONS.md`, `HANDOVER.md` or `PLAN.md` had ever mentioned it, so this is neither an accepted
+deviation nor a known debt — it is simply unmeasured. Measured now, non-blank and non-comment as the
+guideline defines it:
+
+```
+686 logical (1356 raw)   Modules/PartyManager/Party.cs
+677 logical (1354 raw)   Application/Game/GameController.cs
+480 logical ( 710 raw)   Modules/RaidManager/Tests/RaidRulesTests.cs
+447 logical ( 764 raw)   Application/Game/DungeonView.cs
+444 logical ( 899 raw)   Modules/RaidManager/Raid.cs
+```
+
+**Raw line counts overstate it roughly twofold** — this codebase carries unusually heavy XML docs and
+rationale comments, so a first pass listing eight offenders by raw lines was wrong. `AdventurerAI.cs`
+at 714 raw is comfortably inside the cap at logical count. The rest of the checklist passes: no
+`<inheritdoc/>`, and no file references another module's `.Internal`.
+
+**Not split, deliberately.** The two worst are `Party.cs` — which owns the party AI and the retreat
+valve, the mechanic CLAUDE.md calls load-bearing — and `GameController.cs`, which owns every phase
+transition. Splitting either is a real refactor with real regression risk, and doing it at four in
+the morning against a shipped, green, published build is how a working game stops working. The
+guideline's remedy is "a main class plus helper classes, never partials", which is a design decision
+about where the seams go, and that belongs to the author.
+
+Recorded rather than fixed or ignored. It is the only architectural rule this project breaks, and it
+breaks it in five known places.
