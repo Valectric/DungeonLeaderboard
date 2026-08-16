@@ -1769,6 +1769,10 @@ the first measurement was not noise, it was a **precise measurement of the wrong
 authoritative. What caught it was not a better instrument but noticing that 35.1 was a number this
 project had already written down somewhere else, for a case nobody had asked about.
 
+> **D43 is below D45, not here.** It was written last, on the branch it describes, and restored to
+> this file afterwards. Out of order and left that way rather than moved, because shifting a section
+> with ten addenda to tidy the numbering is a worse risk than a pointer.
+
 ## 2026-08-16 — D44. A recorded raid, read by Gemini, and what it says about parties of nine
 
 The author asked for a SessionRecorder capture analysed by Gemini. Done: `RaidRecordingTests` records
