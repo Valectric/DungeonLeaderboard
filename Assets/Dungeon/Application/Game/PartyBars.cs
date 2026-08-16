@@ -71,6 +71,16 @@ namespace Dungeon.Game
         public const float BarWidth = 0.62f;
 
         /// <summary>
+        /// Vertical gap between one member's bar and the next in marching order.
+        /// </summary>
+        /// <remarks>
+        /// Slightly more than the 0.10 bar height, so consecutive bars clear each other with a
+        /// visible line between them rather than merging into a block. See the note in
+        /// <see cref="Draw"/> for the measurement that produced this and why it matters.
+        /// </remarks>
+        public const float BarPitch = 0.13f;
+
+        /// <summary>
         /// Draws one adventurer's health bar.
         /// </summary>
         /// <remarks>
@@ -97,8 +107,22 @@ namespace Dungeon.Game
             back.enabled = true;
             fill.enabled = true;
 
+            // Staggered by marching rank, so nine bars read as a ladder instead of one green block.
+            //
+            // Measured, not guessed. A recording of a NINE-strong party was read back by Gemini and
+            // reported that at the worst moment only "3 or 4 individual bar segments" of nine were
+            // distinct, that the rest merged, and -- the part that matters -- that "a single bar
+            // draining to yellow or red in the middle of the stack would be masked by the
+            // overlapping green bars around it". That is D8 returning word for word: the bars exist
+            // because the author could not read the party's state and deaths were arriving unseen.
+            //
+            // The pitch is one bar height plus a hair, so a stationary bunched party spreads its
+            // bars over about a cell and a spread-out party barely shows the effect at all. Purely
+            // cosmetic: nothing here touches a position the simulation reads.
             var origin = new Vector3(
-                spritePosition.x - (BarWidth * 0.5f), spritePosition.y + 0.52f, -3f);
+                spritePosition.x - (BarWidth * 0.5f),
+                spritePosition.y + 0.52f + (index * BarPitch),
+                -3f);
             back.transform.position = origin;
             back.transform.localScale = new Vector3(BarWidth, 0.10f, 1f);
             back.color = new Color(0.05f, 0.04f, 0.08f, 0.92f);

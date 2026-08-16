@@ -93,7 +93,21 @@ namespace Dungeon.Game
         /// and variety the player cannot see before they have to act on it is just noise -- they
         /// would learn only afterwards that the party they killed had no healer.
         /// </remarks>
-        public PartyComposition NextParty => _nextParty;
+        /// <remarks>
+        /// <b>Settable for the same reason <see cref="SeedOverride"/> exists</b>: to reach a state
+        /// worth looking at without playing the eighteen raids that would otherwise produce it. The
+        /// party grows through the season (D39), so photographing a nine-strong raid any other way
+        /// means simulating most of a league first.
+        /// <para>
+        /// Nothing in the game writes it — the roll in <c>RollNextParty</c> owns it in play, and
+        /// setting it here does not disturb the seed chain that roll runs on.
+        /// </para>
+        /// </remarks>
+        public PartyComposition NextParty
+        {
+            get => _nextParty;
+            set => _nextParty = value;
+        }
 
         /// <summary>The raid in progress. Read-only; tests observe, they do not drive.</summary>
         public Raid CurrentRaid => _raid;

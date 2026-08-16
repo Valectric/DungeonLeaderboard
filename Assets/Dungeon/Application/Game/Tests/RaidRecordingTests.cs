@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MooseRunner;
+using Dungeon.PartyManager;
 using MooseRunner.SessionRecorder;
 using MooseRunner.helper;
 using NUnit.Framework;
@@ -30,6 +31,9 @@ namespace Dungeon.Game.Tests
     {
         /// <summary>Where the session is written, relative to the project root.</summary>
         private const string SessionPath = ".mooserunner/Recordings/vertical-raid";
+
+        /// <summary>Where the nine-strong session is written.</summary>
+        private const string NineSessionPath = ".mooserunner/Recordings/nine-party";
 
         /// <summary>The controller under test.</summary>
         private GameController _game;
@@ -92,6 +96,57 @@ namespace Dungeon.Game.Tests
                 $"no video.mp4 in {info.SessionPath} -- the Unity Recorder package is present in the "
                 + "manifest, so this is a licence or configuration failure rather than a missing "
                 + "dependency");
+        }
+
+        /// <summary>
+        /// Records a raid fielding a party of nine, which is what a late season sends.
+        /// </summary>
+        /// <remarks>
+        /// D44. Gemini, reading a recording of a party of FOUR, reported unprompted that the sprites
+        /// "merge into a single, dense cluster" and the health bars "overlap and stack… creating a
+        /// cluttered visual pile". The ramp added on 2026-08-16 sends <b>nine</b>, and D8 exists
+        /// precisely because the party's state could not be read and deaths were arriving unseen.
+        /// <para>
+        /// The party is grown directly rather than by playing eighteen raids to reach round
+        /// seventeen: the claim under test is about how nine bodies <i>draw</i>, and the league is a
+        /// slow way to obtain nine bodies. What this cannot show is anything about late-season
+        /// pacing, and it does not try to.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        [Test]
+        public async UniTask ANinePartyRaid_IsRecordedForReview(CancellationToken ct)
+        {
+            Camera camera = Camera.main;
+            Assert.IsNotNull(camera, "no main camera, so there is nothing to record from");
+
+            var api = SessionRecorderFacade.Instance;
+            var config = new SessionRecordingConfig(
+                camera, outputPath: NineSessionPath, videoFrameRate: 30);
+
+            SessionInfo info = await api.StartRecordingAsync(config, ct);
+
+            _game.SeedOverride = 20260816;
+            _game.NewRun();
+            _game.NextParty = PartyComposition.ForRound(
+                round: 17, seed: 20260816);
+            _game.StartRaid();
+
+            // Read from the RAID, not from NextParty. StartRaid consumes _nextParty and then rolls a
+            // fresh one for the following raid, so NextParty afterwards describes a raid that has
+            // not happened -- it logged "4-strong" for a recording that genuinely held nine.
+            int fielded = _game.CurrentRaid?.Party.Members.Count ?? 0;
+            MooseRunnerFacade.Log($"recording {fielded}-strong party into {info.SessionPath}");
+
+            Assert.AreEqual(PartyComposition.MaxSize, fielded,
+                "the raid did not field a full nine, so any conclusion drawn from this video would "
+                + "be about the wrong party");
+
+            await UniTask.WaitForSeconds(22f, cancellationToken: ct);
+            api.StopRecording();
+
+            string video = Path.Combine(info.SessionPath, "video.mp4");
+            Assert.IsTrue(File.Exists(video), $"no video.mp4 in {info.SessionPath}");
         }
     }
 }

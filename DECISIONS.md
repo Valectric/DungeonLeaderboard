@@ -1805,3 +1805,53 @@ through the league rather than a raid built by hand.
 Candidate answers, if it does reproduce: fan the formation out laterally as it grows rather than
 lengthening the column; draw bars only for the wounded; or one party-wide bar with a count. All three
 are cheap. Which is right depends on what the frame actually looks like.
+
+## 2026-08-16 — D45. Nine adventurers cannot wear their health bars on their heads
+
+D44 flagged that a party of four already bunched into a cluster. Measured at **nine**, which is what
+this session's ramp sends, and it is worse than flagged. Gemini, reading a verified nine-strong
+recording:
+
+> at the worst moment only **4 or 5 of 9 figures** are distinguishable, and **3 or 4 of 9 health
+> bars**; "a single bar draining to yellow or red in the middle of the stack would be masked by the
+> overlapping green bars around it"; a death mid-cluster would be "completely obscured".
+
+**That is D8 returning word for word.** The bars exist because the author played it, could not read
+the party's state, and deaths were arriving unseen — *"wtf, I did not see that"*. Shipping nine-strong
+parties reintroduced the exact condition the bars were added to remove.
+
+### The fix helped, and the verdict on it was wrong
+
+Bars are now staggered by marching rank (`PartyBars.BarPitch`), so nine read as a ladder rather than
+one block. Re-analysed, Gemini reported the bars "form a dense, unreadable block" with **"no vertical
+separation"**.
+
+**That is false, and the frame proves it.** `recording_extract_frame` at t=6s shows a clear diagonal
+staircase of separated bars, each with a visible gap. The model's verdict flatly contradicted the
+pixels it was given.
+
+Worth recording as its own lesson: the video analysis is a genuinely useful instrument — it found
+this defect unprompted, and it was invisible to 273 green tests — but **it is a witness, not a
+judge.** The same guard applies to it as to every other instrument here (D28, D31, D36–D38): when it
+makes a strong claim, look at the frame.
+
+### What the frame shows that nobody asked about
+
+The stagger works and creates a second problem: with nine members the ladder spans about a cell and a
+half, so the upper bars **drift clear of the bodies they belong to**. Readable, but no longer
+attributable. Over-head bars cannot separate nine bunched sprites and stay attached to them — the
+stack has to go somewhere, and there is nowhere near the owner for it to go.
+
+So this is a design decision rather than a bug fix, and it is the author's:
+
+1. **Keep the stagger.** Wounds and deaths become visible again, which is what D8 asked for, at the
+   cost of the bars sitting above-left of their owner in a crowd. Shipped, because a readable bar in
+   roughly the right place beats an unreadable one in exactly the right place.
+2. **A roster panel in the HUD** — one row per member, role and health, always legible at any party
+   size. Satisfies D8's "continuous, colour-coded" and never overlaps. The most robust, and the
+   largest change.
+3. **Fan the formation laterally as the party grows**, so nine bodies do not occupy four bodies'
+   worth of floor. Fixes the sprite pile as well as the bars, and is the only option that touches
+   gameplay — which is why it is not being done unilaterally.
+
+The frame is the thing to look at before choosing.
