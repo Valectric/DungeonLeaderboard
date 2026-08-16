@@ -1499,3 +1499,32 @@ a Facade/Router structure that is one Facade in seven modules (D35 addendum), th
 formula describing the curve M6 replaced (D36), and a "hard constraint" that D8 had overturned three
 days earlier (D37). Nothing in the code was wrong. Every defect was a document describing a project
 that had moved on without it.
+
+## 2026-08-16 — D38. The energy curve superseded SPEC §3, and this ledger never said so
+
+SPEC.md §3 specifies the game's central mechanic as:
+
+```
+energyRate = baseRate * engagementMultiplier * woundMultiplier
+```
+
+The shipped game does not do that. It sums, per living member, `baseRate * actionRate(action) *
+woundMultiplier(that member's health)` — verified in `Raid.cs:838`, and recorded properly in D36.
+
+**The change was the author's**, directed after playing M5 and logged in PLAN.md's M6: *"The energy
+curve pays per person, per action… This replaced a single party-wide 'in combat?' flag multiplied by
+the worst survivor, which made being wounded the only thing that paid."* So it is authorised and it
+is right — the party-wide form meant only *being hurt* paid, which expressed half of the design's own
+instruction.
+
+**What was missing is this entry.** The supersession went into the milestone log as an accomplishment
+and never into the decision ledger, and the two are read for different reasons: CLAUDE.md sends a
+reader to SPEC.md as "the authority on what this game is", and to DECISIONS.md "before reversing
+anything". An agent comparing code against the spec would find the formula differs, find no decision
+saying why, and could reasonably restore the spec's version — undoing the change the author asked for.
+
+That is the same failure mode as D37's hard constraint, from the opposite direction: there, a
+superseded rule was still written as binding; here, a live supersession was never written down at all.
+
+D8 got this right and is the model — its title is literally *"Health bars on adventurers, superseding
+SPEC.md §3"*. A change that contradicts the spec needs an entry that names the section it overrides.
