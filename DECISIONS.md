@@ -1417,3 +1417,34 @@ above.
 **Two rounds of auditing documented rules found two real problems; two rounds of hunting for bugs
 before that found only my own mistakes.** Checking a claim the project makes about itself is a better
 use of time than looking for something wrong.
+
+## 2026-08-16 — D36. CLAUDE.md's headline formula described the curve M6 replaced
+
+The section titled "The one idea this game is built on" carried:
+
+```
+energyRate = baseRate * engagementMultiplier * woundMultiplier
+```
+
+That is the **superseded** curve. Verified against `Raid.cs`: the live rate is a **sum over living
+members** of `baseRate * actionRate(action) * woundMultiplier(health)` (line 838). The party-wide
+`EnergyCurve.Rate(engagedCount, health)` still exists and still matches the old line, but is called
+exactly once — to seed the opening display value — and drives nothing thereafter.
+
+M6 made that change and recorded it in `PLAN.md`; the headline in CLAUDE.md was never updated. So the
+file that opens every session, in the section it calls the game's central idea, described a mechanic
+that had not been live for weeks.
+
+The difference is not cosmetic. Under a party-wide multiplier only *being wounded* paid, so the
+design's own instruction — alive, in combat, and hurt — was half expressed. Summing per member means a
+tank fighting at 15% and a healer working at full health pay different amounts at the same instant,
+which is what makes the wound curve something the player manages rather than waits for.
+
+Corrected, with the action rates written down (idle 0.04, walking 0.06, fleeing 0.75, working 1.05,
+shooting 2.1, fighting 3.0, and a corpse costing 50) so the next reader can check the claim instead of
+trusting it.
+
+**Third documentation defect in three audit rounds**, after the 400-line cap (D35) and an architecture
+section listing a module that has never existed. The pattern is consistent enough to name: this
+project's *code* has been kept honest by its tests, and its *prose* has not been kept honest by
+anything. Everything asserted in a document here is worth checking against the thing it describes.

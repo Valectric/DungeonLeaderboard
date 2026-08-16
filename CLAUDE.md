@@ -18,13 +18,29 @@ Everything else follows from that. If a change makes killing the party more attr
 wounded party worth less than a healthy one, it is wrong however well it plays.
 
 ```
-energyRate = baseRate * engagementMultiplier * woundMultiplier
+energyRate = SUM over living members of
+                 baseRate * actionRate(member.action) * woundMultiplier(member.health)
 ```
 
-- An unengaged party walking a corridor must earn **almost nothing**.
+**Per person, per action** — verified against `Raid.cs` on 2026-08-16, and this line read
+`baseRate * engagementMultiplier * woundMultiplier` until then, which is the curve M6 **replaced**.
+`EnergyCurve.Rate(engagedCount, health)` still exists and still matches that older formula, but the
+live rate does not use it: it is called once to seed the opening display, and every subsequent tick
+sums `MemberRate` over the party. A party-wide engagement multiplier drives nothing any more.
+
+Action rates, from `EnergyCurve`: idle 0.04, walking 0.06, fleeing 0.75, working 1.05, shooting 2.1,
+fighting 3.0. A corpse earns nothing and costs **50** banked points outright.
+
+- An unengaged party walking a corridor must earn **almost nothing** — 0.06 against fighting's 3.0.
 - The wound curve is steep — full HP ≈ 1×, 20% HP ≈ 4×, 5% HP ≈ 8×+. **Most of the money is in the
   last sliver of a health bar.** That is the game.
 - The rate is shown as a large pulsing number. The player has to *see* dead time costing them.
+
+Why per-member matters and the old line hid it: under the party-wide formula only *being wounded*
+paid, so the design's own instruction — keep them alive, in combat, and hurt — was only half
+expressed. Summing per member means a tank fighting at 15% health and a healer working at full health
+pay different amounts at the same instant, which is what makes the wound curve a thing the player
+manages rather than a multiplier they wait for.
 
 ## Hard constraints (do not break)
 
