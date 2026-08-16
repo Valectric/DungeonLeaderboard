@@ -191,7 +191,10 @@ namespace Dungeon.ShopManager.Tests
             DungeonLayout plain = DungeonLayout.BuildCorridor(roomCount: 3);
             DungeonLayout longer = DungeonLayout.BuildCorridor(roomCount: 4);
 
-            Assert.Greater(longer.BossCell.x, plain.BossCell.x,
+            // BossCell.y, not .x: the dungeon runs bottom to top since 2026-08-16, so "further
+            // away" is further UP. The claim is unchanged -- a bought hall must put the boss room
+            // further from the entrance -- only the axis it is measured on moved.
+            Assert.Greater(longer.BossCell.y, plain.BossCell.y,
                 "another hall must put the boss room further away, or it bought nothing");
             Assert.AreEqual(plain.RoomCentres.Count + 1, longer.RoomCentres.Count,
                 "one more room");
