@@ -63,7 +63,13 @@ manages rather than a multiplier they wait for.
   the player highlighted around 14th and a red relegation line under the bottom two.
 - **WebGL build, published to itch.io** for jam voting traffic. No GitHub Pages for this project.
 - **Deterministic where it can be** — seeded party generation and seeded AI-dungeon score
-  fluctuation, so a run can be reproduced from a seed in a bug report.
+  fluctuation, so a run can be reproduced from a seed in a bug report. **Reproduce one with
+  `GameController.SeedOverride`, then call `NewRun()`** — `Awake` has already started a season from
+  the clock by the time `AddComponent` returns, so setting the seed alone does nothing.
+  <br>This was aspiration rather than fact until 2026-08-16: the seed was threaded correctly through
+  the league, the party chain and combat, and there was **no way to set it**, so no season-long
+  measurement was reproducible and none of them said so. See D31 — and treat any single-season figure
+  written before that date as an anecdote.
 
 ## Architecture
 

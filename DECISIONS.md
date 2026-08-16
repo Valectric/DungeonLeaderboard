@@ -1474,3 +1474,28 @@ anywhere), the leaderboard is the title screen, and the build ships to itch as W
 
 **Fourth documentation defect in four audit rounds.** A file that says "do not break" earns more
 scrutiny than one that says "here is the layout", and it had received less.
+
+### D37 addendum — the rest of CLAUDE.md checked, and it holds
+
+Every remaining factual claim in the file was verified against the thing it describes:
+
+- **Unity `6000.3.17f1`** — matches `ProjectVersion.txt` exactly.
+- **MooseRunner `2.2.5`** — matches what the CLI itself emits.
+- **`Builds/` is gitignored** — `git check-ignore` confirms, at `.gitignore:72`.
+- **Three verbs, no mob recall** — `Raid` exposes `ToggleDoor`, `SpawnMob`, `FireTrap` and nothing else.
+- **Sprite pipeline paths** — the debug binary is present, which is the fallback the preflight already
+  anticipates, and all three moodboard crops (`style-palette`, `style-tiles`, `style-mobs`) are where
+  the file says.
+- **The leaderboard is the title screen**, and the build ships to itch as WebGL — both photographed.
+
+One claim was *true but unusable* and is now actionable: "a run can be reproduced from a seed in a bug
+report". Until D31 there was no way to **set** the seed, so it could not be done at all. The file now
+names `GameController.SeedOverride` and the trap that goes with it — `Awake` has already started a
+season by the time `AddComponent` returns, so the seed must be set and `NewRun()` called again.
+
+**So the audit ends four for four on prose and clean on everything else.** The four defects were the
+400-line cap unrecorded (D35), an architecture section naming a module that never existed and claiming
+a Facade/Router structure that is one Facade in seven modules (D35 addendum), the headline energy
+formula describing the curve M6 replaced (D36), and a "hard constraint" that D8 had overturned three
+days earlier (D37). Nothing in the code was wrong. Every defect was a document describing a project
+that had moved on without it.
