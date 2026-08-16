@@ -1855,3 +1855,33 @@ So this is a design decision rather than a bug fix, and it is the author's:
    gameplay — which is why it is not being done unilaterally.
 
 The frame is the thing to look at before choosing.
+
+### D43 addendum — the assumption D43 rests on has now been measured
+
+D43 concluded that the flip's one remaining failure is the vertical geometry, and that conclusion
+rested on an argument rather than a measurement: *party-only straight pathing is a no-op on a
+horizontal dungeon, because the goal is due east and the old bias already pointed east, so
+horizontal-plus-the-fix is just `main`.* Reasonable, load-bearing, and untested — which is the
+combination this ledger keeps getting caught by.
+
+Measured. Party-only `preferStraight` applied to the **horizontal** layout, trail and rooms
+untouched:
+
+```
+best wipe = 166, best survival = 434      <- identical to plain main
+7/7 ExploratoryTests green
+```
+
+The no-op holds. So the 2x2 is complete and reads:
+
+| | horizontal | vertical |
+|---|---|---|
+| no straightening | 434 survival | (25% slower, cannot cross five rooms) |
+| straighten everything | **0 survival** | 0 survival |
+| straighten the party only | **434 survival** | **0 survival** |
+
+The bottom row is the whole answer. Same pathfinder, same monsters, same party speed, and the only
+difference left is which way the corridor runs — so parties that survive a maximal ambush going east
+do not survive going north, and that is a fact about the rooms rather than about the port.
+
+Nothing changed on `main`; this was a diagnostic and the working tree was restored.
