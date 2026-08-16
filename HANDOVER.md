@@ -48,6 +48,16 @@ One thing left marginal rather than fixed: the staggered health bars reach 1.56 
 nine-strong party against 1.6 units of camera margin. It fits, and it is 0.04 from not fitting. A
 taller party or a smaller margin breaks it.
 
+**The flip's last failure is narrowed but not closed, and here is exactly how far.** Parties that
+survive a maximal ambush going east do not survive going north. Established: peak monsters in contact
+is identical on both layouts, so it is **not crowding**; what differs is *sustained* contact, and only
+for the two rosters that survive horizontally — THE IRONCLADS at a mean 3.0 in contact vertically
+against 1.1 horizontally, THE COVEN at 1.1 against 0.3. Horizontally they break away and kite;
+vertically they never get free. One suspect was named and **refuted by measurement** (the
+`Vector2.left` fallback in `StandOff`, which turns out to fire only at exactly zero distance and so
+essentially never runs). The next candidates are the paths that run every tick: the room clamp inside
+`StandOff`, `Spacing`, and the refuge choice in `Party`. See D43 and its three addenda.
+
 **One thing worth knowing even though nothing is blocked on it.** Turning the dungeon vertical
 exposed **four bugs that were already there**, all hidden by the dungeon happening to run east: the
 follower trail seeded westward, traps sitting off the party's route (wounds fell to **0%** while 166
