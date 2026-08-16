@@ -1392,3 +1392,28 @@ about where the seams go, and that belongs to the author.
 
 Recorded rather than fixed or ignored. It is the only architectural rule this project breaks, and it
 breaks it in five known places.
+
+### D35 addendum — the architecture section described a project that does not exist
+
+Auditing the rest of `ArchitectureGuidelines.md` against the code turned up worse than the file cap:
+**CLAUDE.md's own architecture section was wrong in three ways**, and it is the file every agent reads
+first.
+
+- It listed a **`UIManager/` module that has never existed.** The UI is IMGUI drawn from
+  `Application/Game` — `LeagueScreen`, `ShopScreen`, `ReviewScreen`, `LoadingScreen`, `Hints`,
+  `DungeonView`. Anyone following that tree goes looking in a directory that is not there.
+- It **omitted `AudioManager/`**, which does exist and is the only module with a Facade.
+- It claimed **"Facade/Router"** as the structure. Measured: one Facade across seven modules, and no
+  Routers at all. Every other module's public surface is its concrete classes, used directly.
+
+Corrected to describe what is there, with the deviation stated rather than implied.
+
+What the checklist *does* hold, all verified mechanically: no interfaces, no `<inheritdoc/>`, no file
+reaching into another module's `.Internal`, every module inside the 2000-line cap (largest
+PartyManager at 1206), every one of the 336 tests carrying an XML summary, no `Debug.Log` in test
+code, and no `IEnumerator`/`[UnityTest]` coroutine tests. The only breaks are the five oversized files
+above.
+
+**Two rounds of auditing documented rules found two real problems; two rounds of hunting for bugs
+before that found only my own mistakes.** Checking a claim the project makes about itself is a better
+use of time than looking for something wrong.

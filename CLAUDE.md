@@ -48,12 +48,21 @@ energyRate = baseRate * engagementMultiplier * woundMultiplier
 ## Architecture
 
 Namespace root `Dungeon`; one asmdef per module (`Dungeon.<Module>`, tests `Dungeon.<Module>.Tests`).
-Concrete classes, Facade/Router, module-owned TestFacade seams, ≤400 lines/file, XML docs on
-everything including tests.
+Concrete classes, XML docs on everything including tests.
+
+**What this project actually does, which is not all of `ArchitectureGuidelines.md` — audited
+2026-08-16, see D35.** Four modules use an `Internal/` folder; the rest are flat. **Only
+`AudioManager` has a Facade and nothing has a Router** — every other module's public surface is its
+concrete classes (`DungeonGrid`, `DungeonLayout`, `LeagueTable`, `Shop`, `Party`, `Raid`), used
+directly. Do not go looking for a `DungeonManagerFacade`. What the guidelines' checklist *does* hold
+here: no interfaces, no `<inheritdoc/>`, nothing reaching into another module's `.Internal`, and
+every module inside the 2000-line cap. The 400-line **file** cap is broken in five places.
 
 ```
 Assets/Dungeon/
-  Application/Game/       GameController (raid/shop/league flow), Scenes/, Tests/ (E2E)
+  Application/Game/       GameController (raid/shop/league flow), and ALL the UI --
+                          LeagueScreen, ShopScreen, ReviewScreen, LoadingScreen, Hints,
+                          DungeonView/DungeonScenery. Scenes/, Tests/ (E2E).
   Modules/
     RaidManager/          the 60s raid: clock, energy rate, run-end conditions
     DungeonManager/       grid layout, rooms, doors, spawners, traps
@@ -61,9 +70,13 @@ Assets/Dungeon/
     MobManager/           monsters: spawn, engage, room-bounded pursuit
     LeagueManager/        standings, AI dungeon scores, relegation
     ShopManager/          30s shop, six items, Ready bonus
-    UIManager/            HUD (energy, rate, clock), standings strip, shop
+    AudioManager/         AudioFacade + SfxSynth, ten procedural sounds
   Editor/                 scene builder, WebGL builder
 ```
+
+**This tree used to list a `UIManager/` module that has never existed, and omit `AudioManager/` which
+does.** The UI is IMGUI drawn from `Application/Game`. A file that sends a reader to a directory that
+is not there costs more than one that says nothing.
 
 ## Working loop
 
