@@ -1691,3 +1691,42 @@ size is wrong:
 
 Option 3 is the recommendation; it is the only one that leaves both rules standing. All three are a
 small edit to `RateModifiers`.
+
+## 2026-08-16 — D41. "Skirmish is always third" was not a bias, and measuring said so first
+
+The author reported that THE SKIRMISHERS kept arriving as the third party. Two very different faults
+produce that sentence, and they want opposite repairs:
+
+- the run seed is **not spreading** the parties, in which case gating a roster to later rounds hides a
+  broken chain and the next report will be about some other roster;
+- the chain spreads fine and the roster is simply **too punishing that early**, in which case gating
+  is exactly the fix.
+
+**Measured before touching the picker**, 240 runs of the controller's own seed chain, at raid three:
+
+```
+THE BALANCED PARTY   52/240  22%
+THE PILGRIMAGE       42/240  18%
+THE IRONCLADS        38/240  16%
+THE SKIRMISHERS      38/240  16%
+THE GLASS CANNONS    35/240  15%
+THE UNSHRIVEN        35/240  15%
+```
+
+Even, and THE SKIRMISHERS is unremarkable at 16%. There is no bias; the report is the second fault,
+and gating masks nothing. `PartySequenceTests` keeps it that way — it fails if any roster ever owns
+more than a third of a slot in the running order.
+
+This is the cheap version of the D28 guard again. "Always third" is a strong claim about a
+deterministic system, and it would have been entirely reasonable to go and find something wrong with
+the LCG. Nothing was wrong with it.
+
+**What changed instead.** THE SKIRMISHERS and the new THE COVEN carry `FirstRound = 4`, so neither can
+appear before raid five. The roster table also grows from six to nine, which is the other half of
+"make the teams vary more" and costs nothing but a table — a bigger pool repeats less on its own, with
+no change to the picker at all.
+
+**Reinforcements are per roster, and two of them are load-bearing.** THE UNSHRIVEN is "no healer at
+all" and THE SKIRMISHERS is "no tank"; those absences are the roster and are what the on-screen
+warning promises. Growing them with generic filler would have quietly made both warnings lies by raid
+nine. Asserted at every size from four to nine.

@@ -273,7 +273,12 @@ namespace Dungeon.Game
             // just walked through the door -- exactly the one that must not come back immediately.
             PartyComposition justRaided = _nextParty;
             _partySeed = unchecked((_partySeed * 1103515245) + 12345);
-            _nextParty = PartyComposition.ForSeed(_partySeed, justRaided);
+
+            // _league.Round + 1, because Round counts raids FINISHED and this is being rolled at the
+            // start of one: during raid N the league still reads N-1, and the party being chosen is
+            // the one for raid N+1. Off by one here would gate every roster a raid early and start
+            // growing the party a raid late.
+            _nextParty = PartyComposition.ForRound(_league.Round + 1, _partySeed, justRaided);
         }
 
         /// <summary>Deepest the corridor is allowed to get, however many halls are bought.</summary>
