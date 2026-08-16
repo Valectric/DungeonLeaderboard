@@ -52,8 +52,10 @@ namespace Dungeon.Game
                 return false;
             }
 
-            return raid.Party.LootedCount == 0
-                && (Raid.RaidSeconds - raid.TimeRemaining) < HeadlineSeconds;
+            // raid.Elapsed, NOT RaidSeconds - TimeRemaining: the room bonus pushes TimeRemaining
+            // above RaidSeconds, so the old expression ran backwards and the caption lingered by
+            // however many seconds the party had earned walking into rooms.
+            return raid.Party.LootedCount == 0 && raid.Elapsed < HeadlineSeconds;
         }
 
         /// <summary>Seconds the headline spends fading out at the end of its life.</summary>
@@ -106,6 +108,14 @@ namespace Dungeon.Game
 
             foreach (Vector2Int cell in layout.ChestCells)
             {
+                // Gone once the party has taken it. The tag describes something that is about to
+                // happen -- once it has happened the chest is an empty box and the label is telling
+                // the player about a thing they already watched, while still covering the room.
+                if (raid.Party.HasLooted(cell))
+                {
+                    continue;
+                }
+
                 Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f), block);
             }
 
@@ -226,7 +236,7 @@ namespace Dungeon.Game
         private static void DrawHeadline(
             Raid raid, Camera camera, float scale, DungeonLayout layout)
         {
-            float age = Raid.RaidSeconds - raid.TimeRemaining;
+            float age = raid.Elapsed;
             if (!HeadlineWanted(raid))
             {
                 return;
@@ -292,7 +302,10 @@ namespace Dungeon.Game
 
             var style = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)),
+                // Twice the old 12, at the author's request -- they were legible on a monitor and
+                // not on a phone, which is where this game is played. The floor doubles with it,
+                // because the itch embed runs at 0.4 scale and that is what the floor is for.
+                fontSize = Mathf.Max(18, Mathf.RoundToInt(24 * scale)),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -300,16 +313,21 @@ namespace Dungeon.Game
             // Kept on screen, for the same reason the headline is: a spawner near the edge of the
             // frame would otherwise have half its label cut off, and half a label is worse than
             // none -- the player reads it as the game clipping.
-            float width = Mathf.Min(220f * scale, Screen.width);
+            //
+            // The box doubles with the text. Doubling the font alone would have kept the old 220
+            // and quietly clipped "SLIME PIT - TAP TO SPAWN" instead, which is the same defect the
+            // clamp above exists to prevent.
+            float width = Mathf.Min(440f * scale, Screen.width);
             float left = Mathf.Clamp(point.x - (width * 0.5f), 0f, Mathf.Max(0f, Screen.width - width));
 
             // Above the thing it names, except in the top third of the screen, where the headline
             // lives -- the opening chest sits on the room's top row and its label landed straight
-            // across "DON'T KILL THE CHARGING TEAM".
-            float lift = point.y < Screen.height * 0.36f ? -30f * scale : 34f * scale;
-            float top = Mathf.Clamp(point.y - lift, 0f, Screen.height - (20f * scale));
+            // across "DON'T KILL THE CHARGING TEAM". The lift grows with the box so a taller label
+            // still clears the sprite it belongs to rather than sitting on it.
+            float lift = point.y < Screen.height * 0.36f ? -44f * scale : 48f * scale;
+            float top = Mathf.Clamp(point.y - lift, 0f, Screen.height - (40f * scale));
 
-            var rect = new Rect(left, top, width, 20f * scale);
+            var rect = new Rect(left, top, width, 40f * scale);
 
             // And that flip was not enough on its own: it moved the chest's label off the first
             // instruction line and onto the THIRD, where the two interleaved character by character

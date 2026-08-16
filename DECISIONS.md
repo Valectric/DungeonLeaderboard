@@ -1622,3 +1622,72 @@ time is the fix and the number is the author's.
 **deterministic pixel renderer, not ImageGen**, so the moodboard never reached an image model
 (`referenced_image_paths` logged zero). It reads correctly in place. Only the `terrain tileset` and
 `effect` harnesses forward references, so genuinely generated art here needs a different route.
+
+### D39 addendum — the carve does not let anything out, and it is not just scenery
+
+The opening was carved into the *outer* wall, so it belongs to no room, and a wounded party retreats
+*toward* the entrance. That is a way to lose a raid which did not exist before this change, and it was
+worth checking rather than assuming: if a body can path onto the opening it is off the grid, and if a
+monster can, the room-bounded pursuit rule the whole retreat valve rests on is broken.
+
+It cannot. `DungeonGrid.IsWalkable` passes a `Doorway` only when a door exists and is open —
+`door != null && door.IsOpen` — so a **doorless** doorway is passable to nobody. The property that
+makes the opening safe is the same one chosen to stop the player shutting the party out. That is why
+no containment suite moved when the carve landed, and it is luck rather than design, so it is pinned
+now: `EntranceOpeningTests`.
+
+**The first guess after that was wrong, and measuring corrected it.** "Not walkable" reads as "the
+opening is decorative", and it is not. Across twelve seeded raids, adventurers register **on** the
+opening for the first **1.6 seconds** — the party spawns west of the entrance and walks east, and a
+body's cell is its rounded continuous position, so the arriving party genuinely walks in through the
+hole in the wall. It just cannot walk back out. Both halves are asserted.
+
+Over the same twelve seeds: **zero** monsters on the opening at any time, and **zero** adventurers
+after the arrival window. The window is set at 3s against a measured worst case of 1.6s, and it was
+verified to have teeth — tightening it to 1s turns the test red, so it is a gate and not a formality.
+
+This is the cheap version of the guard adopted after D28 and D36–D38: the failure mode in every one of
+those was **a plausible story about a measurement, believed before it was checked**. "Nothing can walk
+there, so nothing does" was exactly such a story, and it was half wrong.
+
+## 2026-08-16 — D40. The permanent room bonus is built, measured, and held on a branch
+
+The author asked for it plainly: **"after entering a new room the team gains +2/s for the rest of the
+run per room."** It is implemented faithfully on `room-bonus-permanent` — a count rather than a timer,
+stacking, with nothing eroding it. It is not on `main`, and this records why, because a branch with no
+reason attached is just work somebody will delete.
+
+**It breaks the invariant that stalling must beat letting the party leave.** Measured, same seed, same
+board, `EarlyEscape_EarnsFarLessThanAFullRaid`:
+
+| | before | after |
+|---|---|---|
+| strolled through and left | 38.5 | **121.8** |
+| stalled and fought | 128.3 | **254.8** |
+| ratio, floor is 2.5x | 3.3x | **2.09x** |
+
+The party that walks through and leaves gains **three times** more; the party that stays and bleeds
+only doubles. That asymmetry is the whole problem, and it is not a moved figure — paying per room pays
+for **advancing**, which is the behaviour the door verb exists to prevent. `M9-PLAN.md` predicted this
+in as many words before the modifier was first written.
+
+**Why it was not simply retuned.** That test was already narrowed once, from 5x to 2.5x, by the
+2026-08-14 decision — for this same cause, when the room bonus was three seconds long. That decision
+ends: *"If this ever needs lowering again, the modifier is too strong — do not lower it twice."* This
+is the second time. Lowering it again would convert a designed limit into a number that follows
+whatever the modifier happens to do, which is how an invariant stops being one.
+
+`TheRate_MovesSmoothlyBetweenFrames` fails as the same symptom rather than a second fault: a larger
+target makes each eased step larger.
+
+**What the author actually has to choose**, since the goal — make traversal pay — is sound and only the
+size is wrong:
+
+1. **Ship it as asked.** Depth pays, and the door verb weakens. One merge.
+2. **Cap the stack** at two or three rooms, so depth pays and a five-room sprint does not.
+3. **Pay it only while the party is engaged.** Depth still pays, but a party strolling an empty
+   corridor earns nothing extra — which keeps SPEC's "an unengaged party must earn almost nothing"
+   intact and is closest to what the bonus seems to be *for*.
+
+Option 3 is the recommendation; it is the only one that leaves both rules standing. All three are a
+small edit to `RateModifiers`.

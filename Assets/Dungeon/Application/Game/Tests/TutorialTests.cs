@@ -104,5 +104,63 @@ namespace Dungeon.Game.Tests
 
             await UniTask.Yield(ct);
         }
+
+        /// <summary>
+        /// The hint clock measures how long the raid has been running, not how much of a fixed
+        /// minute is left.
+        /// </summary>
+        /// <remarks>
+        /// These are the same number only while nothing adds time. The room bonus adds time, so
+        /// <c>TimeRemaining</c> can now exceed <c>RaidSeconds</c> and the old expression
+        /// <c>RaidSeconds - TimeRemaining</c> runs backwards — every room entered rewinds the
+        /// tutorial's sense of its own age by two seconds, and the caption outstays its welcome by
+        /// however much time the party has earned.
+        /// <para>
+        /// Worth a test rather than a careful reading, because nothing about it is visible: no
+        /// exception, no artefact, and the fade still completes, just later than the number in the
+        /// source says. The elapsed time the hints want is
+        /// <c>RaidSeconds + SecondsAwarded - TimeRemaining</c>, which is what <c>Raid.Elapsed</c>
+        /// now is.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        [Test]
+        public async UniTask TheHintClock_TracksRealElapsedTime(CancellationToken ct)
+        {
+            var raid = new Raid(DungeonLayout.BuildCorridor(roomCount: 3));
+
+            float ticked = 0f;
+            int guard = 0;
+            while (raid.IsRunning && raid.SecondsAwarded <= 0f && guard++ < 4000)
+            {
+                raid.Tick(0.05f);
+                ticked += 0.05f;
+            }
+
+            // Keep going a little past the award so the skew, if present, has room to show.
+            for (int i = 0; i < 40 && raid.IsRunning; i++)
+            {
+                raid.Tick(0.05f);
+                ticked += 0.05f;
+            }
+
+            float naive = Raid.RaidSeconds - raid.TimeRemaining;
+
+            MooseRunnerFacade.Log(
+                $"ticked {ticked:F1}s, raid.Elapsed={raid.Elapsed:F1}s, "
+                + $"naive RaidSeconds-TimeRemaining={naive:F1}s, "
+                + $"awarded={raid.SecondsAwarded:F0}s");
+
+            Assert.Greater(raid.SecondsAwarded, 0f,
+                "no room bonus was awarded, so this proves nothing either way");
+            Assert.AreEqual(ticked, raid.Elapsed, 0.2f,
+                "the raid's own sense of elapsed time has drifted from the time actually ticked "
+                + "into it, so every hint timed off it fires at the wrong moment");
+            Assert.AreEqual(raid.SecondsAwarded, raid.Elapsed - naive, 0.2f,
+                "the naive expression should lag real elapsed time by exactly the time awarded -- "
+                + "if it does not, the room bonus is not the only thing moving the clock");
+
+            await UniTask.Yield(ct);
+        }
     }
 }
