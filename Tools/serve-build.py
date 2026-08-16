@@ -28,8 +28,44 @@ ROOT = os.path.join(
 ENCODING = "br"
 
 
+# Set by --canvas WxH. The shipped index.html sizes the canvas at 100% of the window, so the game
+# always fills whatever is there; pinning it is the only way to photograph a specific viewport.
+CANVAS = None
+
+
 class UnityHandler(http.server.SimpleHTTPRequestHandler):
     """Adds the Content-Encoding and Content-Type a Unity WebGL loader expects."""
+
+    def do_GET(self):
+        """Serves index.html with a canvas override when one was asked for."""
+        path = self.path.split("?", 1)[0]
+        if CANVAS is None or path not in ("/", "/index.html"):
+            return super().do_GET()
+
+        # Rewritten in memory, never on disk. Builds/ is the artefact that gets published, and a
+        # tool that edits it to take a measurement is a tool that eventually ships the measurement.
+        width, height = CANVAS
+        with open(os.path.join(ROOT, "index.html"), "rb") as handle:
+            page = handle.read().decode("utf-8")
+
+        override = (
+            "<style>"
+            f"html,body{{width:{width}px!important;height:{height}px!important;overflow:hidden}}"
+            f"#unity-container,#unity-container.unity-desktop{{"
+            f"width:{width}px!important;height:{height}px!important}}"
+            f"#unity-canvas,.unity-desktop #unity-canvas{{"
+            f"width:{width}px!important;height:{height}px!important}}"
+            "</style></head>")
+        page = page.replace("</head>", override, 1)
+
+        body = page.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        super(http.server.SimpleHTTPRequestHandler, self).end_headers()
+        self.wfile.write(body)
+        return None
 
     def end_headers(self):
         """Tags compressed payloads before the response is committed."""
@@ -53,7 +89,16 @@ class UnityHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8777
+    global CANVAS
+
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    port = int(args[0]) if args else 8777
+
+    if "--canvas" in sys.argv:
+        size = sys.argv[sys.argv.index("--canvas") + 1]
+        CANVAS = tuple(int(n) for n in size.lower().split("x"))
+        print(f"canvas pinned to {CANVAS[0]}x{CANVAS[1]} "
+              "(the itch embed is 523x293)")
 
     if not os.path.exists(os.path.join(ROOT, "index.html")):
         print(f"no build in {ROOT} -- run the WebGL build first")

@@ -81,11 +81,26 @@ lived in `PhaseLookTests` and the winning ending is only reachable from `RunProg
 check never ran there. `DungeonView.HideRaidOverlays` now takes every collection there is.
 
 **Read first, before diagnosing anything:** the RaidManager and ShopManager suites now need ~1600s,
-not 800s, because raids that used to end early run the full clock. **And Dungeon.Game.Tests now needs
-~2400s**, because D31 made RunProgressionTests sweep three seeds against four play-styles -- twelve
-seasons where it used to play four. A run sitting silent for twenty-five minutes is that test, not a
-hang; the CLI client shows ~1 CPU second while it waits, which is how to tell the two apart before
-reaching for a reset. And when a "performance
+not 800s, because raids that used to end early run the full clock. **`Dungeon.Game.Tests` takes 5m07s
+for its 99 tests** — measured, 2026-08-16, after D31 tripled `RunProgressionTests` to twelve seasons.
+
+**A silent run is not a slow one, and this note said otherwise for an hour.** A client sat waiting 47
+minutes; the tempting story was that the tripled sweep had made the suite enormous, and that went
+into this file as "~2400s". It was wrong by a factor of eight. What actually happened is that the
+test request was **lost after the recompile** — `status` read `RECOMPILE_COMPLETED`, so nothing had
+started.
+
+The diagnostic that settles it costs nothing and does not touch the daemon (which matters, because a
+concurrent `status` is consumed by a waiting `test` and hangs it):
+
+```
+sample the Unity process's CPU over 20 seconds
+  delta ~0s  -> idle, the run never started or already died
+  delta >1s  -> genuinely working, wait
+```
+
+Recover by killing the stranded `mooserunnerCli` client, then `ping`, then re-running. No `reset` was
+needed. And when a "performance
 regression" or a "hang" appears, check whether the SIMULATION cost changed before believing it —
 three separate toolchain faults wore that disguise in one session (Safe Mode after a compile error
 that `force-recompile` reported as `[PASS]`, a CPU affinity left pinned after a build, and plain
