@@ -494,3 +494,26 @@ because `PhaseLookTests` cannot reach the winning ending, which only `RunProgres
 **Copy the PNG before analysing it** (see the screenshots-are-overwritten note above), and prefer
 asserting *renderers* over pixels: a pixel threshold on a screen that also draws torchlight passes
 for the wrong reason.
+
+## `Builds/index.html` is written at the START of a WebGL build, not the end
+
+A completion check that waits for `index.html` to change reports success in about **forty seconds**,
+while `Builds.framework.js.unityweb` is still the previous build's file. Pair that with a "no
+compilers running" test and it looks conclusive — there is a gap between build phases where the
+process count briefly hits zero, and the two conditions can be satisfied together long before the
+build is done. On 2026-08-16 that combination was one command away from publishing a half-written
+build to itch.
+
+Wait on **every artefact being newer than the build trigger, AND zero compilers**:
+
+```
+Builds/index.html
+Builds/Build/Builds.data.unityweb
+Builds/Build/Builds.framework.js.unityweb
+Builds/Build/Builds.wasm.unityweb
+Builds/Build/Builds.loader.js
+```
+
+A real build takes **8-9 minutes** on this machine with Unity pinned to four cores. Anything under two
+minutes did not happen, whatever the file timestamps say — and `Builds.data.unityweb` growing
+(8.1 MB against a finished ~8.7 MB) is the clearest single tell that it is still going.
