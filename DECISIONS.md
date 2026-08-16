@@ -2127,3 +2127,31 @@ But the shape of the day is worth keeping regardless. Five attempts at this mech
 
 The project's own doctrine says green tests hide a broken rate and to photograph the game. Four of
 these five were aggregates over a simulation nobody had watched, and the fifth took one look.
+
+### D43 addendum 9 — both layouts pin the party; the difference is how hard it lands
+
+Addendum 8 asked the right follow-up: does the horizontal layout pin the party the same way? Recorded
+the identical scenario on both and pulled the frame at nine seconds from each.
+
+**Both wipe.** Both show `+ CROWD x7` — the same number of monsters engaged. What differs is the
+arrangement and the damage:
+
+| | horizontal | vertical |
+|---|---|---|
+| party | spread along the room's left side | pinned at the bottom, backed on the entrance |
+| slimes | scattered around them | a solid wall across the full corridor width |
+| damage in frame | **-8, -9, -4** | **-98, -45, -19** |
+
+Same crowd, an order of magnitude more damage landing. That is consistent with the wall geometry
+concentrating contact even though *peak* contact counts matched — a party with monsters on one side
+takes what one side can deliver; a party with a wall across its front and a wall it cannot walk
+through behind takes everything at once.
+
+**What this does not settle.** The controller picked THE BALANCED PARTY, which dies on *both* layouts
+in the fixed-tick data (24.4s and 25s). So this is a comparison of a roster that was never the
+discriminating case. THE IRONCLADS is — it survives horizontally and dies vertically — and forcing it
+through `GameController.NextParty`, which is settable now, is one run away. That run has not been
+done.
+
+So the picture is: a real geometric difference is visible and plausible, and the case that would
+prove it is still open. Recorded at that, rather than rounded up into a conclusion.
