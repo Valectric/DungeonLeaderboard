@@ -2022,3 +2022,35 @@ This is the third time today the same shape has appeared: D42's harvest figure w
 measurement of walkthroughs rather than played raids, addendum 3's suspect was a branch that never
 runs, and this is a share computed over incomparable windows. The common factor is not carelessness
 about the number; it is failing to ask **what else differs between the two things being compared.**
+
+### D43 addendum 6 — the like-for-like window kills addendum 4, and reverses the picture
+
+Addendum 5 said the repair was to compare a window both layouts reach. Done, at eighteen seconds:
+
+| roster | fleeing, vertical / horizontal | mean health, vertical / horizontal |
+|---|---|---|
+| THE BALANCED PARTY | 27% / 29% | **86% / 69%** |
+| THE IRONCLADS | 25% / 26% | **85% / 61%** |
+| THE PILGRIMAGE | 37% / 37% | 90% / 89% |
+| THE PHALANX | 13% / 14% | **86% / 67%** |
+
+**Fleeing is identical.** Addendum 4's mechanism — "the party enters the flee state less often
+vertically" — is refuted. It was an artefact of comparing a 64-second raid against a 20-second one.
+
+**And the second column reverses the whole picture.** At eighteen seconds the vertical party is
+*healthier*, by twenty points and more on three of the four rosters that are still whole. The vertical
+raid is not going wrong early. It is going **better** early and failing later.
+
+Everything said so far about the mechanism assumed the party was being ground down from the start.
+That assumption is now measured and false, and every hypothesis built on it — crowding, disengagement,
+the standoff fallback, the retreat path — was aimed at the wrong half of the raid.
+
+**Where to look next, and it is a different place entirely:** whatever happens after the first twenty
+seconds. The candidates are the things that only matter once the party is deep — the grind decay, the
+fatigue slow at ten seconds of unbroken combat, and how far the party gets before the clock runs down.
+A party that is healthier at eighteen seconds and dead by sixty is a party that went further and met
+more, not one that was overwhelmed at the door.
+
+Three hypotheses were built and killed here, and the cost was mostly in the framing rather than the
+runs: each was a plausible story about the first half of a raid whose second half nobody had looked
+at. The instrument that finally settled it — measure the same window on both sides — cost one run.
