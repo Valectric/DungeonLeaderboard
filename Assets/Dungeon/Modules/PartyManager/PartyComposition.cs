@@ -220,6 +220,25 @@ namespace Dungeon.PartyManager
             return pick.Grown(SizeForRound(round));
         }
 
+        /// <summary>
+        /// Spells a party size as a word.
+        /// </summary>
+        /// <remarks>
+        /// "nine strong" and "nine death notices" both read as prose; "9 strong" reads as a receipt.
+        /// Shared so the standings and the raid review cannot drift into spelling it differently.
+        /// </remarks>
+        /// <param name="count">How many adventurers.</param>
+        /// <returns>The word, or the numeral for anything outside the sizes the league sends.</returns>
+        public static string SpellSize(int count)
+        {
+            return count switch
+            {
+                1 => "one", 2 => "two", 3 => "three", 4 => "four", 5 => "five",
+                6 => "six", 7 => "seven", 8 => "eight", 9 => "nine",
+                _ => count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+        }
+
         /// <summary>The party a new player meets first.</summary>
         public static PartyComposition Opening => All[0];
     }

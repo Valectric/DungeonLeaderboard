@@ -1,4 +1,5 @@
 using System.Globalization;
+using Dungeon.PartyManager;
 using Dungeon.LeagueManager;
 using UnityEngine;
 
@@ -237,8 +238,22 @@ namespace Dungeon.Game
                     alignment = TextAnchor.MiddleCenter
                 };
                 partyStyle.normal.textColor = new Color(0.85f, 0.7f, 1f);
+                // The SIZE is announced once the league starts growing parties, and it is not a
+                // decoration. GameController's own note on NextParty says variety the player cannot
+                // see before they have to act on it is just noise -- and size is the largest single
+                // factor in how a raid goes: a worked raid is worth 240 at four and 433 at nine.
+                // The player was being told WHICH party was coming and not HOW MANY.
+                //
+                // Only above the base four, so the opening raids read exactly as they always have
+                // and the first "FIVE STRONG" is itself the signal that something has changed.
+                int strength = nextParty.Roles.Count;
+                string announcement = strength > PartyComposition.BaseSize
+                    ? $"NEXT THROUGH THE DOOR:  {nextParty.Name},  "
+                      + $"{PartyComposition.SpellSize(strength).ToUpperInvariant()} STRONG"
+                    : "NEXT THROUGH THE DOOR:  " + nextParty.Name;
+
                 GUI.Label(new Rect(0f, listTop + (rowHeight * promptRow), Screen.width, rowHeight),
-                    "NEXT THROUGH THE DOOR:  " + nextParty.Name, partyStyle);
+                    announcement, partyStyle);
 
                 var warnStyle = new GUIStyle(GUI.skin.label)
                 {

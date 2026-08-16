@@ -40,11 +40,28 @@ namespace Dungeon.RaidManager.Tests
 
             raid.Mobs.Spawn(MobKind.Skeleton, layout.SpawnerCells[0]);
 
+            // The sample stops when the raid does, and the guard is load-bearing.
+            //
+            // UpdateOutcome sets CurrentRate to zero the moment a raid ends, deliberately -- a
+            // finished raid earns nothing. Sampling after the terminating tick therefore records
+            // that zeroing as a single-frame drop of the entire rate, and calls it flicker.
+            //
+            // Harmless while the closing rate was small. Once the room bonus became permanent the
+            // rate at the end of a raid was high enough for the drop to read 4.16/s against a 1.5
+            // limit, and this test failed on the LAST TICK of 1003 -- which is what named it: a
+            // flicker in a fight does not happen exactly once, at the end, every time.
+            //
+            // The claim here is that the number does not jump about WHILE the player is watching a
+            // fight. The raid ending is not that, and the player seeing the rate go to zero when the
+            // clock stops is correct.
             var rates = new List<float>();
             while (raid.IsRunning)
             {
                 raid.Tick(0.02f);
-                rates.Add(raid.CurrentRate);
+                if (raid.IsRunning)
+                {
+                    rates.Add(raid.CurrentRate);
+                }
             }
 
             return rates;
