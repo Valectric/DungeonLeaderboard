@@ -48,7 +48,23 @@ One thing left marginal rather than fixed: the staggered health bars reach 1.56 
 nine-strong party against 1.6 units of camera margin. It fits, and it is 0.04 from not fitting. A
 taller party or a smaller margin breaks it.
 
-**The flip's last failure is narrowed but not closed, and here is exactly how far.** Parties that
+**The flip is now understood, and what it needs from here is a DECISION rather than more work.**
+With a harness validated against a known answer, THE IRONCLADS is alive at thirty seconds going east
+and wiped going north on the same seed and spawn rate — so the failure is real and not an artefact of
+the scenario. The frame shows why: the party is pushed back to the entrance and pinned there under a
+line of monsters spanning the corridor, with its back against the carved opening, which is a
+`Doorway` with no `Door` and passable to nobody.
+
+The obvious fix is to give the opening room a threshold the party can retreat through — which is the
+retreat valve SPEC calls the player's only mercy and which the opening room has never had. **That is
+your call, not a bug fix**, because D39 rejected a real door on the entrance for a good reason: the
+player could shut it and lose the raid by pressing the thing the tutorial tells them to press. A
+one-way threshold, or a door that cannot be closed, would need designing.
+
+The older narrative below is kept because it records four hypotheses that were tested and died, which
+is worth more than the conclusion.
+
+**How far it was narrowed before that, and by what.** Parties that
 survive a maximal ambush going east do not survive going north. Established: peak monsters in contact
 is identical on both layouts, so it is **not crowding**; what differs is *sustained* contact, and only
 for the two rosters that survive horizontally — THE IRONCLADS at a mean 3.0 in contact vertically
