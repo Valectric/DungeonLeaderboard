@@ -2,6 +2,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Dungeon.PartyManager;
 using Dungeon.RaidManager;
 using MooseRunner;
 using MooseRunner.SessionRecorder;
@@ -55,21 +56,48 @@ namespace Dungeon.Game.Tests
             SessionInfo info = await api.StartRecordingAsync(
                 new SessionRecordingConfig(camera, outputPath: SessionPath, videoFrameRate: 30), ct);
 
+            // THE IRONCLADS, because it is the roster that discriminates: the measurement has it
+            // surviving horizontally with 434 harvested and dying vertically. If this harness is
+            // now the same experiment, the horizontal recording must survive too.
+            PartyComposition ironclads = null;
+            foreach (PartyComposition c in PartyComposition.All)
+            {
+                if (c.Name == "THE IRONCLADS") { ironclads = c; }
+            }
+
             _game.SeedOverride = 1;
             _game.NewRun();
+            _game.NextParty = ironclads;
             _game.StartRaid();
 
-            // The maximal ambush the measurement used: a monster at every spawner, every frame.
+            // Spawns on a FIXED interval, not per frame, and the difference is not pedantry.
+            //
+            // This loop used to spawn once per rendered frame -- about 60 a second against the
+            // measurement's 50, since that ticks a bare Raid at a fixed 0.02s. Twenty percent more
+            // monsters, and it was enough to turn a survivor into a corpse: THE IRONCLADS survives
+            // horizontally in the measurement with 434 harvested and WIPED here. So the recording
+            // was a harsher game than the one the numbers describe, and no frame from it could be
+            // read against them. See D43 addendum 10.
+            const float spawnInterval = 0.02f;
             float elapsed = 0f;
+            float sinceSpawn = 0f;
+
             while (elapsed < 30f)
             {
                 Raid raid = _game.CurrentRaid;
-                if (raid != null && raid.IsRunning)
+                sinceSpawn += Time.deltaTime;
+
+                while (sinceSpawn >= spawnInterval)
                 {
-                    foreach (Vector2Int spawner in raid.Layout.SpawnerCells)
+                    if (raid != null && raid.IsRunning)
                     {
-                        raid.SpawnMob(spawner);
+                        foreach (Vector2Int spawner in raid.Layout.SpawnerCells)
+                        {
+                            raid.SpawnMob(spawner);
+                        }
                     }
+
+                    sinceSpawn -= spawnInterval;
                 }
 
                 await UniTask.Yield(ct);
