@@ -745,7 +745,8 @@ namespace Dungeon.Game
             if (!_raid.IsRunning)
             {
                 _review = RaidReview.For(
-                    _raid.Outcome, _raid.EnergyHarvested, _raid.Party.LivingCount);
+                    _raid.Outcome, _raid.EnergyHarvested, _raid.Party.LivingCount,
+                    _raid.Party.Members.Count);
                 _reviewAge = 0f;
                 _phase = Phase.Reviewing;
                 return;

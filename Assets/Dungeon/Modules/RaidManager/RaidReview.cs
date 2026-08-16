@@ -50,17 +50,24 @@ namespace Dungeon.RaidManager
         /// <param name="outcome">How the raid ended.</param>
         /// <param name="harvested">Energy taken from the party. This is the score.</param>
         /// <param name="survivors">How many adventurers walked out.</param>
+        /// <param name="partySize">How many walked in, so a wipe can be counted correctly.</param>
         /// <returns>The review.</returns>
-        public static RaidReview For(RaidOutcome outcome, float harvested, int survivors)
+        public static RaidReview For(
+            RaidOutcome outcome, float harvested, int survivors, int partySize = 4)
         {
             // A wipe is the worst outcome in the design and it is always the player's fault, so it
             // overrides the takings entirely. A dungeon can have a magnificent minute and still ruin
             // it in the last two seconds by killing the party, and the review has to say so.
             if (outcome == RaidOutcome.PartyWiped || survivors == 0)
             {
+                // Counted, not assumed. This line read "four death notices" until 2026-08-16,
+                // which was true for every party the game could send until the league started
+                // growing them -- from raid six a wipe is five notices, and from raid eighteen it
+                // is nine. A screen that miscounts the bodies it is reporting on is worse than one
+                // that does not count them at all.
                 return new RaidReview(1,
                     "NOBODY CAME BACK",
-                    "\"...\"  -- the guild, filing four death notices",
+                    $"\"...\"  -- the guild, filing {Spell(partySize)} death notices",
                     "DEAD ADVENTURERS PAY NOTHING.  WOUND THEM, DO NOT KILL THEM.");
             }
 
@@ -142,5 +149,26 @@ namespace Dungeon.RaidManager
                 : Stars >= 3 ? new Color(0.8f, 0.75f, 0.85f)
                 : new Color(0.9f, 0.4f, 0.4f);
         }
+
+        /// <summary>Spells a party size, because "filing 9 death notices" reads as a receipt.</summary>
+        /// <param name="count">How many bodies.</param>
+        /// <returns>The word, or the numeral for anything outside the party sizes the game sends.</returns>
+        private static string Spell(int count)
+        {
+            return count switch
+            {
+                1 => "one",
+                2 => "two",
+                3 => "three",
+                4 => "four",
+                5 => "five",
+                6 => "six",
+                7 => "seven",
+                8 => "eight",
+                9 => "nine",
+                _ => count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+        }
+
     }
 }
