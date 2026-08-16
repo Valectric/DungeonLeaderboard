@@ -1,3 +1,4 @@
+using Dungeon.PartyManager;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,7 +36,19 @@ namespace Dungeon.Game.Tests
         /// <returns>Microseconds per simulated tick.</returns>
         private static double CostPerTick(DungeonLayout layout, int mobsPerSpawner, string label)
         {
-            var raid = new Raid(layout);
+            return CostPerTick(layout, mobsPerSpawner, label, null);
+        }
+
+        /// <summary>Cost of a tick with a given roster, so a grown party can be priced.</summary>
+        /// <param name="layout">Dungeon to raid.</param>
+        /// <param name="mobsPerSpawner">Monsters to seed at each spawner.</param>
+        /// <param name="label">Name for the log line.</param>
+        /// <param name="composition">Roster to send in, or null for the opening four.</param>
+        /// <returns>Mean microseconds per tick.</returns>
+        private static double CostPerTick(
+            DungeonLayout layout, int mobsPerSpawner, string label, PartyComposition composition)
+        {
+            var raid = new Raid(layout, 0f, composition);
             foreach (Vector2Int spawner in layout.SpawnerCells)
             {
                 for (int i = 0; i < mobsPerSpawner; i++)
@@ -325,6 +338,40 @@ namespace Dungeon.Game.Tests
             }
 
             return new Vector2Int(-1, -1);
+        }
+
+        /// <summary>
+        /// A party of nine costs no more per tick than the budget allows.
+        /// </summary>
+        /// <remarks>
+        /// The league grows parties to nine (D39), and <b>nothing measured what that costs</b> --
+        /// <c>CostPerTick</c> built its raid with the default roster, which is the opening four, so
+        /// this sweep has only ever priced a party size the game no longer only sends. That is the
+        /// same gap that hid the economy effect in D42 and the wall behaviour in the M9 suite.
+        /// <para>
+        /// The expectation going in was that this would be expensive -- movement, AI and the energy
+        /// sum are all per member, so more than doubling the party looked like the largest single
+        /// increase in tick cost the game had taken. <b>Measured, it is 6%</b>: 334us at four against
+        /// 355us at nine. The tick is dominated by the monsters and their pathing, not by the party,
+        /// and the ramp is effectively free.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void APartyOfNine_StaysWithinTheTickBudget()
+        {
+            PartyComposition four = PartyComposition.Opening;
+            PartyComposition nine = four.Grown(PartyComposition.MaxSize);
+
+            double atFour = CostPerTick(DungeonLayout.BuildCorridor(), 2, "four", four);
+            double atNine = CostPerTick(DungeonLayout.BuildCorridor(), 2, "nine", nine);
+
+            MooseRunnerFacade.Log(
+                $"tick cost: four {atFour:F0} us, nine {atNine:F0} us, "
+                + $"{atNine / System.Math.Max(0.01, atFour):F2}x");
+
+            Assert.Less(atNine, 2000d,
+                $"a nine-strong party costs {atNine:F0} us a tick, which at fifty ticks a second is "
+                + "a tenth of a frame budget spent on simulation alone");
         }
     }
 }
