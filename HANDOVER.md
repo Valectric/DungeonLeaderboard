@@ -2,7 +2,7 @@
 
 ## Four decisions waiting for you — nothing else is blocked
 
-Every milestone is built, tested and shipped, and the suite is green at 336 tests across five
+Every milestone is built, tested and shipped, and the suite is green at 335 tests across five
 assemblies. These three are judgements rather than work, and each is now as well-evidenced as
 measurement can make it.
 
@@ -42,7 +42,7 @@ the instrument.
 
 ---
 
-**State: M1–M13 built, tested and SHIPPED. `main` is green at 336 tests and itch is serving
+**State: M1–M13 built, tested and SHIPPED. `main` is green at 335 tests and itch is serving
 `0.1.2608160325`. Nothing is held on a branch.**
 
 The whole loop runs: a six-second `DUNGEON LEAGUE` title, standings, a raid, the adventurers'
