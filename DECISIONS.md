@@ -1288,3 +1288,28 @@ The route that would work: serve a modified `index.html` pinning the canvas to 5
 **copy** of `Builds/`, never by editing the shipped one.
 
 So the fix is verified at ~1040x512, the size the build runs at locally, and unverified at the embed.
+
+### D33 closed — verified at 523x293, the size that showed both faults
+
+`serve-build.py --canvas 523x293` pins the canvas by rewriting `index.html` in memory, so the embed
+viewport is reachable without touching `Builds/`. Resizing the browser window does not work; that is
+recorded above.
+
+Photographed there on `0.1.2608160325`, all three lines clear with a gap above the verb bar:
+
+```
+DON'T KILL THE CHARGING TEAM
+HURT, ALIVE AND STILL INSIDE PAYS BEST
+TAP THE SLIME PIT TO HOLD THEM  -  TOO MANY AND THEY DIE
+─────────────────────────────────────────────────────────
+TAP A DOOR TO STALL / A SPAWNER TO AMBUSH / A TRAP TO WOUND / …
+```
+
+**Two faults lived in this one block, and neither was visible at 1280x720.** The party walked through
+it at ~1040x512; the verb bar collided with it at 523x293. Every editor capture is 1280x720, which is
+the one size where both looked correct — so the block was tuned against the only viewport that could
+not show it wrong, twice.
+
+The general lesson is narrower than "photograph the game", which this project already knew. It is:
+**photograph it at the size it ships at.** For this game that is 523x293, and until tonight nothing
+had ever rendered a frame there.
