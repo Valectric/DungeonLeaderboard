@@ -93,7 +93,16 @@ namespace Dungeon.Game
         /// and variety the player cannot see before they have to act on it is just noise -- they
         /// would learn only afterwards that the party they killed had no healer.
         /// </remarks>
-        public PartyComposition NextParty => _nextParty;
+        /// <remarks>
+        /// Settable for the same reason <see cref="SeedOverride"/> is: to reach a state worth looking
+        /// at without playing the raids that would otherwise produce it. Carried across from main,
+        /// where it was added after this branch was cut.
+        /// </remarks>
+        public PartyComposition NextParty
+        {
+            get => _nextParty;
+            set => _nextParty = value;
+        }
 
         /// <summary>The raid in progress. Read-only; tests observe, they do not drive.</summary>
         public Raid CurrentRaid => _raid;
