@@ -2280,3 +2280,39 @@ adjacent to the question.** The pattern across all of them is one thing: two num
 without checking that everything else about how they were produced was the same. Peak versus mean.
 Whole raids of different lengths. A branch that never runs. And now two harnesses at different spawn
 rates. Every one looked like a finding until the second question was asked.
+
+### D43 addendum 11 — the harness is fixed, and with it the answer is real
+
+Addendum 10 found the recording harness was not the same experiment as the measurement: it spawned
+once per rendered frame, about 60 a second, against a fixed 0.02s tick at 50. Fixed to spawn on the
+same interval, and **validated against a known answer before being trusted**: THE IRONCLADS, the
+roster that survives horizontally in the measurement, must now survive in the recording.
+
+It does. Horizontal comes back **InProgress at thirty seconds** — alive and still raiding — where the
+per-frame harness wiped it.
+
+**So the comparison is finally like for like, and the result stands:**
+
+| | horizontal | vertical |
+|---|---|---|
+| THE IRONCLADS, matched harness | **alive at 30s** | **wiped** |
+
+Same roster, same seed, same spawn rate, same everything but the axis. **The flip's failure is real
+and not an artefact of an over-harsh scenario**, which is what four earlier hypotheses could not
+establish because none of them controlled the harness.
+
+The frame at twelve seconds shows the party **pinned at the bottom of the corridor against the
+entrance**, with a wall of slimes filling the width above them and `+ CROWD x11` on the HUD. The wall
+behind them is the carved entrance — a `Doorway` with no `Door`, and so passable to nobody.
+
+**One slip worth recording**: both runs wrote to the same session path, so the vertical overwrote the
+horizontal recording. The outcomes survived in the log; the horizontal frames did not. A comparison
+that depends on two recordings needs two paths, and this file already carries a page about reading
+overwritten screenshots.
+
+**Where that leaves it.** The mechanism is now evidenced rather than guessed: a vertical corridor lets
+monsters form a line across the party's only route while the party's back is against a wall it cannot
+walk through. Whether that is a bug or simply what a north-south dungeon is like is a design question,
+and the cheapest test of it is to give the entrance a real threshold the party can retreat through --
+which is precisely the retreat valve SPEC calls the player's only mercy, and which the opening room
+has never had.
