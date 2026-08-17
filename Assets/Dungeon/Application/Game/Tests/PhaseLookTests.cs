@@ -204,11 +204,29 @@ namespace Dungeon.Game.Tests
         /// photograph as well as a fix: the layout around a shrinking table is full of numbers
         /// written for the size it started at.
         /// </remarks>
+        /// <remarks>
+        /// <b>This photographed a raid for as long as it existed.</b> It opened with
+        /// <c>Advance()</c>, and at round zero <c>Advance</c> calls <c>StartRaid</c> and sets
+        /// <c>Phase.Raiding</c> — so every frame it captured was the raid HUD with the standings
+        /// <i>strip</i> down the side, and the standings <i>screen</i> it is named for was never
+        /// looked at by anything. The assertion could not catch it because it asked about the league
+        /// <b>table</b> — that the field had shrunk — and never about what was drawn. An instrument
+        /// pointed next to its own question, which is the failure this repository keeps finding.
+        /// <para>
+        /// It reached further than the test. <c>Tools/make-itch-art.py</c> builds the store page from
+        /// these frames, and this one becomes <c>screenshot-4-the-league-is-an-elimination</c> — so
+        /// the itch page's picture of the league was a picture of a raid.
+        /// </para>
+        /// </remarks>
         [Test]
         public async UniTask TheMidSeasonStandings_ArePhotographed(CancellationToken ct)
         {
-            _game.Advance();
-            await UniTask.Yield(ct);
+            // Wait the opening card out rather than pressing past it: Advance() would start a raid,
+            // and the standings are where the game arrives on its own.
+            await UniTask.WaitForSeconds(LoadingScreen.Seconds + 2f, cancellationToken: ct);
+
+            Assert.IsTrue(_game.IsShowingStandings,
+                "the game should have reached the standings by itself before this photographs them");
 
             // A strong player, five rounds in: the field is half gone and the player is top.
             for (int round = 0; round < 5 && _game.League.Entries.Count > 6; round++)
@@ -231,6 +249,12 @@ namespace Dungeon.Game.Tests
 
             Assert.Less(_game.League.Entries.Count, LeagueTable.Size,
                 "the field never shrank, so this photographed the opening table");
+
+            // The check the original was missing, and the reason it drifted unnoticed for so long:
+            // the one above asks about the league, and this asks about the screen.
+            Assert.IsTrue(_game.IsShowingStandings,
+                "the game left the standings before the frame was taken, so this photographed some "
+                + "other screen -- which is exactly what it did while it opened with Advance()");
         }
 
         /// <summary>
