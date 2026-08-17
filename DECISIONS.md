@@ -2805,3 +2805,78 @@ inversion SPEC.md asks for, stated in the harshest terms the numbers allow.
 
 Worth recording because the rule is the one thing in this project that cannot be allowed to drift
 quietly, and five changes in one day is exactly the circumstance in which it would.
+
+## 2026-08-17 — D51. What a minute of this game actually is
+
+Every rate in this project had been measured except the ones that describe *play*. The wound curve,
+the room bonus, the harvest distribution, the retreat valve and the shop purse all had figures; what
+a player's sixty seconds consists of, and whether their one decision is a real one, did not. Three
+measurements, each answering the question the last one raised.
+
+### 1. The action mix — the party flees twice as much as it fights
+
+`EnergyCurve` prices fighting at 3.0 and walking at 0.06, so the mix of actions *is* the economy.
+
+```
+party of 4:  Fleeing 30%   Shooting 29%   Walking 23%   Fighting 18%
+party of 9:  Fleeing 33%   Shooting 27%   Walking 24%   Fighting 16%
+```
+
+76% of member-time is spent at something that pays, which is healthy. The surprise is that **fleeing
+is the largest single action and fighting the smallest** — and fleeing pays a quarter of what
+fighting does. That is a direct consequence of repairing the retreat valve the same day (D48):
+before it, a party under pressure did not run, it died. Fleeing still pays twelve times walking, so a
+retreating party earns rather than wastes the clock, but the number the player is chasing is the one
+they see least of.
+
+### 2. The greed curve — the decision is real, and its top is flat
+
+The player has exactly one judgement: press while they can take it, stop before they die.
+
+```
+stop at  5%   260 harvested   3.7 dead     (reckless)
+stop at 20%   280             3.5
+stop at 35%   301             3.5
+stop at 50%   510             2.5          <-- best
+stop at 65%   458             3.7
+stop at 80%   482             0.0          (timid)
+```
+
+It peaks in the middle, so the decision exists and **recklessness banks half** what the best policy
+does — the corpse penalty is doing its job.
+
+**But timidity banks 482 against the peak's 510, with nobody dying at all.** The game punishes greed
+hard and rewards precision barely. The lesson a player must learn is "do not over-commit"; once they
+have it, hunting the sweet spot is worth six percent.
+
+### 3. Why — and it is not the wound curve
+
+```
+100-80%   48.3% of time   pays 1.00x    32.1% of the earning
+ 80-60%   19.4%           pays 1.02x    13.2%
+ 60-40%   19.3%           pays 1.28x    16.4%
+ 40-20%    7.7%           pays 2.51x    12.9%
+ 20-5%     2.8%           pays 5.62x    10.5%
+   <5%     2.5%           pays 8.93x    14.8%
+```
+
+A third of member-time sits below 60% health and produces **55% of the earning**; the bottom two
+bands are 5% of the time and a quarter of the money. **CLAUDE.md's central claim — that most of the
+money is in the last sliver of a health bar — is true as measured.** The curve is not the problem.
+
+**The cause is that the cease-fire controls SPAWNING, not damage.** A timid player stops adding
+monsters, but the ones already in the room keep swinging: the party still falls through the paying
+bands and still collects the multiplier, while the deaths that come from over-committing are avoided.
+Caution captures most of the upside because the upside is *already in flight* by the time the player
+decides to stop.
+
+### What this leaves for the author
+
+If precision should pay more than caution, the lever is **the marginal value of one more spawn
+against its death risk** — not the steepness of a curve that is already working. Nothing was turned:
+that is a balance judgement, and the point of a diagnostic is to hand over the mechanism instead of a
+guess.
+
+The three tests keep the figures honest as the game changes. All three assert loosely — a third of
+time at paying actions, a peak that is neither extreme, some time below 60% health — because tight
+bounds here would be balance opinions smuggled into a suite.
