@@ -130,6 +130,9 @@ namespace Dungeon.PartyManager
 
         private readonly List<Adventurer> _members = new();
         private readonly MarchingOrder _order;
+
+        /// <summary>Finds the shut door in the party's way, and where to stand to force it.</summary>
+        private readonly DoorSearch _doors;
         private readonly DungeonGrid _grid;
         private readonly Vector2Int _bossCell;
         private readonly IReadOnlyList<Vector2Int> _roomCentres;
@@ -339,6 +342,7 @@ namespace Dungeon.PartyManager
         {
             _grid = grid;
             _order = new MarchingOrder(grid);
+            _doors = new DoorSearch(grid, entranceCell, bossCell);
             _entranceCell = entranceCell;
             _bossCell = bossCell;
             // Whether the caller described a real dungeon or left it to be inferred. Tests written
@@ -417,8 +421,10 @@ namespace Dungeon.PartyManager
                 // Run for the door rather than for the entrance when a shut one is in the way. The
                 // entrance is unreachable through it, so pathing there returns nothing and the party
                 // simply stands still -- which is what a player who shut the door behind them saw.
-                Door barred = DoorBlockingExit(leader);
-                Vector2Int refuge = barred != null ? ApproachCell(barred, leader) : _entranceCell;
+                Door barred = _doors.TowardExit(leader);
+                Vector2Int refuge = barred != null
+                    ? _doors.ApproachCell(barred, leader)
+                    : _entranceCell;
 
                 MoveAlongPath(leader, refuge, deltaTime, traps);
                 _order.Record(leader.Position, _members.Count);
@@ -615,10 +621,10 @@ namespace Dungeon.PartyManager
             // walkable, so pathing to its own cell returns no route at all and the party simply
             // stands where it is -- which is exactly what happened: nobody ever reached a door to
             // work on it, and every roster made precisely zero progress.
-            Door blocking = BlockingDoor(leader);
+            Door blocking = _doors.TowardBoss(leader);
             if (blocking != null)
             {
-                return ApproachCell(blocking, leader);
+                return _doors.ApproachCell(blocking, leader);
             }
 
             // Explore rather than walk a line to a fixed boss room: head for the nearest room not
@@ -645,160 +651,6 @@ namespace Dungeon.PartyManager
             return destination;
         }
 
-        /// <summary>
-        /// The shut door standing between the party and the boss room, if any.
-        /// </summary>
-        /// <remarks>
-        /// Found by asking which door the party would path through if every door were open, then
-        /// checking whether that one is actually shut. Pathfinding cannot answer this directly --
-        /// a closed door is simply not walkable, so the route it would have been on does not exist.
-        /// </remarks>
-        /// <param name="leader">Whoever is at the front.</param>
-        /// <returns>The door to deal with, or null when the way is clear.</returns>
-        private Door BlockingDoor(Adventurer leader)
-        {
-            return ShutDoorOnWayTo(_bossCell, leader);
-        }
-
-        /// <summary>
-        /// The shut door standing between the party and the way out, if any.
-        /// </summary>
-        /// <remarks>
-        /// A retreating party has a different obstacle from an advancing one, and asking the wrong
-        /// question strands them: the door barring the route deeper is frequently not the door
-        /// barring the route home. Shutting the door a party has just walked through is the player's
-        /// most natural move, and it used to leave them standing against it for the rest of the raid.
-        /// </remarks>
-        /// <param name="leader">Whoever is at the front.</param>
-        /// <returns>The door to deal with, or null when the way out is clear.</returns>
-        private Door DoorBlockingExit(Adventurer leader)
-        {
-            return ShutDoorOnWayTo(_entranceCell, leader);
-        }
-
-        /// <summary>
-        /// The shut door standing between the party and somewhere it wants to be.
-        /// </summary>
-        /// <remarks>
-        /// Found by asking whether a route exists at all, then looking for a shut door on this
-        /// room's threshold. Pathfinding cannot answer this directly -- a closed door is simply not
-        /// walkable, so the route it would have been on does not exist.
-        /// </remarks>
-        /// <param name="destination">Where the party is trying to get to.</param>
-        /// <param name="leader">Whoever is at the front.</param>
-        /// <returns>The door to deal with, or null when the way is clear.</returns>
-        private Door ShutDoorOnWayTo(Vector2Int destination, Adventurer leader)
-        {
-            if (leader.Cell == destination || _grid.FindPath(leader.Cell, destination).Count > 0)
-            {
-                return null;
-            }
-
-            int room = _grid.RoomAt(leader.Cell);
-            Door nearest = null;
-            float best = float.MaxValue;
-
-            foreach (Door door in _grid.Doors)
-            {
-                // Only a door on this room's threshold, and only one that still bars the way.
-                if (door.IsOpen || (door.RoomA != room && door.RoomB != room))
-                {
-                    continue;
-                }
-
-                float distance = Vector2.Distance(leader.Position, door.Cell);
-                if (distance < best)
-                {
-                    best = distance;
-                    nearest = door;
-                }
-            }
-
-            // Nothing shut on this room's threshold, yet the boss room is still unreachable: the
-            // party has already opened its own way out and the next door along is somebody else's
-            // threshold. Without this the objective fell through to a boss cell no path could reach,
-            // MoveAlongPath had nowhere to go, and the party STOOD STILL FOR THE REST OF THE RAID.
-            //
-            // Measured with every door shut: all six rosters forced the first door at six or seven
-            // seconds and then sat at cell (5,3) in room zero for the remaining fifty-three,
-            // earning the idle floor. Two tests had encoded that as correct -- one asserting the
-            // party is still in the first room after twenty seconds, one expecting the clock to run
-            // out -- so the freeze was protected rather than caught.
-            return nearest ?? NearestReachableShutDoor(leader);
-        }
-
-        /// <summary>
-        /// The nearest shut door the party can actually walk to, wherever it is.
-        /// </summary>
-        /// <remarks>
-        /// The fallback for a party that has opened its own room and now needs to cross another to
-        /// reach the next obstacle. Reachability is the whole point: a door behind two more shut
-        /// doors is no use as an objective, and pathing to it would strand the party exactly as
-        /// before.
-        /// </remarks>
-        /// <param name="leader">Whoever is at the front.</param>
-        /// <returns>A shut door with a walkable route to it, or null.</returns>
-        private Door NearestReachableShutDoor(Adventurer leader)
-        {
-            Door nearest = null;
-            int shortest = int.MaxValue;
-
-            foreach (Door door in _grid.Doors)
-            {
-                if (door.IsOpen)
-                {
-                    continue;
-                }
-
-                Vector2Int approach = ApproachCell(door, leader);
-                if (approach == leader.Cell)
-                {
-                    return door;
-                }
-
-                List<Vector2Int> route = _grid.FindPath(leader.Cell, approach);
-                if (route.Count > 0 && route.Count < shortest)
-                {
-                    shortest = route.Count;
-                    nearest = door;
-                }
-            }
-
-            return nearest;
-        }
-
-        /// <summary>
-        /// The walkable square beside a door, on the party's side of it.
-        /// </summary>
-        /// <param name="door">Door to approach.</param>
-        /// <param name="leader">Whoever is at the front.</param>
-        /// <returns>A cell to stand on, or the door's own cell if none is walkable.</returns>
-        private Vector2Int ApproachCell(Door door, Adventurer leader)
-        {
-            Vector2Int best = door.Cell;
-            float bestDistance = float.MaxValue;
-
-            foreach (Vector2Int step in new[]
-                     {
-                         Vector2Int.left, Vector2Int.right, Vector2Int.up, Vector2Int.down
-                     })
-            {
-                Vector2Int candidate = door.Cell + step;
-                if (!_grid.IsWalkable(candidate))
-                {
-                    continue;
-                }
-
-                float distance = Vector2.Distance(leader.Position, candidate);
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    best = candidate;
-                }
-            }
-
-            return best;
-        }
 
         /// <summary>Moves one adventurer toward a point.</summary>
         /// <param name="member">Who is moving.</param>
@@ -969,7 +821,7 @@ namespace Dungeon.PartyManager
                 return;
             }
 
-            Door door = fleeing ? DoorBlockingExit(leader) : BlockingDoor(leader);
+            Door door = fleeing ? _doors.TowardExit(leader) : _doors.TowardBoss(leader);
             if (door == null)
             {
                 return;
