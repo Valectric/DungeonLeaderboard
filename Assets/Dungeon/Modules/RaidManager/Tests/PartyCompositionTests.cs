@@ -199,12 +199,20 @@ namespace Dungeon.RaidManager.Tests
                 float startX = raid.Party.Position.x;
 
                 // No mobs at all, so there is nothing to fight and nothing to explain standing still.
+                //
+                // FURTHEST reached, not where they ended up. A party that has seen everything walks
+                // back out, so net displacement measures "is the round trip finished" rather than
+                // "did they advance" -- and once the party got 30% faster it finished that trip
+                // inside this window and read as 0.5 cells travelled, having reached 12.3 on the
+                // way. The question this test asks is whether they go anywhere at all.
+                float furthest = 0f;
                 for (int step = 0; step < 1000 && raid.IsRunning; step++)
                 {
                     raid.Tick(0.02f);
+                    furthest = Mathf.Max(furthest, raid.Party.Position.x - startX);
                 }
 
-                float travelled = raid.Party.Position.x - startX;
+                float travelled = furthest;
                 MooseRunnerFacade.Log(
                     $"{composition.Name} travelled {travelled:F1} cells in twenty seconds");
 
@@ -243,12 +251,17 @@ namespace Dungeon.RaidManager.Tests
             }
 
             float afterDeath = raid.Party.Position.x;
+
+            // Furthest, not final -- see the note in EveryComposition_ActuallyAdvances. A party
+            // that turns for the exit inside the window would otherwise read as one that stopped.
+            float furthest = 0f;
             for (int step = 0; step < 600 && raid.IsRunning; step++)
             {
                 raid.Tick(0.02f);
+                furthest = Mathf.Max(furthest, raid.Party.Position.x - afterDeath);
             }
 
-            float travelled = raid.Party.Position.x - afterDeath;
+            float travelled = furthest;
             MooseRunnerFacade.Log($"leaderless party travelled {travelled:F1} cells after the tank died");
             Assert.Greater(travelled, 3f, "the party stopped dead when its tank died");
         }

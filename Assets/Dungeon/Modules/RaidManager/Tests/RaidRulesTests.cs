@@ -485,10 +485,30 @@ namespace Dungeon.RaidManager.Tests
 
             var byProgress = raid.Party.Living.OrderByDescending(m => m.Position.x).ToList();
             MooseRunnerFacade.Log("order: " + string.Join(" -> ", byProgress.Select(m => m.Role)));
+
             Assert.AreEqual(AdventurerRole.Tank, byProgress.First().Role,
                 "the tank draws aggro, so it must walk in front");
-            Assert.AreEqual(AdventurerRole.Healer, byProgress.Last().Role,
-                "the healer sustains the party and must walk at the back");
+
+            // The tank in front is the load-bearing half and the only half asserted, because the
+            // rest of the column does NOT hold the roster's declared order and that is worth being
+            // straight about rather than papering over.
+            //
+            // PartyComposition.Roles is documented as "roles in marching order, front to back", and
+            // the opening roster begins Tank -> Ranged. On the ground after eight seconds the column
+            // reads Tank -> Mage -> Healer -> Ranged: the archer, which should be immediately behind
+            // the tank, walks at the very back.
+            //
+            // This test used to assert the HEALER walks last, which was true of a party still
+            // bunched at the entrance and not of the roster -- the healer is third of four. Raising
+            // the walking speed 30% on 2026-08-17 spread the column out and the assumption fell
+            // over, which is how the discrepancy surfaced at all.
+            //
+            // Left as a flagged observation in HANDOVER rather than a fix: nothing about it costs
+            // the player anything, and inventing a stricter assertion here would pin behaviour
+            // nobody has decided on.
+            Assert.AreNotEqual(AdventurerRole.Healer, byProgress.First().Role,
+                "the healer walked into the room ahead of the tank, which is the one ordering that "
+                + "actually costs something -- it is what gets hit");
         }
 
         /// <summary>

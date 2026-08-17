@@ -76,7 +76,15 @@ namespace Dungeon.PartyManager
         /// Guarded by <c>UnopposedParty_TakesMostOfTheClockToCross</c>.
         /// </para>
         /// </remarks>
-        public const float WalkSpeed = 0.9f;
+        /// <remarks>
+        /// <b>Raised thirty percent on the author's instruction</b>, 0.9 to 1.17, with
+        /// <c>MobPack.ChaseSpeed</c> cut by the same share in the same breath — <i>"right now they
+        /// are moving so slow, so it's really hard to make any progress into a dungeon"</i>. The
+        /// two together close a gap that was better than two to one: a mob closed at 1.9 against a
+        /// party walking at 0.9, so anything spawned arrived wherever the party was and the party
+        /// never reached anywhere.
+        /// </remarks>
+        public const float WalkSpeed = 1.17f;
 
         /// <summary>
         /// How fast the party is currently moving, as a fraction of its normal pace.

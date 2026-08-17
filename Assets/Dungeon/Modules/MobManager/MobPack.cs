@@ -158,8 +158,24 @@ namespace Dungeon.MobManager
         private readonly List<Mob> _mobs = new();
         private readonly DungeonGrid _grid;
 
-        /// <summary>Cells a mob shuffles per second while closing on the party.</summary>
-        public const float ChaseSpeed = 1.9f;
+        /// <summary>
+        /// Cells a mob shuffles per second while closing on the party.
+        /// </summary>
+        /// <remarks>
+        /// <b>Cut by thirty percent on the author's instruction</b>, 1.9 to 1.33, alongside the same
+        /// rise in <see cref="PartyManager.Party.WalkSpeed"/> — <i>"it's really hard to make any
+        /// progress into a dungeon"</i>. Both slimes and skeletons move at this one speed, so the
+        /// single constant covers the whole instruction.
+        /// <para>
+        /// The pair matters more than either number. A mob used to close at 1.9 against a party
+        /// walking at 0.9, better than two to one, so anything that spawned reached the party
+        /// wherever it was and the party never got anywhere. It is now 1.33 against 1.17 — still
+        /// faster, because nobody outruns a monster in a straight line and the fragile roles' panic
+        /// speeds are built on losing that race, but no longer fast enough to make a spawn a
+        /// certainty.
+        /// </para>
+        /// </remarks>
+        public const float ChaseSpeed = 1.33f;
 
         /// <summary>Every mob ever spawned, including the dead.</summary>
         public IReadOnlyList<Mob> Mobs => _mobs;

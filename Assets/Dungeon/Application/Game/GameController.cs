@@ -68,6 +68,9 @@ namespace Dungeon.Game
 
         /// <summary>Seconds the loading screen has been up.</summary>
         private float _loadingAge;
+
+        /// <summary>Seconds the winning card has been up, so it can be held before a key works.</summary>
+        private float _wonAge;
         private float _shift = 1f;
         private int _finalPosition;
         private Shop _shop;
@@ -713,6 +716,11 @@ namespace Dungeon.Game
                 return;
             }
 
+            if (_phase == Phase.Won)
+            {
+                _wonAge += Time.deltaTime;
+            }
+
             if (_phase == Phase.Loading)
             {
                 _loadingAge += Time.deltaTime;
@@ -901,6 +909,7 @@ namespace Dungeon.Game
             {
                 _finalPosition = 1;
                 _phase = Phase.Won;
+                _wonAge = 0f;
                 return;
             }
 
@@ -927,6 +936,14 @@ namespace Dungeon.Game
 
             if (_phase is Phase.Destroyed or Phase.Won)
             {
+                // The winning card is held for a few seconds before a key will dismiss it. A player
+                // who has just won is usually still pressing to clear the review, and without this
+                // they would blow straight through the one screen the whole season was played for.
+                if (_phase == Phase.Won && _wonAge < VictoryScreen.Seconds)
+                {
+                    return;
+                }
+
                 NewRun();
                 return;
             }
@@ -1321,6 +1338,15 @@ namespace Dungeon.Game
             if (_phase == Phase.Reviewing)
             {
                 ReviewScreen.Draw(_review, _raid.EnergyHarvested, scale, _reviewAge);
+                return;
+            }
+
+            // The winning ending gets a screen of its own rather than the standings with a
+            // different sentence under them -- which is what a losing player sees, and reading the
+            // same table either way is what made the win land as an anticlimax.
+            if (_phase == Phase.Won)
+            {
+                VictoryScreen.Draw(_league.Player.Score, scale, _wonAge);
                 return;
             }
 
