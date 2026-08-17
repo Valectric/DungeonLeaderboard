@@ -2702,3 +2702,61 @@ rate. Recorded here so the cost is known before somebody starts.
 
 Until then: `best >= 6` and `best per season` are trustworthy, and the win count should be read as
 *"between a third and a half"* rather than as a number.
+
+## 2026-08-17 — D50. The mobile interface sweep: one report, five defects
+
+The author, playing on a phone: *"the UI that pops up when clicking on the ground is way too small
+on mobile, let's make it 3 times larger."* One report. Sweeping the rest of the interface for the
+same class of fault found **four more**, three of them on screens nobody had mentioned.
+
+| where | what | measured on a 360x780 phone |
+|---|---|---|
+| tile menu | rows too small | 26px → **78px** |
+| tile menu | type did not follow the rows | 11px type in a 78px box |
+| tile menu | frame drawn from a second copy of the formula | box no longer around its rows |
+| title screen | longest line spilled off **both** edges | 11px over a 360px screen |
+| review screen | no size floor at all | quip and lesson at **4px** |
+| raid HUD | one floor out of five | captions at 4px, the rate at 15px |
+| shop | Ready button and purse unfloored | button **174x14**, caption 5px |
+
+### The pattern, which is worth more than the fixes
+
+**Three screens had no floor on the interface scale, and three had one.** `LeagueScreen` carries
+thirteen `Mathf.Max` floors and `ShopScreen` five, so the idea was clearly understood — it had simply
+been applied where somebody had noticed a problem, and nowhere else. On a portrait phone the scale is
+`min(360/1280, 780/720)` = **0.28**, so anything unfloored draws at a quarter size.
+
+The floor belongs on the **scale**, not on each font, and that was learned the hard way twice: every
+offset on these screens is derived from the same scale, so flooring the type alone grows text inside
+a layout that did not grow with it, and lines collide instead of being small.
+
+### The technique that found them
+
+**Measure the real font, from inside `OnGUI`.** `GUIStyle.CalcSize` is exact and `GUI.skin` throws
+anywhere else, so a test that wants a true width has to get itself into a real IMGUI frame — a small
+`MonoBehaviour` whose `OnGUI` does the measuring. Text width is not guessable from character counts:
+the first estimate here was out by 30%.
+
+**And the test must ask production what it will draw.** `ShopScreen.NameFontSize`,
+`ShopScreen.ReadyFontSize`, `LeagueScreen.Announcement` and `LeagueScreen.FittedAnnouncementFontSize`
+are public for exactly that. The 2026-08-16 phone defects got past a resolution sweep that carried
+its own stale copy of a font size; a test that restates the arithmetic only proves the arithmetic
+agrees with itself.
+
+### Three self-inflicted faults on the way, all caught by measurement
+
+1. **Tripling the floors enlarged the desktop too.** 26 × 3 = 78 is above the 30 a 1280x720 screen
+   computes, so the floor began binding where it never had. The rule is now "was the old floor doing
+   the work?", which enlarges exactly the screens that needed rescuing.
+2. **Deciding the three dimensions independently let them disagree.** At 1024x768 the row height
+   tripled and the width did not, putting 33px type in a 114px box. A menu is one object and grows as
+   one.
+3. **A shrink-to-fit that was rounded instead of floored overflowed by one pixel**, because the style
+   draws at `RoundToInt` of what the fit returns.
+
+### What is still not verified
+
+**None of this has been seen on a real phone.** `resize_window` does not change what the screenshot
+API captures, and an attempt to play the itch embed down to the shop ended in renderer timeouts. The
+geometry and the type are measured at every shipped resolution and the desktop case is photographed;
+the phone case is arithmetic. Worth one look on the author's own handset.
