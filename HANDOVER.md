@@ -113,6 +113,35 @@ cautious player still collects the multiplier from fights already in flight, and
 So if precision should pay more, the lever is the marginal value of one more spawn against its death
 risk. I turned nothing.
 
+**Code structure, measured rather than felt.** You asked; the honest answer is that it is not good
+against this project's own `ArchitectureGuidelines.md`, and I made it worse before making it better.
+
+| | cap | actual |
+|---|---|---|
+| files over 400 lines | 0 | **10** (was 5 when last audited, 11 before I split ShopScreen) |
+| `Party.cs` | 400 | **1475** raw / 727 logical |
+| `GameController.cs` | 400 | **1418** raw / 684 logical |
+| `Application/Game` | 2000 LOC | **2762** logical |
+
+The modules are healthy — largest is PartyManager at 1324 of 2000 — and the boundaries hold: no
+cross-module `.Internal` access, no interfaces, XML docs throughout. **The debt is two god-files and
+the UI layer**, not the architecture.
+
+I split `ShopScreen` (710 → 384) because today's mobile work put 319 lines into it; geometry and
+hit-testing now live in `ShopLayout`, and they stay together there deliberately, because separating
+them is the one cut that could reintroduce "drawn in one place, clicked in another".
+
+**I stopped short of `Party.cs` on purpose.** Its most cohesive cluster — the trail and the marching
+order — is about 140 lines, which would leave the file at ~1335 and still three times the cap. A
+partial refactor of the hottest gameplay path for a modest gain is not a trade worth making without
+you: the real cut is movement / combat / doors / looting, and which way it goes is a design call.
+`GameController` is the same story — phase machine plus the entire IMGUI.
+
+**Also unfinished and cheap: your itch page has no description or screenshots.** `Marketing/`
+contains `ITCH-PAGE.md` and five captioned screenshots, prepared and never applied. It is the first
+thing a jam voter sees. I have not touched it, because publishing copy in your name is yours to
+approve.
+
 **What still needs your judgement**
 
 **0. Nine health bars cannot be read on a phone, and it is geometry (D45 addendum).** Newly
