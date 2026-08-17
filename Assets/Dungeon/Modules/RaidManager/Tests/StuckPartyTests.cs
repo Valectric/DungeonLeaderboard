@@ -185,5 +185,61 @@ namespace Dungeon.RaidManager.Tests
                 + "at, so something has made a known stall longer. See DECISIONS.md on the "
                 + "decimated-party stall, and the four fixes that were tried");
         }
+
+        /// <summary>
+        /// The stall reproduces in the dungeon the game actually ships, not only in a swept one.
+        /// </summary>
+        /// <remarks>
+        /// The qualifier the author needs before deciding what to do about D52. The sweep above
+        /// builds its own corridors and furnishes them by hand, so a stall there could in principle
+        /// be an artefact of a layout the game never produces. This builds the dungeon the way
+        /// <c>GameController.BuildFromLoadout</c> does — one room to start, furnished as the opening
+        /// corridor is — and asks the same question.
+        /// <para>
+        /// <b>Measured 2026-08-17: the opener does not stall at all.</b> The 30.9-second stall needs
+        /// three rooms, which a player only reaches by buying halls — so a jam voter playing a round
+        /// or two never meets it, and D52 is a mid-run defect rather than a first-impression one.
+        /// That is the whole reason to measure it separately.
+        /// </para>
+        /// <para>
+        /// Held to the ORIGINAL twelve-second standard rather than the 33-second regression guard the
+        /// sweep uses, because the opener is clean and must stay that way: whatever is decided about
+        /// the decimated-party stall, it must not arrive in round one.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheStall_IsMeasuredInTheShippedDungeonToo()
+        {
+            // One room, furnished the way the game furnishes its opener.
+            DungeonLayout shipped = DungeonLayout.Build(
+                RoomPlan.Corridor(1), furnishedRooms: 1);
+
+            float worst = 0f;
+            string worstCase = string.Empty;
+
+            foreach (PartyComposition roster in PartyComposition.All)
+            {
+                foreach (bool pressure in new[] { false, true })
+                {
+                    (float seconds, Vector2Int _, string _) =
+                        LongestStall(shipped, roster, 20260817, pressure);
+
+                    if (seconds > worst)
+                    {
+                        worst = seconds;
+                        worstCase = $"{roster.Name}, " + (pressure ? "under pressure" : "unopposed");
+                    }
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"SHIPPED opening dungeon: longest motionless stretch {worst:F1}s "
+                + (string.IsNullOrEmpty(worstCase) ? "(no roster stalled at all)" : $"({worstCase})"));
+
+            Assert.Less(worst, 12f,
+                $"the dungeon a new player opens on stalls for {worst:F1}s ({worstCase}). The "
+                + "decimated-party stall of D52 needs three rooms and so is a mid-run defect; this "
+                + "one would be the first thing a jam voter saw");
+        }
     }
 }

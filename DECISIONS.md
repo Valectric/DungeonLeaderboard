@@ -3030,3 +3030,18 @@ one. The options, with what each costs:
 `StuckPartyTests` sweeps 54 raids and now guards at **33 seconds**, just above the observed worst, so
 the stall cannot get longer while this is open. That number is a regression guard on a known defect,
 not a standard; the figure to return to is the 12 seconds the test was written with.
+
+### D52 addendum — it is a mid-run defect, not a first-impression one
+
+Measured in the dungeon the game actually opens on — one room, furnished the way
+`GameController.BuildFromLoadout` furnishes it — across every roster, with and without pressure:
+**0.0 seconds. No roster stalls at all.**
+
+The 30.9-second stall needs **three rooms**, which a player only reaches by buying halls. So a jam
+voter who plays a round or two never meets it, and the defect belongs to a run that is already going
+badly several rounds in. That does not make it acceptable; it does mean it is not the thing costing
+votes, and it should be weighed against the other open decisions accordingly.
+
+`StuckPartyTests` now holds the opener to the **original twelve-second standard** rather than the
+33-second regression guard the sweep uses. Whatever is decided about the decimated party, it must not
+arrive in round one.
