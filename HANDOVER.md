@@ -95,6 +95,24 @@ was followed exactly and still shipped a wasm of zero bytes, because it watched 
 another was mid-write. Live for about six minutes. The rule is corrected and `Tools/publish-itch.sh`
 now refuses to upload an unfinished build — tested by truncating the wasm and confirming it exits 1.
 
+**A seventh thing for you, and the most interesting: precision barely pays (D51).** Three
+measurements that describe what a minute of this game *is*, none of which existed yesterday.
+
+The party **flees twice as much as it fights** (33% against 16%), which is a consequence of repairing
+the retreat valve — before that, a party under pressure died rather than ran.
+
+Your one decision is real: recklessness banks **half** what the best policy does. But **timidity
+banks 482 against the peak's 510, with nobody dying** — six percent apart. The game punishes greed
+hard and rewards precision barely.
+
+It is **not** the wound curve, which measures as doing exactly its job: a third of member-time is
+below 60% health and produces 55% of the earning, and the bottom two bands are 5% of the time and a
+quarter of the money. Your line in CLAUDE.md — *most of the money is in the last sliver of a health
+bar* — is true as measured. The cause is that **the cease-fire stops spawning, not damage**: a
+cautious player still collects the multiplier from fights already in flight, and skips the deaths.
+So if precision should pay more, the lever is the marginal value of one more spawn against its death
+risk. I turned nothing.
+
 **What still needs your judgement**
 
 **0. Nine health bars cannot be read on a phone, and it is geometry (D45 addendum).** Newly
