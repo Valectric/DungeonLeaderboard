@@ -120,9 +120,15 @@ namespace Dungeon.Game
                     var cell = new Vector2Int(x, y);
                     string tile = TileFor(grid, cell);
 
-                    // A wall that knows which sides face open floor, when the art can draw one.
-                    // Falls through to the flat variants when it cannot, so this is inert until a
-                    // tileset with the sixteen pieces is imported and correct the moment one is.
+                    // A wall that knows which sides face open floor. All sixteen pieces are imported
+                    // -- WallArtTests checks that -- so in the shipped game this branch always
+                    // takes the shaped tile.
+                    //
+                    // The fallback stays, and the reason it needs a test is that it is SILENT: a
+                    // missing piece loads quietly as null and draws a flat wall, with no error, no
+                    // warning and nothing on screen that reads as broken rather than plain. This
+                    // remark said the feature was "inert until a tileset with the sixteen pieces is
+                    // imported" long after one was.
                     if (grid.KindAt(cell) == CellKind.Wall)
                     {
                         string shaped = $"wall-{WallMask(grid, cell)}";
