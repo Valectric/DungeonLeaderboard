@@ -1,5 +1,47 @@
 # Handover
 
+## The refactor you asked for — 2026-08-17
+
+**Done, and behaviour-neutral: 394 tests green across six assemblies, console clean.** Nothing about
+the game moved, which is the whole claim. The live itch build is unchanged and does not need
+republishing — no player-visible behaviour changed.
+
+| you asked | what happened |
+|---|---|
+| modules correctly structured | `Party.cs` 1474 -> 1165, split into `MarchingOrder` and `DoorSearch`; the raid HUD moved out of `GameController` into `RaidHud.cs` (1448 -> 1326) |
+| tests grouped correctly | `Dungeon.PartyManager.Tests` (13) and `Dungeon.DungeonManager.Tests` (9, new) — see D58 for why MobManager correctly has none |
+| no duplication | the interface-scale formula had three copies, the verb-bar height two, and the test helpers seven; all now stated once |
+
+**Every module is inside the 2000-LOC cap** — PartyManager 1366 is the largest. `Application/Game`
+is 2772, which is the one concentration left; it is not a module, but it is where the remaining
+oversized files live.
+
+**Two extractions each broke something, and the tests named it.** Worth knowing because both were
+silent in the diff:
+
+1. `MarchingOrder.Record` took the party size and never stored it, so the follow-trail was trimmed
+   to 8 points instead of 50-101. The party bunched and crossed the dungeon fast enough to flip a
+   clock test. **The tell was the formation depth reading an identical 1.86 at every party size**
+   where it had read 1.91/2.04/2.44 — a suspiciously exact number, the same signal as the impossible
+   luminance CLAUDE.md already carries a page about.
+2. The scale formula's three copies meant the whole mobile legibility sweep was **checking a copy of
+   production's arithmetic against itself**, and would have passed with the game broken. Tests now
+   ask `GameController.ScaleFor` rather than restating it.
+
+**The one real defect found: `CarveOpening`'s documentation was false, and had been all along.** It
+said the cell it carves is "walkable"; `IsWalkable` reads a doorway's walkability from its door and
+answers false when there is none. Nothing shipped walked through one, so it was a trap rather than a
+live bug — and it sprang immediately, on the first fixture written against the docstring, which came
+out as two sealed rooms whose route assertions all passed against an empty list.
+
+**Making the code match the docstring was the wrong repair and your suite said so in under a
+minute**, by name: `TheEntranceOpening_IsScenery_NotAWayThrough`. The impassability is deliberate —
+the only opening the game carves sits on the boundary of the grid, so a walkable one lets a monster
+leave the dungeon and a retreating adventurer walk off the map. The behaviour is right, the words
+were wrong, and the reasoning existed **only in a test name**, which is why it is now **D59**.
+
+---
+
 ## Read this first — the 2026-08-17 session
 
 **All four of your rulings are shipped, and live on itch as `0.1.2608171039`.** `main` is green at
