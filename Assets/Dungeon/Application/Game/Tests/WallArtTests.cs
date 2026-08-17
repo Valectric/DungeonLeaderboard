@@ -169,5 +169,39 @@ namespace Dungeon.Game.Tests
 
             return total / pixels.Length;
         }
+
+        /// <summary>
+        /// The screens' full-frame art is present, including the winning card's.
+        /// </summary>
+        /// <remarks>
+        /// <c>VictoryScreen</c> loads its celebration through <c>Resources</c> at draw time and
+        /// carries on without it if it is missing — deliberately, so a lost file costs the picture
+        /// and not the words the player actually needs. That is the same silent fallback the wall
+        /// tiles have, and the same reason to check: a screen that quietly loses its art looks like
+        /// a design choice rather than a fault.
+        /// </remarks>
+        [Test]
+        public void TheScreenArt_IsPresent()
+        {
+            var missing = new List<string>();
+
+            foreach (string name in new[] { "victory", "end-screen", "loading-screen", "entrance" })
+            {
+                if (Resources.Load<Sprite>($"scenes/{name}") == null)
+                {
+                    missing.Add(name);
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                missing.Count == 0
+                    ? "all four full-frame scenes load"
+                    : $"missing: {string.Join(", ", missing)}");
+
+            Assert.IsEmpty(missing,
+                $"screen art missing: {string.Join(", ", missing)} -- the winning card and the "
+                + "loading card both draw their picture optionally, so this would ship as a blank "
+                + "backdrop with nothing logged");
+        }
     }
 }

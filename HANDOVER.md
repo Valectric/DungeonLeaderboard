@@ -40,6 +40,17 @@ the worse failure of the two — if *recklessness* won, the wound curve would be
 corpse too cheap. The interior peak is not asserted, because it is currently false, and the test says
 so in full.
 
+**The mechanism, measured, because it points at the cheapest fix.** An unopposed crossing went from
+**25.8s to 19.9s** (24.2s with a chest to stop for). The raid is still sixty seconds, so the party
+now finishes the dungeon with **forty seconds left** rather than thirty-four — and a party that has
+run out of dungeon is a party that has stopped earning, whatever the player does. That is the
+earning window closing, and it is arithmetic rather than a balance opinion.
+
+Which makes the most conservative option a *length* change rather than a rate change: about 30% more
+dungeon restores the old crossing time at the new pace, and leaves everything you liked about how it
+feels. The room bonus already pays for walking into somewhere new, so a longer dungeon pays the
+player more too.
+
 Ways out, none of them mine to pick: make the dungeon longer so a faster party still spends the
 minute in it; raise the room bonus so advancing pays for itself; or accept that "do not over-commit"
 is the whole lesson. The speeds feel right to play — that was the point — so this is a question about
