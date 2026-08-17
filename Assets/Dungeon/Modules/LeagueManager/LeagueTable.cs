@@ -194,6 +194,21 @@ namespace Dungeon.LeagueManager
         /// If the dungeon's earning power changes, re-measure and change this. It is a fact about the
         /// game, and the two dials below are the design opinions applied on top of it.
         /// </para>
+        /// <para>
+        /// <b>Re-measure it on p90, not p95 — the tail is not resolvable here.</b> The percentile
+        /// rule above was adopted from a distribution measured once. Sampled twice on an unchanged
+        /// build it reads: median 373 and 374, p90 604 and 616, <b>p95 709 and 776</b>. The median is
+        /// exact and p90 holds within two percent, but p95 swings nine, because the tail is a handful
+        /// of unusually long seasons and those are precisely what the harness's wall-clock leak moves
+        /// (D49). Calibrating a constant on a statistic the instrument cannot resolve is how it ends
+        /// up chased from 560 to 620 to 710 without the game changing.
+        /// </para>
+        /// <para>
+        /// So 620 stands after the D48 retreat fix rather than being raised again: it sits on the
+        /// stable p90 of the current distribution, and the deterministic instrument that matters —
+        /// <c>CompetitivenessTests</c>, pure league arithmetic with no frames in it — puts the
+        /// competition's turning point at 500 a round against the 410 a competent bot averages.
+        /// </para>
         /// </remarks>
         public const float GoodRun = 620f;
 
