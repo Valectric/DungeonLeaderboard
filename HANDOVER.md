@@ -44,6 +44,28 @@ downloaded to evaluate, was not used, and has been deleted; nothing from it is i
 
 **What still needs your judgement**
 
+**0. Nine health bars cannot be read on a phone, and it is geometry (D45 addendum).** Newly
+measurable, because until D47 the party never actually reached nine. At 360x780 a bar is **1.2
+pixels** tall and consecutive bars are **0.36 pixels** apart — the D8 "cannot read the party's state"
+condition, back by the route D45 was written to close. It cannot be tuned out: readable needs a pitch
+of 0.25 cells, which puts the ninth bar 2.52 cells up against the 1.6 cells of camera headroom, 58%
+over, and the shipped 0.13 is already within four percent of the largest value that fits. **So the
+phone wants D45's option 2, the roster panel** — the one you did not pick, and the fan you did pick
+was not wrong: it fixed the case it was chosen for. `BarLegibilityTests` pins both halves, and one of
+them fails if the constraint ever lifts.
+
+**0b. A nine-strong party clumps in a one-cell corridor.** Visible in
+`Screenshots/15-late-season-shop.png` (waiting at the entrance) and `13-late-season-raid.png` (in a
+doorway): nine sprites overlap into five or six readable ones, because the fan has nowhere to open.
+Same root as the bars — a threshold one cell wide cannot hold a party this size. Widening the
+entrance approach would fix both; that is a level-design change, so it is yours.
+
+**0c. Growth pays in survival, not in rate — worth knowing before tuning anything.** A worked raid
+earns **291 at four and 281 at nine (0.97x)**, because nine adventurers kill what they meet faster
+and a party taking less damage per member sits lower on the wound curve, where the money is. The
+season-long rise (best raid 694 to 1120) comes from a nine-strong party living through raids that
+wipe a four. Headcount buys time, not throughput.
+
 **A. The dungeon flip is still on `flip-vertical-wip` (D43).** Eleven addenda of investigation; the
 failure is real and now evidenced rather than guessed. A vertical corridor lets monsters form a line
 across the party's only route while their back is against the entrance, which is a `Doorway` with no
