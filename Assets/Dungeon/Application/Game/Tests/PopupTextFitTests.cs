@@ -34,58 +34,6 @@ namespace Dungeon.Game.Tests
         /// so a test that wants the real width of a real label has to get itself into a real IMGUI
         /// frame. This exists for that and nothing else.
         /// </remarks>
-        private sealed class Measurer : MonoBehaviour
-        {
-            /// <summary>Rows to check, one per request.</summary>
-            public readonly List<Rect> Rows = new();
-
-            /// <summary>Interface scale for each request.</summary>
-            public readonly List<float> Scales = new();
-
-            /// <summary>Item whose name is being measured, per request.</summary>
-            public readonly List<ShopItem> Items = new();
-
-            /// <summary>How much wider the drawn name is than its box; negative means it fits.</summary>
-            public readonly List<float> Overflow = new();
-
-            /// <summary>Font size production chose, per request.</summary>
-            public readonly List<float> Fonts = new();
-
-            /// <summary>Whether the measuring pass has run.</summary>
-            public bool Done { get; private set; }
-
-            /// <summary>Asks the game for its font size and measures the result.</summary>
-            private void OnGUI()
-            {
-                if (Done)
-                {
-                    return;
-                }
-
-                for (int i = 0; i < Rows.Count; i++)
-                {
-                    Rect row = Rows[i];
-                    float scale = Scales[i];
-
-                    // Production's own answer, not a restatement of it.
-                    float font = ShopScreen.NameFontSize(row, scale, Items[i]);
-                    var style = new GUIStyle(GUI.skin.label)
-                    {
-                        fontSize = Mathf.RoundToInt(font),
-                        fontStyle = FontStyle.Bold
-                    };
-
-                    float pad = Mathf.Max(10f * scale, row.height * 0.13f);
-                    float box = (row.width * 0.62f) - pad;
-                    float drawn = style.CalcSize(new GUIContent(ShopScreen.NameOf(Items[i]))).x;
-
-                    Fonts.Add(font);
-                    Overflow.Add(drawn - box);
-                }
-
-                Done = true;
-            }
-        }
 
 
 
@@ -101,45 +49,57 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask EveryItemName_FitsItsBox(CancellationToken ct)
         {
-            var host = new GameObject("measurer");
-            var measurer = host.AddComponent<Measurer>();
+            var rows = new List<Rect>();
+            var items = new List<ShopItem>();
             var where = new List<Vector2Int>();
+            var scales = new List<float>();
+            var overflow = new List<float>();
+            var fonts = new List<float>();
 
             foreach (Vector2Int size in Screens.All)
             {
                 float scale = Screens.ScaleFor(size);
-                Rect[] rows = ShopLayout.PopupRows(
+                Rect[] popup = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
                 foreach (ShopItem item in ShopScreen.Items)
                 {
-                    measurer.Rows.Add(rows[0]);
-                    measurer.Scales.Add(scale);
-                    measurer.Items.Add(item);
+                    rows.Add(popup[0]);
+                    scales.Add(scale);
+                    items.Add(item);
                     where.Add(size);
                 }
             }
 
-            for (int frame = 0; frame < 30 && !measurer.Done; frame++)
+            await GuiPass.Run(() =>
             {
-                await UniTask.Yield(ct);
-            }
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    // Production's own answer for the size it will draw at, then the width that
+                    // produces -- rather than this test keeping a copy of either.
+                    float font = ShopScreen.NameFontSize(rows[i], scales[i], items[i]);
+                    fonts.Add(font);
 
-            Assert.IsTrue(measurer.Done, "the measuring pass never ran");
+                    float pad = Mathf.Max(10f * scales[i], rows[i].height * 0.13f);
+                    float box = (rows[i].width * 0.62f) - pad;
+                    overflow.Add(
+                        GuiPass.Width(ShopScreen.NameOf(items[i]), Mathf.RoundToInt(font)) - box);
+                }
+            }, ct);
 
             float worst = float.MinValue;
             string worstText = string.Empty;
             Vector2Int worstAt = Screens.All[0];
             float worstFont = 0f;
 
-            for (int i = 0; i < measurer.Overflow.Count; i++)
+            for (int i = 0; i < overflow.Count; i++)
             {
-                if (measurer.Overflow[i] > worst)
+                if (overflow[i] > worst)
                 {
-                    worst = measurer.Overflow[i];
-                    worstText = ShopScreen.NameOf(measurer.Items[i]);
+                    worst = overflow[i];
+                    worstText = ShopScreen.NameOf(items[i]);
                     worstAt = where[i];
-                    worstFont = measurer.Fonts[i];
+                    worstFont = fonts[i];
                 }
             }
 
@@ -148,7 +108,6 @@ namespace Dungeon.Game.Tests
                 + $"{worstFont:F0}px -- {(worst > 0f ? "OVERFLOWS by" : "spare")} "
                 + $"{Mathf.Abs(worst):F0}px");
 
-            Object.DestroyImmediate(host);
 
             Assert.LessOrEqual(worst, 0.5f,
                 $"\"{worstText}\" is drawn {worst:F0}px wider than its box at "

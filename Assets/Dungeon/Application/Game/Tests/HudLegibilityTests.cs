@@ -23,46 +23,6 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class HudLegibilityTests
     {
-        /// <summary>Measures HUD strings from inside a real IMGUI frame.</summary>
-        private sealed class Measurer : MonoBehaviour
-        {
-            /// <summary>Strings to measure.</summary>
-            public readonly List<string> Texts = new();
-
-            /// <summary>Font size for each string.</summary>
-            public readonly List<int> Sizes = new();
-
-            /// <summary>Measured widths, once <see cref="Done"/> is set.</summary>
-            public readonly List<float> Widths = new();
-
-            /// <summary>Whether the measuring pass has run.</summary>
-            public bool Done { get; private set; }
-
-            /// <summary>Measures each string once.</summary>
-            private void OnGUI()
-            {
-                if (Done)
-                {
-                    return;
-                }
-
-                for (int i = 0; i < Texts.Count; i++)
-                {
-                    var style = new GUIStyle(GUI.skin.label)
-                    {
-                        fontSize = Sizes[i],
-                        fontStyle = FontStyle.Bold
-                    };
-
-                    Widths.Add(style.CalcSize(new GUIContent(Texts[i])).x);
-                }
-
-                Done = true;
-            }
-        }
-
-
-
         /// <summary>The scale the HUD lays out at, floored.</summary>
         /// <param name="size">Screen size in pixels.</param>
         /// <returns>Layout scale.</returns>
@@ -126,26 +86,18 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask TheHudBlocks_NeverCollide(CancellationToken ct)
         {
-            var host = new GameObject("hud-measurer");
-            var measurer = host.AddComponent<Measurer>();
+            var widths = new List<float>();
 
-            foreach (Vector2Int size in Screens.All)
+            await GuiPass.Run(() =>
             {
-                float hud = HudScaleFor(size);
-                measurer.Texts.Add("1:00");
-                measurer.Sizes.Add(Mathf.RoundToInt(34 * hud));
-                measurer.Texts.Add("37.5/s");
-                measurer.Sizes.Add(Mathf.RoundToInt(RateNominal * hud * 1.18f));
-                measurer.Texts.Add("12345");
-                measurer.Sizes.Add(Mathf.RoundToInt(28 * hud));
-            }
-
-            for (int frame = 0; frame < 30 && !measurer.Done; frame++)
-            {
-                await UniTask.Yield(ct);
-            }
-
-            Assert.IsTrue(measurer.Done, "the measuring pass never ran");
+                foreach (Vector2Int size in Screens.All)
+                {
+                    float hud = HudScaleFor(size);
+                    widths.Add(GuiPass.Width("1:00", Mathf.RoundToInt(34 * hud)));
+                    widths.Add(GuiPass.Width("37.5/s", Mathf.RoundToInt(RateNominal * hud * 1.18f)));
+                    widths.Add(GuiPass.Width("12345", Mathf.RoundToInt(28 * hud)));
+                }
+            }, ct);
 
             float worstGap = float.MaxValue;
             Vector2Int worstAt = Screens.All[0];
@@ -155,11 +107,11 @@ namespace Dungeon.Game.Tests
                 Vector2Int size = Screens.All[i];
                 float hud = HudScaleFor(size);
 
-                float clockRight = (24f * hud) + measurer.Widths[i * 3];
-                float rateHalf = measurer.Widths[(i * 3) + 1] * 0.5f;
+                float clockRight = (24f * hud) + widths[i * 3];
+                float rateHalf = widths[(i * 3) + 1] * 0.5f;
                 float rateLeft = (size.x * 0.5f) - rateHalf;
                 float rateRight = (size.x * 0.5f) + rateHalf;
-                float harvestLeft = size.x - (24f * hud) - measurer.Widths[(i * 3) + 2];
+                float harvestLeft = size.x - (24f * hud) - widths[(i * 3) + 2];
 
                 float gap = Mathf.Min(rateLeft - clockRight, harvestLeft - rateRight);
                 if (gap < worstGap)
@@ -176,7 +128,6 @@ namespace Dungeon.Game.Tests
             MooseRunnerFacade.Log(
                 $"tightest HUD gap: {worstGap:F0}px at {worstAt.x}x{worstAt.y}");
 
-            Object.DestroyImmediate(host);
 
             Assert.Greater(worstGap, 0f,
                 $"the HUD's blocks overlap by {-worstGap:F0}px at {worstAt.x}x{worstAt.y}, so the "

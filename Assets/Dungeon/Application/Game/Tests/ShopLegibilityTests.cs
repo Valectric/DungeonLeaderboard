@@ -24,55 +24,6 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class ShopLegibilityTests
     {
-        /// <summary>Measures the Ready caption from inside a real IMGUI frame.</summary>
-        private sealed class Measurer : MonoBehaviour
-        {
-            /// <summary>Interface scale per request.</summary>
-            public readonly List<float> Scales = new();
-
-            /// <summary>Button width per request.</summary>
-            public readonly List<float> Buttons = new();
-
-            /// <summary>Font size production chose, per request.</summary>
-            public readonly List<int> Fonts = new();
-
-            /// <summary>How much wider the caption is than its button; negative means it fits.</summary>
-            public readonly List<float> Overflow = new();
-
-            /// <summary>Whether the measuring pass has run.</summary>
-            public bool Done { get; private set; }
-
-            /// <summary>The worst caption the shop can show: a full early bonus.</summary>
-            private const string Caption =
-                "READY  -  OPEN THE DOORS NOW FOR +120 STARTING ENERGY";
-
-            /// <summary>Asks the game for its font size and measures the result.</summary>
-            private void OnGUI()
-            {
-                if (Done)
-                {
-                    return;
-                }
-
-                for (int i = 0; i < Scales.Count; i++)
-                {
-                    int font = ShopScreen.ReadyFontSize(Scales[i], Caption, Buttons[i]);
-                    var style = new GUIStyle(GUI.skin.label)
-                    {
-                        fontSize = font,
-                        fontStyle = FontStyle.Bold
-                    };
-
-                    Fonts.Add(font);
-                    Overflow.Add(style.CalcSize(new GUIContent(Caption)).x - Buttons[i]);
-                }
-
-                Done = true;
-            }
-        }
-
-
-
         /// <summary>
         /// Ready is big enough to press with a thumb on every screen.
         /// </summary>
@@ -116,34 +67,32 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask ReadysCaption_StaysInsideIt(CancellationToken ct)
         {
-            var host = new GameObject("ready-measurer");
-            var measurer = host.AddComponent<Measurer>();
+            const string caption = "READY  -  OPEN THE DOORS NOW FOR +120 STARTING ENERGY";
+            var fonts = new List<int>();
+            var overflow = new List<float>();
 
-            foreach (Vector2Int size in Screens.All)
+            await GuiPass.Run(() =>
             {
-                Rect ready = ShopLayout.ReadyRect(Screens.ScaleFor(size), size.x, size.y);
-                measurer.Scales.Add(Screens.ScaleFor(size));
-                measurer.Buttons.Add(ready.width);
-            }
-
-            for (int frame = 0; frame < 30 && !measurer.Done; frame++)
-            {
-                await UniTask.Yield(ct);
-            }
-
-            Assert.IsTrue(measurer.Done, "the measuring pass never ran");
+                foreach (Vector2Int size in Screens.All)
+                {
+                    Rect ready = ShopLayout.ReadyRect(Screens.ScaleFor(size), size.x, size.y);
+                    int font = ShopScreen.ReadyFontSize(Screens.ScaleFor(size), caption, ready.width);
+                    fonts.Add(font);
+                    overflow.Add(GuiPass.Width(caption, font) - ready.width);
+                }
+            }, ct);
 
             float worst = float.MinValue;
             Vector2Int worstAt = Screens.All[0];
             int worstFont = 0;
 
-            for (int i = 0; i < measurer.Overflow.Count; i++)
+            for (int i = 0; i < overflow.Count; i++)
             {
-                if (measurer.Overflow[i] > worst)
+                if (overflow[i] > worst)
                 {
-                    worst = measurer.Overflow[i];
+                    worst = overflow[i];
                     worstAt = Screens.All[i];
-                    worstFont = measurer.Fonts[i];
+                    worstFont = fonts[i];
                 }
             }
 
@@ -151,7 +100,6 @@ namespace Dungeon.Game.Tests
                 $"tightest Ready caption: {worstAt.x}x{worstAt.y} at {worstFont}px -- "
                 + $"{(worst > 0f ? "OVERFLOWS by" : "spare")} {Mathf.Abs(worst):F0}px");
 
-            Object.DestroyImmediate(host);
 
             Assert.Less(worst, 0f,
                 $"Ready's caption is {worst:F0}px wider than the button at {worstAt.x}x{worstAt.y}, "

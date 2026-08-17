@@ -27,58 +27,6 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class TitleScreenTextTests
     {
-        /// <summary>Measures announcement strings from inside a real IMGUI frame.</summary>
-        private sealed class Measurer : MonoBehaviour
-        {
-            /// <summary>Strings to measure.</summary>
-            public readonly List<string> Texts = new();
-
-            /// <summary>Interface scale for each string.</summary>
-            public readonly List<float> Scales = new();
-
-            /// <summary>Screen width each string is drawn across.</summary>
-            public readonly List<float> Widths2 = new();
-
-            /// <summary>Font size production chose, per string.</summary>
-            public readonly List<int> Fonts = new();
-
-            /// <summary>Measured widths, once <see cref="Done"/> is set.</summary>
-            public readonly List<float> Widths = new();
-
-            /// <summary>Whether the measuring pass has run.</summary>
-            public bool Done { get; private set; }
-
-            /// <summary>Measures each string once.</summary>
-            private void OnGUI()
-            {
-                if (Done)
-                {
-                    return;
-                }
-
-                for (int i = 0; i < Texts.Count; i++)
-                {
-                    // Production's own answer for the size it will draw at, then the width that
-                    // produces -- rather than this test keeping a copy of either.
-                    int font = LeagueScreen.FittedAnnouncementFontSize(
-                        Scales[i], Texts[i], Widths2[i]);
-                    Fonts.Add(font);
-
-                    var style = new GUIStyle(GUI.skin.label)
-                    {
-                        fontSize = font,
-                        fontStyle = FontStyle.Bold
-                    };
-
-                    Widths.Add(style.CalcSize(new GUIContent(Texts[i])).x);
-                }
-
-                Done = true;
-            }
-        }
-
-
-
         /// <summary>
         /// The party announcement fits the screen, for every roster at full strength.
         /// </summary>
@@ -93,40 +41,36 @@ namespace Dungeon.Game.Tests
         [Test]
         public async UniTask TheNextPartyLine_FitsEveryScreen(CancellationToken ct)
         {
-            var host = new GameObject("title-measurer");
-            var measurer = host.AddComponent<Measurer>();
             var where = new List<Vector2Int>();
             var lines = new List<string>();
+            var widths = new List<float>();
 
             foreach (Vector2Int size in Screens.All)
             {
                 foreach (PartyComposition roster in PartyComposition.All)
                 {
-                    string line = LeagueScreen.Announcement(
-                        roster.Grown(PartyComposition.MaxSize));
-
-                    measurer.Texts.Add(line);
-                    measurer.Scales.Add(Screens.ScaleFor(size));
-                    measurer.Widths2.Add(size.x);
                     where.Add(size);
-                    lines.Add(line);
+                    lines.Add(LeagueScreen.Announcement(roster.Grown(PartyComposition.MaxSize)));
                 }
             }
 
-            for (int frame = 0; frame < 30 && !measurer.Done; frame++)
+            await GuiPass.Run(() =>
             {
-                await UniTask.Yield(ct);
-            }
-
-            Assert.IsTrue(measurer.Done, "the measuring pass never ran");
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    int font = LeagueScreen.FittedAnnouncementFontSize(
+                        Screens.ScaleFor(where[i]), lines[i], where[i].x);
+                    widths.Add(GuiPass.Width(lines[i], font));
+                }
+            }, ct);
 
             float worstOverflow = float.MinValue;
             string worstLine = string.Empty;
             Vector2Int worstAt = Screens.All[0];
 
-            for (int i = 0; i < measurer.Widths.Count; i++)
+            for (int i = 0; i < widths.Count; i++)
             {
-                float overflow = measurer.Widths[i] - where[i].x;
+                float overflow = widths[i] - where[i].x;
                 if (overflow > worstOverflow)
                 {
                     worstOverflow = overflow;
@@ -139,7 +83,6 @@ namespace Dungeon.Game.Tests
                 $"longest title line: \"{worstLine}\" at {worstAt.x}x{worstAt.y} -- "
                 + $"{(worstOverflow > 0f ? "OVERFLOWS by" : "spare")} {Mathf.Abs(worstOverflow):F0}px");
 
-            Object.DestroyImmediate(host);
 
             Assert.Less(worstOverflow, 0f,
                 $"\"{worstLine}\" is {worstOverflow:F0}px wider than a {worstAt.x}px screen, and it "
