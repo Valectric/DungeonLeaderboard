@@ -1,5 +1,46 @@
 # Handover
 
+## Start here — the whole of 2026-08-17 in one screen
+
+**`main` is green at 421 tests across seven assemblies, console clean, and
+`0.1.2608171808` is live on itch.** You asked for a refactor; that is done and behaviour-neutral.
+Everything after it was exploratory testing, which turned up four real defects.
+
+**Fixed and shipped**
+
+| what | how it was found |
+|---|---|
+| **The player's rank number was invisible on the title screen** — the table read 12, 13, _blank_, 15 | loading the published build and looking at the first screen |
+| **A look test named for the standings was photographing a raid** — and feeding that frame to the store page as "the league is an elimination" | regenerating the itch art and reading the picture |
+| **`CarveOpening`'s docstring was false** — it promised a walkable cell and delivered an impassable one | writing the module's first direct test, whose fixture came out sealed |
+| **A comment claiming "two seconds"** beside a constant reading six | playing the shipped build |
+
+**Refactor, as asked**
+
+`Party.cs` 1474 → 1165 (`MarchingOrder`, `DoorSearch`), the raid HUD out of `GameController` into
+`RaidHud.cs`, two new test suites (`PartyManager` 13, `DungeonManager` 9), and three duplicated
+rules folded into one each — the interface scale had **three** copies, which meant the whole mobile
+legibility sweep was checking a copy of production's arithmetic against itself.
+
+**Measured, no defect found** — the board does not leak renderers across a season (75 flat over
+twelve rebuilds, with a control proving the counter moves), and mob room-bounding, the shop clock
+and the purchase paths all hold.
+
+**Waiting on you**, each written up below with numbers: the wall-collision fix on
+`wall-collision-wip` (it works, and it flattens the greed curve); the twenty-second title card on an
+itch embed; your row reading green on the collapse screen; the chest tag landing on the party; M13's
+win rate; M14's halls. And `Marketing/` is current and correct but **not uploaded** — the itch page
+still has no description or screenshots, and publishing that is yours.
+
+**One thing worth knowing about the day.** Six of the bugs found were the same shape: an instrument
+answering a question next to the one being asked. A percentile read as a maximum, a wall test with no
+control, a stale assembly, a look test looking elsewhere, a `strings` command that did not exist
+reporting zero matches, and a contrast threshold I invented that failed my own correct fix. The
+lesson that keeps paying is a control — measure the thing, then measure something you know the
+answer to, and check the instrument moved.
+
+---
+
 ## The refactor you asked for — 2026-08-17
 
 **Done, and behaviour-neutral: 413 tests green across seven assemblies, console clean.**
