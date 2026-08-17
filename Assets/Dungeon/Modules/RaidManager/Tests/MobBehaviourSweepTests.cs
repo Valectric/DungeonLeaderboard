@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
+using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
 using UnityEngine;
@@ -68,6 +70,95 @@ namespace Dungeon.RaidManager.Tests
 
             MooseRunnerFacade.Log($"checked mob containment {checks} times across a raid");
             Assert.Greater(checks, 1000, "not enough mobs lived long enough to prove anything");
+        }
+
+        /// <summary>
+        /// Containment holds against a nine-strong party, which puts far more bodies near thresholds.
+        /// </summary>
+        /// <remarks>
+        /// The same load-bearing rule as <see cref="NoMonster_EverLeavesItsRoom"/>, under the
+        /// pressure that rule is most likely to fail under, and which nothing has ever applied to it.
+        /// <para>
+        /// Every containment check in this suite runs against a party of <b>four in single file</b>.
+        /// A nine-strong party walks three abreast and stretches 2.4 cells, so at any moment several
+        /// members sit at or across a threshold — and the neighbouring test records that the original
+        /// bug here was exactly that: mobs chase the <i>nearest</i> member while the room check was on
+        /// the <i>leader</i>, so a body across the line pulled them out of their room. More bodies,
+        /// more spread, more thresholds. If the fan reopened that hole this is where it shows.
+        /// </para>
+        /// <para>
+        /// The retreat valve depends on containment, and the valve is the design's only mercy — so
+        /// this is worth its runtime even though it duplicates a rule already covered at four.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ContainmentHolds_AgainstANineStrongParty()
+        {
+            DungeonLayout layout = DungeonLayout.BuildCorridor(
+                roomCount: 4, extraSkeletonSpawners: 4, extraSlimeSpawners: 4);
+
+            PartyComposition nine = PartyComposition.Opening.Grown(PartyComposition.MaxSize);
+            var raid = new Raid(layout, 0f, nine);
+            var homes = new Dictionary<Mob, int>();
+            int checks = 0;
+            int straddles = 0;
+
+            Assert.AreEqual(PartyComposition.MaxSize, raid.Party.Living.Count(),
+                "the raid did not field the nine-strong party this test is about");
+
+            while (raid.IsRunning)
+            {
+                foreach (Vector2Int spawner in layout.SpawnerCells)
+                {
+                    Mob spawned = raid.SpawnMob(spawner)
+                        ? raid.Mobs.Mobs[raid.Mobs.Mobs.Count - 1]
+                        : null;
+
+                    if (spawned != null)
+                    {
+                        homes[spawned] = spawned.HomeRoom;
+                    }
+                }
+
+                raid.Tick(0.02f);
+
+                // How often the party actually spans a boundary, so a green result cannot mean
+                // "the pressure never arrived" -- the failure mode this suite exists to avoid.
+                var rooms = new HashSet<int>();
+                foreach (Adventurer member in raid.Party.Living)
+                {
+                    rooms.Add(layout.Grid.RoomAt(member.Cell));
+                }
+
+                if (rooms.Count > 1)
+                {
+                    straddles++;
+                }
+
+                foreach (Mob mob in raid.Mobs.Living)
+                {
+                    if (!homes.TryGetValue(mob, out int home))
+                    {
+                        continue;
+                    }
+
+                    int room = layout.Grid.RoomAt(mob.Cell);
+                    checks++;
+
+                    Assert.IsTrue(room == home || room == DungeonGrid.NoRoom,
+                        $"a {mob.Kind} left room {home} and reached room {room} at {mob.Position}, "
+                        + "with a nine-strong party spread across the thresholds");
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"nine-strong containment: {checks} checks, party spanned two rooms on "
+                + $"{straddles} ticks");
+
+            Assert.Greater(checks, 1000, "not enough mobs lived long enough to prove anything");
+            Assert.Greater(straddles, 50,
+                $"the party only spanned a boundary on {straddles} ticks, so this ran without ever "
+                + "applying the pressure it was written to apply");
         }
 
         /// <summary>
