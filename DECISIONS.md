@@ -2418,3 +2418,42 @@ feature silently gone.
 
 **The Pipoya pack was downloaded to evaluate, was not used, and has been deleted.** Nothing from it
 is in this repository — verified against `git ls-files` and the working tree, not assumed.
+
+### D29 addendum — halls are not inert, they are insurance, and one policy could not tell
+
+D29 measured what a hall is worth with a single competent policy and concluded that **halls beyond
+the third buy nothing**: the party reaches exactly three rooms in sixty seconds whatever the size, so
+the curve flattens. `MaxRooms = 5` therefore sold two dead items, and the three candidate fixes were
+all written to fix that.
+
+**Re-measured 2026-08-17 with a second policy at the other end of the scale**, one that spawns
+nothing and touches no door — the floor the shop also sells to:
+
+| rooms | competent (holds them) | drifting (does not) |
+|---|---|---|
+| 2 | 375 | 16 |
+| 3 | **561** | 72 |
+| 4 | 561 | 146 |
+| 5 | 561 | 242 |
+| 6 | 561 | **356** |
+
+The drifting curve climbs the whole way and never flattens: **a hall is worth up to 340** to that
+player, and they reach the deepest room at every size where the competent player never leaves the
+third.
+
+**The flat curve was a fact about the policy, not about the dungeon.** A competent player's whole
+move is to *hold the party in room three* — so rooms four and five are never walked into, and a room
+nobody enters cannot pay. Reading that as "the hall buys nothing" attributes to the item what
+belongs to the play. This is the same failure as the three in D46, in a different costume: a number
+measured one way, and no second way to compare it against.
+
+**What it means for the design, which is still the author's call.** A hall is worth most to the
+player who needs it most and nothing to the player who does not. That is a defensible catch-up
+mechanic and a poor headline purchase, and those are different problems with different fixes.
+Competence still dominates, which is the important part: 561 held at three beats 356 drifted through
+six, so a hall never becomes a substitute for playing well.
+
+Note the room bonus the author ruled on the same day (D46) raised the competent plateau from 446 to
+**561** without moving where it sits. It made depth pay more; it did not make the fourth room
+reachable, because reachability is a function of how long the party is held, not of what a room is
+worth once entered.

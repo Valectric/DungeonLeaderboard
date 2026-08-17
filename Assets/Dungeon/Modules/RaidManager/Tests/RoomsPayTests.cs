@@ -122,6 +122,94 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
+        /// Ticks a raid with a player who barely intervenes.
+        /// </summary>
+        /// <remarks>
+        /// The other end of the scale from <see cref="Play"/>, and the half the hall question was
+        /// missing. A competent player <i>holds the party in room three</i>, so rooms four and five
+        /// are never walked into and cannot pay — which is a statement about the policy as much as
+        /// about the dungeon. A player who does not hold them lets them walk, and walking is exactly
+        /// what a deeper dungeon sells.
+        /// <para>
+        /// Spawns nothing and touches no door. That is not a strawman: it is the floor, and the shop
+        /// sells halls to players at every point between this and <see cref="Play"/>.
+        /// </para>
+        /// </remarks>
+        /// <param name="raid">Raid to play.</param>
+        /// <returns>Energy harvested.</returns>
+        private static float Drift(Raid raid)
+        {
+            int guard = 0;
+            while (raid.IsRunning && guard++ < 4000)
+            {
+                raid.Tick(0.05f);
+            }
+
+            return raid.EnergyHarvested;
+        }
+
+        /// <summary>
+        /// What a hall is worth to a player who does not stall the party.
+        /// </summary>
+        /// <remarks>
+        /// <b>Reframes M14 rather than answering it.</b> The open item says halls beyond the third
+        /// buy nothing; that was measured with one competent policy, under which the party never
+        /// reaches room four. This asks whether the item is inert or merely <i>insurance</i>, which
+        /// is a different thing to sell and a different decision for the author.
+        /// <para>
+        /// No assertion on the shape — the curve is the output. It fails only if a deeper dungeon
+        /// makes a drifting player earn <i>less</i>, which would mean halls are actively harmful.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADriftingPlayer_IsWhoHallsAreSoldTo()
+        {
+            var seeds = new[] { 20260813, 4242, 99 };
+            var curve = new List<string>();
+            float atTwo = 0f;
+            float best = 0f;
+
+            for (int rooms = 2; rooms <= 6; rooms++)
+            {
+                float total = 0f;
+                int deepest = 0;
+                int escapes = 0;
+
+                foreach (int seed in seeds)
+                {
+                    DungeonLayout layout = DungeonLayout.BuildCorridor(roomCount: rooms);
+                    var raid = new Raid(layout, 0f, null, seed);
+                    total += Drift(raid);
+                    deepest = Mathf.Max(deepest, raid.Party.VisitedRooms);
+                    if (raid.Outcome == RaidOutcome.PartyEscaped)
+                    {
+                        escapes++;
+                    }
+                }
+
+                float mean = total / seeds.Length;
+                best = Mathf.Max(best, mean);
+                if (rooms == 2)
+                {
+                    atTwo = mean;
+                }
+
+                curve.Add($"{rooms}r={mean:F0}");
+                MooseRunnerFacade.Log(
+                    $"drifting, {rooms} rooms: mean {mean:F0}, deepest {deepest}, "
+                    + $"{escapes}/{seeds.Length} escaped");
+            }
+
+            MooseRunnerFacade.Log("drifting curve: " + string.Join("  ", curve));
+            MooseRunnerFacade.Log(
+                $"a hall is worth {best - atTwo:F0} to a drifting player at best");
+
+            Assert.GreaterOrEqual(best, atTwo,
+                $"a drifting player earned {best:F0} at their best depth against {atTwo:F0} at two "
+                + "rooms, so buying a hall actively costs them energy");
+        }
+
+        /// <summary>
         /// The same dungeon played the same way twice harvests the same number.
         /// </summary>
         /// <remarks>

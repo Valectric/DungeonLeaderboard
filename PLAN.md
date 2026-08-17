@@ -353,7 +353,12 @@ The author's four asks, and the three defects they uncovered. D31–D33 have the
       through the league, the party chain and combat, and could not be *set*, so every season-long
       measurement was a different season. Unchanged code spanned 7 to 10 rounds across five runs. See
       D31, and treat any single-season figure written before it as an anecdote.
-- [ ] **Open, and the author's call: is a quarter the right win rate?** Three of twelve is a real
+- [ ] **Open, and the author's call: is a sixth the right win rate?** Re-measured at the corrected
+      `GoodRun` of 560 (D46) the bot wins **2 of 12**, down from three, and the best of four
+      play-styles reaches round 10, 9 and 8 across the three seeds rather than 9 or 10 in every one.
+      The paragraph below is the reasoning as it stood at 3 of 12; the shape of the question is
+      unchanged and the number it is asked about is not.
+      <br>Three of twelve was a real
       contest rather than a formality, and it is one number chosen by nobody — it fell out of pricing
       the rivals honestly. D25 measured that winning needs ~400 a round against this bot's 308, and
       the bot is explicitly "a floor on competence, not a good player", so a human should do better
@@ -364,10 +369,19 @@ The author's four asks, and the three defects they uncovered. D31–D33 have the
 ## M14 — Measured, open for the author
 
 - [x] `RoomsPayTests` measures what a hall is worth, at every dungeon size, on one policy and seed
-- [ ] **Halls beyond the third buy nothing.** The party reaches exactly three rooms in sixty seconds
-      whatever the size, so harvest saturates at 446 and `MaxRooms = 5` sells two inert halls. Two
-      rooms is also wrong in the other direction — the party escapes. See D29 for the numbers and the
-      three candidate fixes, which point in opposite directions and are the author's call.
+- [x] **"Halls beyond the third buy nothing" was measured against one policy, and it is wrong.**
+      Re-measured 2026-08-17 with a second player at the other end of the scale. A hall is worth
+      **up to 340** to a player who does not stall the party — the drifting curve climbs the whole
+      way, 16 / 72 / 146 / 242 / 356, because they walk every room they are given and depth is the
+      only thing slowing them down. See D29 addendum.
+- [ ] **Open, and the author's call: halls are insurance, so who should they be sold to?** Under
+      competent play the curve still saturates at three rooms (375 / 561 / 561 / 561 / 561) because
+      that player *holds the party in room three* — rooms four and five are never walked into, so
+      they cannot pay. The item is therefore worth most to the player who needs it most and nothing
+      to the player who does not, which is a defensible catch-up mechanic and a bad headline
+      purchase. Competence still dominates: 561 held at three beats 356 drifted through six.
+      The three candidate fixes in D29 were all written on the "inert" premise and should be
+      re-read against this one.
 
 ---
 
