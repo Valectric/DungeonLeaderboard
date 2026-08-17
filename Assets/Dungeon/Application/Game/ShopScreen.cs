@@ -153,6 +153,47 @@ namespace Dungeon.Game
         /// <returns>One rectangle per entry of <see cref="Items"/>.</returns>
         public static Rect[] PopupRows(Vector2 anchor, float scale, float width, float height)
         {
+            Geometry(anchor, scale, width, height, out Rect[] laidOut, out _);
+            return laidOut;
+        }
+
+        /// <summary>
+        /// The purple frame drawn behind the tile menu, title strip included.
+        /// </summary>
+        /// <remarks>
+        /// <b>Derived from the same call as the rows, and that is the point.</b> The drawing code
+        /// used to recompute the title strip with its own copy of the formula, which was harmless
+        /// only while the two copies agreed. Enlarging the menu for mobile changed one of them, and
+        /// the frame stopped lining up with the rows it contains -- the same class of fault this
+        /// file's own remarks warn about, where a control is drawn in one place and clicked in
+        /// another.
+        /// </remarks>
+        /// <param name="anchor">Where on screen the tile was tapped, in GUI space.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>The frame enclosing the title strip and every row.</returns>
+        public static Rect PopupFrame(Vector2 anchor, float scale, float width, float height)
+        {
+            Geometry(anchor, scale, width, height, out Rect[] laidOut, out float title);
+            return new Rect(
+                laidOut[0].x,
+                laidOut[0].y - title,
+                laidOut[0].width,
+                title + (laidOut.Length * laidOut[0].height));
+        }
+
+        /// <summary>Lays the menu out once, for both the rows and the frame around them.</summary>
+        /// <param name="anchor">Where on screen the tile was tapped, in GUI space.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <param name="rows">One rectangle per entry of <see cref="Items"/>.</param>
+        /// <param name="titleStrip">Height of the strip above the first row.</param>
+        private static void Geometry(
+            Vector2 anchor, float scale, float width, float height,
+            out Rect[] rows, out float titleStrip)
+        {
             // Floored in absolute pixels, not just scaled. The itch.io embed is 523x293, which puts
             // the scale at 0.4 and would give 12-pixel rows -- on screen, drawn correctly, and far
             // too small for a thumb or for the text to be read. A control that cannot be hit is not
@@ -214,13 +255,13 @@ namespace Dungeon.Game
             float top = Mathf.Clamp(anchor.y + (14f * scale), ceiling, Mathf.Max(ceiling, floor));
 
             float first = Mathf.Floor(top + titleHeight);
-            var rows = new Rect[Items.Length];
+            rows = new Rect[Items.Length];
             for (int i = 0; i < Items.Length; i++)
             {
                 rows[i] = new Rect(left, first + (i * rowHeight), popupWidth, rowHeight);
             }
 
-            return rows;
+            titleStrip = titleHeight;
         }
 
         /// <summary>
@@ -388,9 +429,8 @@ namespace Dungeon.Game
         private static void DrawPopup(Shop shop, Vector2 anchor, float scale)
         {
             Rect[] rows = PopupRows(anchor, scale, Screen.width, Screen.height);
-            float titleHeight = Mathf.Max(18f, 24f * scale);
-            var frame = new Rect(rows[0].x, rows[0].y - titleHeight, rows[0].width,
-                titleHeight + (rows.Length * rows[0].height));
+            Rect frame = PopupFrame(anchor, scale, Screen.width, Screen.height);
+            float titleHeight = rows[0].y - frame.y;
 
             Color was = GUI.color;
             GUI.color = new Color(0.42f, 0.24f, 0.55f, 0.98f);
@@ -403,12 +443,13 @@ namespace Dungeon.Game
 
             var heading = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(Mathf.Max(10f, 12f * scale)),
+                fontSize = Mathf.RoundToInt(Mathf.Max(12f * scale, titleHeight * 0.46f)),
                 fontStyle = FontStyle.Bold
             };
             heading.normal.textColor = Dim;
-            GUI.Label(new Rect(frame.x + (8f * scale), frame.y + (4f * scale),
-                frame.width, titleHeight), "BUILD HERE", heading);
+            float headingPad = Mathf.Max(8f * scale, titleHeight * 0.22f);
+            GUI.Label(new Rect(frame.x + headingPad, frame.y, frame.width, titleHeight),
+                "BUILD HERE", heading);
 
             for (int i = 0; i < rows.Length; i++)
             {
@@ -425,19 +466,26 @@ namespace Dungeon.Game
         {
             bool affordable = shop.CanAfford(item);
 
+            // Sized from the ROW, not from the interface scale. Tripling the rows for mobile while
+            // leaving the type on 14 * scale would have put 11-pixel text in a 78-pixel box -- a
+            // bigger target with the same unreadable label, which is not what was asked for. The
+            // scaled size still wins wherever it is larger, so a desktop is untouched.
+            float type = Mathf.Max(14f * scale, row.height * 0.42f);
+            float pad = Mathf.Max(10f * scale, row.height * 0.13f);
+
             var name = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(Mathf.Max(11f, 14f * scale)),
+                fontSize = Mathf.RoundToInt(type),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft
             };
             name.normal.textColor = affordable ? Ink : new Color(0.34f, 0.32f, 0.40f);
-            GUI.Label(new Rect(row.x + (10f * scale), row.y, row.width * 0.62f, row.height),
+            GUI.Label(new Rect(row.x + pad, row.y, row.width * 0.62f, row.height),
                 NameOf(item), name);
 
             var price = new GUIStyle(name) { alignment = TextAnchor.MiddleRight };
             price.normal.textColor = affordable ? Gold : new Color(0.42f, 0.24f, 0.28f);
-            GUI.Label(new Rect(row.x, row.y, row.width - (10f * scale), row.height),
+            GUI.Label(new Rect(row.x, row.y, row.width - pad, row.height),
                 shop.Price(item).ToString("0", CultureInfo.InvariantCulture), price);
         }
 

@@ -118,6 +118,39 @@ namespace Dungeon.Game.Tests
         }
 
         /// <summary>
+        /// The frame drawn behind the menu contains every row of it, at every size.
+        /// </summary>
+        /// <remarks>
+        /// The fault this catches was introduced by the enlargement itself and found by reading the
+        /// drawing code rather than by any assertion. <c>DrawPopup</c> recomputed the title strip
+        /// with its own copy of the old formula while <c>PopupRows</c> used the new one, so on a
+        /// phone the purple frame no longer lined up with the rows inside it. Harmless only while
+        /// two copies of a formula agree, which is the arrangement this file's own remarks warn
+        /// about — a control drawn in one place and clicked in another.
+        /// </remarks>
+        [Test]
+        public void TheFrame_ContainsEveryRow()
+        {
+            foreach (Vector2Int size in Screens)
+            {
+                float scale = ScaleFor(size);
+                var anchor = new Vector2(size.x * 0.5f, size.y * 0.4f);
+                Rect frame = ShopScreen.PopupFrame(anchor, scale, size.x, size.y);
+                Rect[] rows = ShopScreen.PopupRows(anchor, scale, size.x, size.y);
+
+                Assert.LessOrEqual(frame.y, rows[0].y + 0.01f,
+                    $"{size.x}x{size.y}: the frame starts below its first row, so the title strip "
+                    + "is drawn over the menu");
+
+                Assert.GreaterOrEqual(frame.yMax, rows[^1].yMax - 0.01f,
+                    $"{size.x}x{size.y}: the frame ends {rows[^1].yMax - frame.yMax:F0}px above its "
+                    + "last row, so the bottom item is drawn outside the box it belongs to");
+            }
+
+            MooseRunnerFacade.Log("the menu frame contains its rows at every shipped size");
+        }
+
+        /// <summary>
         /// A desktop screen is left exactly as it was.
         /// </summary>
         /// <remarks>
