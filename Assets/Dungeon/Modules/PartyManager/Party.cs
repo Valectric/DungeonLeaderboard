@@ -297,9 +297,20 @@ namespace Dungeon.PartyManager
                 float have = 0f;
                 float most = 0f;
 
-                foreach (Adventurer member in Living)
+                // The WHOLE party, dead included, and that is the fix rather than an oversight.
+                // Iterating Living meant a corpse left the denominator with it, so the fraction
+                // JUMPED UP every time somebody died -- a party being killed one member at a time
+                // read as a party getting healthier, and ChooseGoal reads this to decide whether to
+                // break off. Measured before the fix, under heavy pressure: a nine-strong party lost
+                // EIGHT OF NINE while this never fell below 53%, and the retreat -- which SPEC.md
+                // calls the player's only mercy -- did not fire once in four raids.
+                //
+                // Masked at four, which is why it survived the whole project: a four-strong party
+                // has too few members for the recovery to outrun the damage, so it still bottomed
+                // out and still ran. The defect scaled in with the party.
+                foreach (Adventurer member in _members)
                 {
-                    have += member.HealthFraction * member.MaxHealth;
+                    have += member.IsAlive ? member.HealthFraction * member.MaxHealth : 0f;
                     most += member.MaxHealth;
                 }
 

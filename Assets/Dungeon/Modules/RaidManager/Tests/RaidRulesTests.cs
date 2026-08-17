@@ -705,17 +705,96 @@ namespace Dungeon.RaidManager.Tests
             Assert.AreEqual(WoundState.Critical, adventurer.Wounds);
         }
 
-        /// <summary>Aggregate health ignores the dead, so killing never inflates the wound bonus.</summary>
+        /// <summary>
+        /// Killing a member never raises the energy rate, which is the rule that matters.
+        /// </summary>
+        /// <remarks>
+        /// <b>This replaces <c>PartyHealth_IgnoresTheDead</c>, which asserted the implementation
+        /// instead of the rule and had gone stale.</b> That test required
+        /// <c>Party.HealthFraction</c> to skip the dead, on the stated grounds that "a corpse must
+        /// not drag the party's health down and inflate the wound multiplier". True when the rate
+        /// was <c>baseRate * engagementMultiplier * woundMultiplier</c> over a party-wide health
+        /// figure — the formula <b>M6 replaced</b>. The live rate sums
+        /// <c>EnergyCurve.MemberRate(action, member.HealthFraction)</c> per living member, so the
+        /// aggregate does not reach the curve at all: its one and only consumer is
+        /// <c>ChooseGoal</c>, the retreat decision.
+        /// <para>
+        /// Keeping the old assertion cost the game its safety valve. Skipping the dead meant the
+        /// fraction JUMPED UP whenever somebody died, so a party being killed one member at a time
+        /// read as a party getting healthier and never broke off — measured at nine, eight of nine
+        /// died while it never fell below 53%. See D48.
+        /// </para>
+        /// <para>
+        /// So the invariant is asserted directly now: a death must never pay. That is the central
+        /// rule in CLAUDE.md, it is what the original test was reaching for, and it holds however the
+        /// aggregate is computed.
+        /// </para>
+        /// </remarks>
         [Test]
-        public void PartyHealth_IgnoresTheDead()
+        public void KillingAMember_NeverRaisesTheEnergyRate()
+        {
+            // TWO IDENTICAL RAIDS, one bereaved, compared at the same instant -- because the rate
+            // moves for reasons that have nothing to do with the death. Measured before/after in one
+            // raid and it "rose" 0.798 to 1.003: the party had walked into a new room between the
+            // readings and RateModifiers.RoomBonus is permanent, so the room bonus was being read as
+            // the death paying. Ticking once either side of the kill was worse still -- that measured
+            // the opening ramp of an eased rate. The only honest comparison holds everything else
+            // fixed, which for a seeded simulation means running it twice.
+            var control = new Raid(Corridor(), 0f, null, 20260813);
+            var bereaved = new Raid(Corridor(), 0f, null, 20260813);
+
+            for (int i = 0; i < 100; i++)
+            {
+                control.Tick(0.02f);
+                bereaved.Tick(0.02f);
+            }
+
+            Adventurer victim = bereaved.Party.Members.First(m => m.Role == AdventurerRole.Mage);
+            victim.TakeDamage(victim.MaxHealth);
+
+            for (int i = 0; i < 100; i++)
+            {
+                control.Tick(0.02f);
+                bereaved.Tick(0.02f);
+            }
+
+            float before = control.CurrentRate;
+
+            MooseRunnerFacade.Log(
+                $"same instant, same seed: intact party {before:F3}/s, "
+                + $"party that lost its mage {bereaved.CurrentRate:F3}/s");
+
+            Assert.IsFalse(victim.IsAlive, "the mage survived a killing blow");
+            Assert.LessOrEqual(bereaved.CurrentRate, before + 0.001f,
+                $"an identical raid earns {bereaved.CurrentRate:F3}/s having lost a member against "
+                + $"{before:F3}/s intact, so killing the party PAYS -- which inverts the one rule "
+                + "the whole game is built on");
+        }
+
+        /// <summary>
+        /// The party's aggregate health counts its dead, so a dying party reads as a dying party.
+        /// </summary>
+        /// <remarks>
+        /// The other half of D48, and the reason the fraction is computed over the whole roster: it
+        /// is the retreat trigger, and a trigger that recovers every time somebody dies is a trigger
+        /// that never fires for a party being wiped out slowly.
+        /// </remarks>
+        [Test]
+        public void PartyHealth_CountsTheDead()
         {
             var raid = new Raid(Corridor());
+            int size = raid.Party.Members.Count;
             Adventurer victim = raid.Party.Members.First(m => m.Role == AdventurerRole.Mage);
             victim.TakeDamage(victim.MaxHealth);
 
-            Assert.IsFalse(victim.IsAlive);
-            Assert.AreEqual(1f, raid.Party.HealthFraction, 0.001f,
-                "a corpse must not drag the party's health down and inflate the wound multiplier");
+            float expected = (size - 1) / (float)size;
+            MooseRunnerFacade.Log(
+                $"one of {size} dead: party health {raid.Party.HealthFraction:P1}, "
+                + $"roughly {expected:P1} expected");
+
+            Assert.Less(raid.Party.HealthFraction, 1f,
+                "a party that has lost a member still reads as untouched, so the retreat valve "
+                + "cannot see it losing");
         }
     }
 }

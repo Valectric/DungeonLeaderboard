@@ -2565,3 +2565,76 @@ future reduction has to be argued for rather than drifted into. The other **pass
 cannot do it**, and fails if the contradiction ever lifts — a wider margin, a smaller party, a
 shorter bar — which is precisely when somebody should be told that bars over heads have become
 viable on a phone and the alternative is no longer needed.
+
+## 2026-08-17 — D48. The retreat valve had stopped working, and a green test was holding it shut
+
+SPEC.md gives the player exactly one mercy: open a door behind a losing party and let them fall back.
+The player's half of that is environmental, but it only means anything if the party's own AI decides
+to run — `ChooseGoal` breaks off when `Party.HealthFraction` drops under `RetreatThreshold`.
+
+**It was computed over the LIVING members**, so a corpse left the denominator with it and the
+fraction **jumped up every time somebody died**. A party being killed one member at a time read as a
+party getting healthier.
+
+Measured under constant pressure, four raids per size, six mobs held in each room:
+
+| party | retreat episodes | worst member | pooled health low | died |
+|---|---|---|---|---|
+| 4 | 1.5 | 0% | 0% | 4.0 of 4 |
+| 6 | 1.0 | 0% | 1% | 5.8 of 6 |
+| **9** | **0.0** | 1% | **53%** | **8.0 of 9** |
+
+**Eight of nine died while the trigger never fell below 53%, and the valve did not fire once.** The
+player's only mercy was attached to nothing, and every corpse costs 50 banked points.
+
+**It scaled in with the party, which is why it survived the whole project.** Four members are too few
+for the recovery-on-death to outrun the damage, so a four-strong party still bottomed out and still
+ran. The defect only becomes total at the sizes D47 made reachable earlier the same day.
+
+### The green test that was holding it shut
+
+`PartyHealth_IgnoresTheDead` asserted exactly the broken behaviour, with a reason:
+
+> a corpse must not drag the party's health down and inflate the wound multiplier
+
+**That was true, and stopped being true when M6 changed the curve.** The old rate was
+`baseRate * engagementMultiplier * woundMultiplier` over a party-wide health figure, so a corpse
+dragging the aggregate down really would have paid the player for a kill. The live rate sums
+`EnergyCurve.MemberRate(action, member.HealthFraction)` **per living member** — the aggregate does
+not reach the curve at all. Its one and only consumer, verified by grep, is `ChooseGoal`.
+
+So a test written to defend the central rule outlived the coupling it was defending against, and
+what it actually defended was a broken safety valve. It has been replaced by two tests that assert
+the *rule* rather than the implementation: killing a member must never raise the rate, and the
+aggregate must fall when somebody dies.
+
+### After the fix
+
+| party | retreat episodes | died (was) |
+|---|---|---|
+| 4 | 1.0 | 3.0 (4.0) |
+| 6 | 1.0 | 5.3 (5.8) |
+| 9 | **1.0** | **7.0 (8.0)** |
+
+The valve fires at every size and **fewer adventurers die at every size**, which is the outcome the
+design's central rule is about. The season sweep moves from **4 of 12 to 6 of 12** — a party that
+retreats instead of dying keeps earning, so the player wins more.
+
+### Two instrument errors on the way to the replacement test, both caught by controls
+
+The replacement — "killing a member never raises the rate" — reported a rise **twice**, and neither
+was real:
+
+1. Ticking once either side of the kill measured the **opening ramp** of an eased rate: 0.068 to
+   0.080. A rate that is still moving cannot answer a question about what moved it.
+2. Settling the rate and measuring before/after in one raid reported 0.798 to 1.003 — the party had
+   walked into a new room between the readings, and `RateModifiers.RoomBonus` is permanent. The room
+   bonus was being read as the death paying.
+
+The honest form holds everything else fixed, which for a seeded simulation means **running it
+twice**: two identical raids, one bereaved, compared at the same instant. Intact **1.063/s**,
+bereaved **1.003/s**. The death lowers the rate, as designed.
+
+That is the fifth and sixth time in one night that a measurement moved for a reason other than the
+one being tested. The pattern has not changed since D46 recorded it: *ask what else differs between
+the two things being compared.*
