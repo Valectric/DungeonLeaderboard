@@ -25,7 +25,7 @@ namespace Dungeon.PartyManager
     }
 
     /// <summary>
-    /// A party of four adventurers and the AI that drives them.
+    /// A party of four to nine adventurers and the AI that drives them.
     /// </summary>
     /// <remarks>
     /// This is a Module. The party pathfinds toward the boss room, stops to fight what it meets,
@@ -345,7 +345,7 @@ namespace Dungeon.PartyManager
             }
         }
 
-        /// <summary>Creates a party of four at the entrance.</summary>
+        /// <summary>Creates a party at the entrance, sized by its composition.</summary>
         /// <param name="grid">Dungeon to walk.</param>
         /// <param name="entranceCell">Where the party enters.</param>
         /// <param name="bossCell">Cell that ends the raid when reached.</param>

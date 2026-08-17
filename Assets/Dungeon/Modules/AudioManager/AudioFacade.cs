@@ -16,11 +16,25 @@ namespace Dungeon.AudioManager
     /// </remarks>
     public sealed class AudioFacade : MonoBehaviour
     {
-        /// <summary>How many sounds can overlap before the oldest is reused.</summary>
+        /// <summary>How many sources the plays are spread across, round-robin.</summary>
         /// <remarks>
-        /// A fight lands several blows a second across four adventurers and a monster. With too few
-        /// voices the hits cut each other off and the fight sounds thinner the busier it gets, which
-        /// is exactly backwards.
+        /// A fight lands several blows a second across a party — <b>up to nine adventurers</b> since
+        /// the growth curve was fixed, not the four this said until 2026-08-17 — and the monsters
+        /// meeting them.
+        /// <para>
+        /// <b>The reason this said it was here is wrong, and it was nearly "fixed" on the strength
+        /// of it.</b> The old note claimed that with too few voices the hits cut each other off. They
+        /// do not: <c>PlayOneShot</c> layers, and repeated calls on a single source play over one
+        /// another rather than truncating. So this pool distributes plays; it is not what stops them
+        /// interrupting, and scaling it with the party buys nothing on that account. What actually
+        /// bounds the pile-up is <see cref="RepeatGuardSeconds"/>, which is per-sound and unaffected
+        /// by party size.
+        /// </para>
+        /// <para>
+        /// Left at eight deliberately. Whether a nine-strong fight needs more sources is a question
+        /// about mixing and headroom that can only be answered by listening to one, and nothing here
+        /// can assert it.
+        /// </para>
         /// </remarks>
         public const int Voices = 8;
 

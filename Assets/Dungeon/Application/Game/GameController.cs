@@ -95,9 +95,19 @@ namespace Dungeon.Game
         /// </remarks>
         /// <remarks>
         /// <b>Settable for the same reason <see cref="SeedOverride"/> exists</b>: to reach a state
-        /// worth looking at without playing the eighteen raids that would otherwise produce it. The
+        /// worth looking at without playing the whole season that would otherwise produce it. The
         /// party grows through the season (D39), so photographing a nine-strong raid any other way
-        /// means simulating most of a league first.
+        /// means simulating a league first.
+        /// <para>
+        /// This read "the eighteen raids" until 2026-08-17, from the same rejected nineteen-round
+        /// league that made the growth curve unreachable — see D47. It is nine raids.
+        /// </para>
+        /// <para>
+        /// <b>And the shortcut is the wrong tool for a look test.</b> <c>LateSeasonLookTests</c>
+        /// plays the season instead, which is slower and is what found D47: a party set here would
+        /// have photographed a nine-strong raid quite happily while the game itself could never
+        /// produce one. Use this to reach a <i>roster</i>; do not use it to reach a <i>size</i>.
+        /// </para>
         /// <para>
         /// Nothing in the game writes it — the roll in <c>RollNextParty</c> owns it in play, and
         /// setting it here does not disturb the seed chain that roll runs on.
