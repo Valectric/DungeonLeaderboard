@@ -1441,6 +1441,20 @@ namespace Dungeon.PartyManager
                 return centre;
             }
 
+            // Falling back to the CENTRE looks wrong and is right, and this was tried the other way
+            // round first. The objection is that every member of a rank then wants one point, so
+            // three sprites stand on one square in a corridor -- measured at 0.000 cells apart.
+            //
+            // But the CONTROL says the fan does not cause it: four members on the untouched
+            // single-file path close to 0.002 cells in the same walk. A party whose leader turns
+            // back along its own trail bunches up whatever shape it is in, because the followers are
+            // walking a path that now doubles back on itself.
+            //
+            // Two attempts to "fix" it made the game worse on both figures that actually matter,
+            // because deciding the fallback per rank, or from the front of the column, stops the
+            // party fanning at all: depth at nine went 2.44 -> 4.13 -> 5.01 cells against single
+            // file's 4.96, and rock went 3.1 % -> 5.4 % -> 7.4 %. The simple fallback is the best of
+            // the three, and the bunching belongs to the trail, not to this.
             var sideways = new Vector2(-heading.y, heading.x);
             Vector2 flank = centre + (sideways * offset);
             var flankCell = new Vector2Int(Mathf.RoundToInt(flank.x), Mathf.RoundToInt(flank.y));

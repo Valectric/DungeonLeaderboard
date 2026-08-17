@@ -190,6 +190,116 @@ namespace Dungeon.RaidManager.Tests
         }
 
         /// <summary>
+        /// Members never end up standing on top of one another.
+        /// </summary>
+        /// <remarks>
+        /// The failure mode the fallback invites, and the reason to look for it rather than wait for
+        /// it: when a flank cell is rock the offset is given up and the member drops onto the centre
+        /// line — so in a corridor all three members of a rank want the <i>same</i> point, and three
+        /// sprites at one spot read as one adventurer. Single file never had this, because every
+        /// rank stood at its own distance back along the trail.
+        /// </remarks>
+        [Test]
+        public void MembersOfARank_DoNotStackOnOneAnother()
+        {
+            // The control first, and it is the third time today that the control has been the whole
+            // answer: four members on the untouched single-file path. If they close up too, the fan
+            // is not what does it.
+            Party control = PartyOf(4, out DungeonGrid _);
+            float controlWorst = float.MaxValue;
+            foreach (Vector2[] frame in Walk(control, 25f).Skip(400))
+            {
+                for (int i = 0; i < frame.Length; i++)
+                {
+                    for (int j = i + 1; j < frame.Length; j++)
+                    {
+                        controlWorst = Mathf.Min(controlWorst, Vector2.Distance(frame[i], frame[j]));
+                    }
+                }
+            }
+
+            Party party = PartyOf(9, out DungeonGrid _);
+            List<Vector2[]> frames = Walk(party, 25f);
+
+            // Reported in two windows on purpose. The trail is seeded only two cells long, and nine
+            // members in single file want 4.96 -- so every rank past the end of it clamps onto the
+            // trail's first point and they genuinely are on one square, before anything about the
+            // fan is involved. Splitting the windows says whether stacking is a formation fault or
+            // simply the party being longer than the path it is following.
+            float earlyWorst = float.MaxValue;
+            foreach (Vector2[] frame in frames.Take(300))
+            {
+                for (int i = 0; i < frame.Length; i++)
+                {
+                    for (int j = i + 1; j < frame.Length; j++)
+                    {
+                        earlyWorst = Mathf.Min(earlyWorst, Vector2.Distance(frame[i], frame[j]));
+                    }
+                }
+            }
+
+            float worst = float.MaxValue;
+            int touching = 0;
+            int pairs = 0;
+
+            foreach (Vector2[] frame in frames.Skip(400))
+            {
+                for (int i = 0; i < frame.Length; i++)
+                {
+                    for (int j = i + 1; j < frame.Length; j++)
+                    {
+                        float gap = Vector2.Distance(frame[i], frame[j]);
+                        worst = Mathf.Min(worst, gap);
+                        pairs++;
+                        if (gap < 0.2f)
+                        {
+                            touching++;
+                        }
+                    }
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"closest two members stood -- single-file control of four: {controlWorst:F3}; "
+                + $"nine, first 6s: {earlyWorst:F3}, after 8s: {worst:F3}; "
+                + $"{touching}/{pairs} pairs within 0.2");
+
+            // Name the culprits rather than the symptom: which ranks, and where they were standing.
+            for (int f = 400; f < frames.Count; f++)
+            {
+                Vector2[] frame = frames[f];
+                bool found = false;
+                for (int i = 0; i < frame.Length && !found; i++)
+                {
+                    for (int j = i + 1; j < frame.Length && !found; j++)
+                    {
+                        if (Vector2.Distance(frame[i], frame[j]) < 0.05f)
+                        {
+                            MooseRunnerFacade.Log(
+                                $"tick {f}: ranks {i} and {j} both at {frame[j]}");
+                            MooseRunnerFacade.Log(
+                                "  whole party: "
+                                + string.Join("  ", frame.Select((p, k) => $"{k}{p}")));
+                            found = true;
+                        }
+                    }
+                }
+
+                if (found)
+                {
+                    break;
+                }
+            }
+
+            // Compared against the control, not against zero: a party whose leader turns back on
+            // its own trail closes up whatever shape it is in, and four members in single file do it
+            // too. What must not happen is the FAN making it materially worse.
+            Assert.GreaterOrEqual(worst, controlWorst - 0.02f,
+                $"nine members closed to {worst:F3} cells against {controlWorst:F3} for four in "
+                + "single file, so the fan is what puts one sprite on top of another");
+        }
+
+        /// <summary>
         /// Draws the formation over the dungeon floor so its shape can be read, not inferred.
         /// </summary>
         /// <remarks>
