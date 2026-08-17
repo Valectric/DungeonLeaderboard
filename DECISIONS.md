@@ -2316,3 +2316,105 @@ walk through. Whether that is a bug or simply what a north-south dungeon is like
 and the cheapest test of it is to give the entrance a real threshold the party can retreat through --
 which is precisely the retreat valve SPEC calls the player's only mercy, and which the opening room
 has never had.
+
+## 2026-08-17 — D46. The author's four rulings, shipped, and the three instruments that lied on the way
+
+The author ruled on four open questions in one message. All four are in `main`. What is worth
+recording is not the four changes — the commits carry those — but that **three of the four were
+first measured by an instrument that was answering a different question**, which is now the most
+frequent single failure mode in this project's log.
+
+### 1. The room bonus is 1/s, not 2
+
+*"Reduce it to 1 /s per room. So a three deep dungeon make sense to have as it otherwise is just
+waste when they are just walking. But trying to lead with spawners in the direction they are heading
+is good tactics."* Shipped in `af08a64`, permanent and stacking. At 2/s it broke
+`EarlyEscape_EarnsFarLessThanAFullRaid` (2.09× against a 2.5× floor); at the author's 1/s it reads
+2.57× and passes, so the ruling and the invariant agree.
+
+### 2. `GoodRun` was re-measured, and "the best raid measured" turned out not to mean anything
+
+*"Yes rais good run."* The league had stopped being a competition: the season sweep won **12 of 12**,
+every play-style on every seed. `GoodRun` still read 430 while parties grew to nine and the room
+bonus compounded, and 430 had quietly become the **75th percentile** of 1659 measured raids — three
+raids in four beat the entire rival field.
+
+The first correction was 690, taking this constant's own doc at its word: *the best harvest plausible
+play produces.* **That phrase is not sample-size independent, and it is the trap.** The original 434
+was the maximum of a few dozen raids — about a p95 on this distribution. The new 694 is the maximum
+of 1659, a genuine extreme. Reading both as "the max" moves the goalposts two percentiles up the
+tail without anyone choosing to. Measured at 690 the competition turned at a harvest of **550 a
+round** against a median raid of 349: a wall, which is the walkover with the sign flipped.
+
+So the figure is the **same percentile as the original, not the same word**: p95 = 560.
+
+| | at 430 | at 690 | at 560 |
+|---|---|---|---|
+| competition turns at | 350/round | 550/round | **450/round** |
+| season sweep | wins 12 of 12 | — | **wins 2 of 12** |
+| best play reaches | round 10 always | — | **round 10, 9, 8 by seed** |
+
+A competent bot averages 419 a round, so average play now loses and good play wins. Shipped in
+`aa0b621`.
+
+Two things fell out of it. The constant's docs quoted **450 against 500** — figures from the era
+before the 430 correction, stale straight through it; a doc that quotes a number the code stopped
+using is worse than one that quotes none. And `CompetitivenessTests` swept a hardcoded upper bound of
+500, so raising `GoodRun` past it would have reported a turning point from a window that no longer
+spanned the question.
+
+**The measurement that did not move is also worth keeping.** The first run at 690 reported wins
+12 of 12 — unchanged — and the honest reading was that the dial does nothing. It was not: the test
+had run a **stale assembly**, and logged `harvesting 430 a round` while the source said 690. The tell
+was in the log the whole time. `force-recompile` before running, every time, after any `.cs` edit;
+the runner's hot-reload check is not sufficient here.
+
+### 3. The marching order fans sideways
+
+*"3 yes."* Nine in single file trailed the last member **4.96 cells — a whole room** — behind the
+tank, so a player filling the room the party is *in* was spending mobs on a fight most of the party
+had not reached, and the wound curve that pays them applied to four people out of nine. Ranks of
+`AbreastFor(living)` now walk abreast: one up to four (the opening party is untouched), two at five
+or six, three above. The lateral offset is **given up rather than forced** — a flank whose cell is
+rock falls back to the centre line — so a party three abreast in a room becomes single file in a
+corridor without anyone standing in a wall. Furthest member: 4:1.91, 6:2.04, **9:2.44**. Shipped in
+`87d9e69`.
+
+Two more instruments corrected on the way, both the same shape as the `GoodRun` one:
+
+- The wall test asserted **zero** members in rock and failed at 345 member-ticks. The control it was
+  missing is the same walk at four, on the untouched single-file path: **2.6 % against the fan's
+  3.1 %**. Members clipping the inside of corners is *pre-existing* — a follower glides to its slot
+  instead of pathfinding to it — and the test would have charged the fan for all of it. It now
+  compares the two rather than bounding one.
+- The formation plot was drawn at whole cells, where a half-cell lateral offset **rounds back onto
+  the centre line**. It showed a single row and read as "the fan never opens" while the depth figure
+  said plainly that it had. At half-cell resolution the intended block is obvious:
+
+```
+#....63...###
+#...8.52@....
+#...741...###
+```
+
+### 4. The doorway covers the party — and did not need the pack it was waiting on
+
+*"I just ment the doorway was covering the team visually so it look like they walked under."* The
+sorting-order half was already built and waiting on art: `DungeonScenery` loads `dungeon/door-top`
+quietly and builds nothing when it is missing. What blocked it was that the two-part doors wanted
+were **Pipoya's, whose licence forbids redistribution while this repo is public** — so the sprite
+could not be committed and the feature would have been off for everyone who cloned it.
+
+It did not need that pack. The lintel is **cut from `door-a`'s own top rows** — seventeen solid rows
+of stone arch, then a five-row alpha ramp. That is better than an imported one rather than merely
+legal: it matches pixel for pixel in **both** door states, because `door-a` and `door-gate` share
+this arch and the pixels underneath are the same pixels, so there is no seam to hide. `door-a` is
+CC0, so the band is CC0, and `CREDITS.md`'s promise that nothing here carries redistribution
+conditions still holds. Shipped in `50078b7`; `Tools/make-door-lintel.py` reproduces it.
+
+It also closed a hole the two existing tests left between them: both pinned sorting orders that
+**nothing is drawn at when the art is absent**, so deleting the PNG left the suite green and the
+feature silently gone.
+
+**The Pipoya pack was downloaded to evaluate, was not used, and has been deleted.** Nothing from it
+is in this repository — verified against `git ls-files` and the working tree, not assumed.
