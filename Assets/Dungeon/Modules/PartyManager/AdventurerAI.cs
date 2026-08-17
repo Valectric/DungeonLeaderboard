@@ -222,9 +222,25 @@ namespace Dungeon.PartyManager
         }
 
         /// <summary>
-        /// The tank leads: it charges the nearest enemy it can actually see, and otherwise walks the
-        /// party toward the next door, stepping around traps on the way.
+        /// The tank leads: it holds the line against the nearest enemy it can see, and otherwise
+        /// walks the party toward the next door, stepping around traps on the way.
         /// </summary>
+        /// <remarks>
+        /// <b>It holds rather than charges, and this line said "charges" until 2026-08-17.</b> A
+        /// healthy tank's reach is 0.85, which is under <see cref="StandOff"/>'s search floor of
+        /// 1.2, so that method returns the tank's own position and the tank stands its ground while
+        /// the monster walks over. That is defensible behaviour — it is what a tank is for, and mobs
+        /// close on the party by themselves — but it is not what the word "charges" describes.
+        /// <para>
+        /// Making it genuinely charge was measured and rejected: fights resolve sooner, and a
+        /// stalled raid's harvest fell 2.6% (182.6 to 177.8), which is a balance change and the
+        /// author's call rather than a bug fix. The wording is what was wrong.
+        /// </para>
+        /// <para>
+        /// The <i>one</i> case where holding is fatal is handled below: a monster in another room
+        /// can never come, because pursuit stops at a threshold.
+        /// </para>
+        /// </remarks>
         private static Vector2 TankGoal(Adventurer self, Perception view)
         {
             Vector2? target = NearestVisible(self.Position, view);
@@ -240,7 +256,45 @@ namespace Dungeon.PartyManager
                     ? RangedRange
                     : TankReach;
 
-                return StandOff(self.Position, target.Value, Spacing(self, reach), view);
+                Vector2 goal = StandOff(self.Position, target.Value, Spacing(self, reach), view);
+
+                // StandOff returns the caller's own position when it cannot find anywhere to stand
+                // -- and for a HEALTHY TANK it always can't, because TankReach is 0.85 and that
+                // method's search floor is 1.2, so its loop never runs a single iteration. The tank
+                // therefore froze the instant it could SEE a monster, at any distance, since
+                // NearestVisible has no range limit.
+                //
+                // Everything looked fine and 421 tests passed, because a monster in the SAME room
+                // walks to the party and the fight happens regardless. The one that costs the raid
+                // is the monster that cannot come: mobs are room-bounded by design, so one standing
+                // across an open door will never arrive, and the party stood still for the rest of
+                // the minute earning the idle floor.
+                //
+                // Advancing rather than charging, deliberately. Walking the objective path is what
+                // this tank does when it sees nothing at all, so it is the behaviour with no combat
+                // consequences -- and it closes the distance anyway, at which point standing off
+                // starts working normally.
+                //
+                // Two broader fixes were tried and measured first, and both cost 2.6% of a stalled
+                // raid's harvest: letting StandOff close, and advancing whenever it could not move.
+                // The reason is worth recording -- THE FREEZE WAS EARNING. A party standing in a
+                // room with a monster is in combat and being paid for it, so any change that gets
+                // it moving sooner reduces the figure that EarlyEscape_EarnsFarLessThanAFullRaid
+                // measures. Restricting this to another room leaves every same-room fight untouched.
+                // Only for a target in ANOTHER room. A monster in this one is walking over, so
+                // holding the line is right and is what the tank is for; the fatal case is the one
+                // that is never coming, because pursuit stops at a threshold.
+                int here = view.Grid.RoomAt(self.Cell);
+                int there = view.Grid.RoomAt(new Vector2Int(
+                    Mathf.RoundToInt(target.Value.x), Mathf.RoundToInt(target.Value.y)));
+
+                if (goal == self.Position && here != there &&
+                    Vector2.Distance(self.Position, target.Value) > Party.MeleeReach)
+                {
+                    return Advance(self, view);
+                }
+
+                return goal;
             }
 
             return Advance(self, view);
