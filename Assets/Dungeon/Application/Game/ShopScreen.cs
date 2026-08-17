@@ -301,7 +301,14 @@ namespace Dungeon.Game
                 ReadyRect(scale, width, height).y - popupHeight - (6f * scale));
             // Under the header for the same reason the hall markers are: a tile near the top of the
             // board would otherwise open its menu across the purse and the countdown.
-            float ceiling = HeaderBottom(scale);
+            //
+            // CEILED, because the rows below are pinned to whole pixels. The frame's top is derived
+            // back from the first row -- Floor(top + titleHeight) - titleHeight -- so against a
+            // fractional ceiling that rounding lands the frame a fraction ABOVE the line it was
+            // clamped to. Measured at 1024x768, where the header bottom is 84.8: the menu was drawn
+            // one pixel into it. Ceiling the clamp costs at most a pixel of space and cannot round
+            // the wrong way.
+            float ceiling = Mathf.Ceil(HeaderBottom(scale));
             float top = Mathf.Clamp(anchor.y + (14f * scale), ceiling, Mathf.Max(ceiling, floor));
 
             float first = Mathf.Floor(top + titleHeight);

@@ -151,6 +151,67 @@ namespace Dungeon.Game.Tests
         }
 
         /// <summary>
+        /// Nothing anchored to the board is ever drawn over the shop's header.
+        /// </summary>
+        /// <remarks>
+        /// <b>Production has used <c>HeaderBottom</c> as a ceiling for two controls since it was
+        /// written, and nothing has ever asserted it.</b> Its own remark says why it exists: the
+        /// dungeon moves with the camera and the header does not, so without a floor here a control
+        /// lands on the number telling the player how much they have to spend.
+        /// <para>
+        /// It became worth guarding on 2026-08-17, when flooring the header moved that ceiling down
+        /// by 44 pixels on a phone. Both the tile menu and the hall markers clamp to it, so a change
+        /// to the header silently changes where they may sit — exactly the kind of coupling that is
+        /// fine until somebody edits one end of it.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void NothingOnTheBoard_IsDrawnOverTheHeader()
+        {
+            float worstOverlap = float.MinValue;
+            Vector2Int worstAt = Screens[0];
+            string worstWhat = string.Empty;
+
+            foreach (Vector2Int size in Screens)
+            {
+                float scale = ScaleFor(size);
+                float ceiling = ShopScreen.HeaderBottom(scale);
+
+                // Every anchor a tap can produce, including one right under the header, which is
+                // where a control that does not clamp would end up.
+                for (int step = 0; step <= 10; step++)
+                {
+                    var anchor = new Vector2(size.x * 0.5f, size.y * (step / 10f));
+
+                    float menuTop = ShopScreen.PopupFrame(anchor, scale, size.x, size.y).y;
+                    if (ceiling - menuTop > worstOverlap)
+                    {
+                        worstOverlap = ceiling - menuTop;
+                        worstAt = size;
+                        worstWhat = "the tile menu";
+                    }
+
+                    float markerTop = ShopScreen.HallMarkerRect(anchor, scale, size.x, size.y).y;
+                    if (ceiling - markerTop > worstOverlap)
+                    {
+                        worstOverlap = ceiling - markerTop;
+                        worstAt = size;
+                        worstWhat = "a hall marker";
+                    }
+                }
+            }
+
+            MooseRunnerFacade.Log(
+                $"closest either control comes to the header: {worstWhat} at "
+                + $"{worstAt.x}x{worstAt.y}, {(worstOverlap > 0f ? "OVER by" : "clear by")} "
+                + $"{Mathf.Abs(worstOverlap):F0}px");
+
+            Assert.LessOrEqual(worstOverlap, 0.5f,
+                $"{worstWhat} is drawn {worstOverlap:F0}px into the header at "
+                + $"{worstAt.x}x{worstAt.y}, over the purse and the countdown");
+        }
+
+        /// <summary>
         /// A desktop screen is left exactly as it was.
         /// </summary>
         /// <remarks>
