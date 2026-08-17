@@ -2,8 +2,8 @@
 
 ## Read this first — the 2026-08-17 session
 
-**All four of your rulings are shipped, and live on itch as `0.1.2608170421`.** `main` is green at
-**378 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
+**All four of your rulings are shipped, and live on itch as `0.1.2608170607`.** `main` is green at
+**385 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
 flip.
 
 | you ruled | state |
@@ -41,6 +41,22 @@ matches both door states pixel for pixel, is CC0 like the door it came from, and
 clone** — where imported art could never have been committed to a public repo. The pack was
 downloaded to evaluate, was not used, and has been deleted; nothing from it is in this repository.
 `Tools/make-door-lintel.py` regenerates the band.
+
+**The retreat valve had stopped working, and a green test was holding it shut (D48).** The biggest
+fix of the night. `ChooseGoal` breaks the party off when its pooled health drops under the threshold,
+and that pool was computed over the **living** members — so a corpse left the denominator with it and
+the value **jumped up every time somebody died**. A party being killed one at a time read as a party
+getting healthier. Under pressure a nine-strong party lost **eight of nine** while the trigger never
+fell below 53%, and never once ran. Your only mercy was attached to nothing, and every corpse costs
+50 banked points.
+
+`PartyHealth_IgnoresTheDead` asserted precisely that behaviour, for a reason that was correct when
+written and stopped being correct at M6 — the old curve multiplied a party-wide health figure, so a
+corpse dragging it down really would have paid you for a kill. The live rate is per-member, and the
+aggregate's only consumer is the retreat decision. Fixed: the valve now fires at every size and
+**fewer adventurers die at every size** (4.0→3.0, 5.8→5.3, 8.0→7.0). The season sweep moved from 4
+of 12 to **6 of 12**, which bears on M13's open question about the right win rate — it is now a half,
+and driven by a valve that works rather than one that never fired.
 
 **What still needs your judgement**
 
