@@ -44,6 +44,46 @@ were wrong, and the reasoning existed **only in a test name**, which is why it i
 
 ---
 
+## Played the live build end to end — what it looks like from a voter's seat
+
+Ran `0.1.2608171808` on itch through a whole cycle: loading, standings, a raid with two slime
+spawns, the review, and the collapse. **The game works.** Rate climbed 1.4 -> 10.5/s the moment the
+party engaged, the modifier line explained why, harvest tracked live in the standings strip, the
+party looted the chest and the opening hints cleared on cue, and the review read *"Solid fight in the
+second room, then we found the exit. Wanted more."* at three stars for 95 — which is the game
+correctly telling me I let them leave. Round-one sudden death then ended the run, as PLAN.md says it
+should.
+
+Three things worth your attention, none of them changed without you:
+
+**1. The title card can sit there for twenty seconds.** `LoadingScreen.Seconds` is 6, and the screen
+is deliberately not skippable. But an itch iframe that does not have focus has its animation frames
+throttled by the browser, and Unity clamps each frame's `deltaTime` to `maximumDeltaTime` (0.333s) —
+so the age accumulates slower than the wall clock. Measured at roughly **twenty real seconds** before
+the standings appeared, through a keypress that did nothing. Clicking the canvas fixes it instantly,
+and your own comment there already anticipates that the first click is the one giving focus. So it
+may never happen to a player who clicks Run game and keeps their mouse there. But a jam voter who
+clicks and then waits is looking at a still title card for twenty seconds, and "THEY ARE COMING" does
+not say "loading". Timing the screen off `realtimeSinceStartup` would make it exactly six seconds
+however the browser paces frames — a two-line change to a screen you have already ruled on, so it is
+yours.
+<br>The comment beside that code claimed **"two seconds"** while the constant read six. That much I
+did fix.
+
+**2. Your row on the collapse screen is green.** At 20th, below the red line, the row reads
+`20  Your Dungeon  95` in the same `PlayerGreen` as a healthy standing, with the loss stated only by
+the red prompt beneath. Green means "this is you" rather than "you are safe", and the rule predates
+me — I only made the rank number obey it, so a collapse is now slightly *greener* than it was. You
+have cared about this exact thing before ("the collapse line was drawn in the winner's green"), so
+if the row should go red when doomed, say so and it is one line plus a test flip.
+
+**3. The chest tag lands on the party.** "THEY STOP TO LOOT" is drawn where the chest is, and the
+party walks onto the chest to loot it, so the gold text sits across their heads and health bars for
+the few seconds it matters. First raid only. Inherent to a tag that marks a thing the party goes to,
+so it needs a decision rather than a fix.
+
+---
+
 ## Shipped: the player's own position was invisible on the title screen
 
 **Live as `0.1.2608171808`, verified in the browser.** The standings are the title screen and the

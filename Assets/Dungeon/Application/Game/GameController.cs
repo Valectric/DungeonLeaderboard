@@ -692,11 +692,27 @@ namespace Dungeon.Game
             {
                 _loadingAge += Time.deltaTime;
 
-                // NOT skippable, by the author's instruction. Two seconds of the party marching in
-                // is the game introducing itself, and a returning player mashing a key to reach the
-                // standings would skip past the one moment that says what this is. It also removes
-                // an accident: on the itch embed the first click is the one that gives the page
-                // focus, so a skippable screen would vanish before most players had seen it at all.
+                // NOT skippable, by the author's instruction. LoadingScreen.Seconds of the party
+                // marching in is the game introducing itself, and a returning player mashing a key
+                // to reach the standings would skip past the one moment that says what this is. It
+                // also removes an accident: on the itch embed the first click is the one that gives
+                // the page focus, so a skippable screen would vanish before most players had seen
+                // it at all.
+                //
+                // This said "Two seconds" until 2026-08-17 and the constant beside it has been SIX
+                // for some time -- worth naming rather than restating, since a comment that
+                // contradicts the value it describes is worse than no comment.
+                //
+                // It costs more than six seconds on the itch embed, measured 2026-08-17: an
+                // unfocused iframe has its animation frames throttled by the browser, Unity clamps
+                // each frame's deltaTime to maximumDeltaTime (0.333s), and the age therefore
+                // accumulates slower than the wall clock. Observed at roughly twenty real seconds
+                // before the standings appeared. Clicking the canvas restores full pace at once,
+                // which is what the focus note above is about -- but a player who clicks Run game
+                // and then waits is looking at a title card for twenty seconds. Left as-is because
+                // it is the browser's behaviour rather than the game's, and the fix (timing this
+                // screen off realtimeSinceStartup instead) changes a screen the author has already
+                // ruled on; see HANDOVER.
                 if (_loadingAge >= LoadingScreen.Seconds)
                 {
                     _phase = Phase.Standings;
