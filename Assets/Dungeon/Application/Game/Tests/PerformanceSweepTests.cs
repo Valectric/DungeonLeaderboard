@@ -373,5 +373,82 @@ namespace Dungeon.Game.Tests
                 $"a nine-strong party costs {atNine:F0} us a tick, which at fifty ticks a second is "
                 + "a tenth of a frame budget spent on simulation alone");
         }
+
+        /// <summary>
+        /// The rendered loop keeps its budget with the dungeon full, not just busy.
+        /// </summary>
+        /// <remarks>
+        /// The gap between the two halves of this file. <c>ACrowdOfMonsters</c> measures sixty
+        /// monsters in the <b>simulation</b>, and <c>TheFrameLoop_KeepsItsBudget</c> measures the
+        /// rendered loop with six — so the combination that actually ships, sixty monsters being
+        /// <i>drawn</i>, was covered by neither. Drawing is a different cost from simulating: every
+        /// mob is a sprite, a health bar and a share of the combat-number feed.
+        /// <para>
+        /// It is the WebGL case specifically. CLAUDE.md's doctrine is that the editor is not the
+        /// shipping renderer and the browser runs a lower quality tier, so headroom measured here is
+        /// the optimistic figure — which is the argument for measuring the crowded case rather than
+        /// the comfortable one.
+        /// </para>
+        /// <para>
+        /// Reachable in play: a late-season purse sits around 500 to 730 (D51), a spawn costs
+        /// <c>Raid.SpawnCost</c>, and a player who presses every spawner every second is exactly the
+        /// player this game invites. Sixty is not a stress figure, it is a Tuesday.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The awaitable measurement.</returns>
+        [Test]
+        public async UniTask TheFrameLoop_KeepsItsBudgetWithTheDungeonFull(CancellationToken ct)
+        {
+            DoNotDestroyOnTeardown.CleanSceneImmediate();
+            await MooseRunnerFacade.InstanceQuiet.LoadSceneFromNameAsync("Raid");
+            var game = new GameObject("game").AddComponent<GameController>();
+            await UniTask.Yield(ct);
+
+            game.StartRaid();
+            await UniTask.Yield(ct);
+
+            // Sixty in total, to match the figure the SIMULATION half of this file uses, and
+            // divided across whatever spawners the opening dungeon has -- which is one. The first
+            // version of this spawned twenty PER SPAWNER and reported "20 mobs", correctly, while
+            // the name of the test promised a full dungeon: the label was honest and the load was
+            // a third of what was intended.
+            int spawners = Mathf.Max(1, game.CurrentRaid.Layout.SpawnerCells.Count);
+            int each = Mathf.CeilToInt(60f / spawners);
+
+            foreach (Vector2Int spawner in game.CurrentRaid.Layout.SpawnerCells)
+            {
+                for (int i = 0; i < each; i++)
+                {
+                    game.CurrentRaid.Mobs.Spawn(MobKind.Skeleton, spawner);
+                }
+            }
+
+            await UniTask.WaitForSeconds(0.5f, cancellationToken: ct);
+
+            var clock = Stopwatch.StartNew();
+            int frames = 0;
+            while (clock.Elapsed.TotalSeconds < 3.0)
+            {
+                await UniTask.NextFrame(ct);
+                frames++;
+            }
+
+            clock.Stop();
+            double mean = clock.Elapsed.TotalSeconds / Mathf.Max(1, frames);
+            int alive = game.CurrentRaid.Mobs.Mobs.Count;
+
+            MooseRunnerFacade.Log(
+                $"FULL dungeon: {alive} mobs over {spawners} spawner(s), {frames} frames in "
+                + $"{clock.Elapsed.TotalSeconds:F1}s, mean {mean * 1000.0:F1} ms");
+
+            Assert.GreaterOrEqual(alive, 50,
+                $"only {alive} mobs were placed, so this measured a comfortable dungeon while "
+                + "claiming to measure a full one");
+
+            Assert.Less(mean, 0.1,
+                $"a full dungeon renders at {mean * 1000.0:F0} ms a frame, under 10 fps in the "
+                + "EDITOR -- and the browser runs a lower tier than this");
+        }
     }
 }
