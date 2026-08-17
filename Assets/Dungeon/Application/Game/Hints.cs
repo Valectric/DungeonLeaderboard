@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Dungeon.DungeonManager;
 using Dungeon.RaidManager;
 using UnityEngine;
@@ -106,6 +107,17 @@ namespace Dungeon.Game
                     new Color(0.6f, 0.95f, 0.55f), block);
             }
 
+            // Where the party is standing this frame, as boxes in GUI space, so a label can decline
+            // to draw over them. Generous enough to cover the floating health and mana bars, which
+            // sit above each head and are the part that actually gets obscured.
+            var bodies = new List<Rect>();
+            foreach (PartyManager.Adventurer member in raid.Party.Living)
+            {
+                Vector2 at = GuiPointOf(camera, member.Position);
+                bodies.Add(new Rect(
+                    at.x - (26f * scale), at.y - (34f * scale), 52f * scale, 60f * scale));
+            }
+
             foreach (Vector2Int cell in layout.ChestCells)
             {
                 // Gone once the party has taken it. The tag describes something that is about to
@@ -116,7 +128,8 @@ namespace Dungeon.Game
                     continue;
                 }
 
-                Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f), block);
+                Tag(camera, scale, cell, "THEY STOP TO LOOT", new Color(0.95f, 0.82f, 0.4f), block,
+                    bodies);
             }
 
             foreach (Vector2Int cell in layout.TrapCells)
@@ -357,7 +370,8 @@ namespace Dungeon.Game
         /// <param name="colour">Colour to say it in.</param>
         /// <param name="avoid">Rectangle not to draw into; pass an empty rect to draw regardless.</param>
         private static void Tag(
-            Camera camera, float scale, Vector2Int cell, string text, Color colour, Rect avoid)
+            Camera camera, float scale, Vector2Int cell, string text, Color colour, Rect avoid,
+            IReadOnlyList<Rect> bodies = null)
         {
             Vector2 point = GuiPointOf(camera, cell);
 
@@ -400,6 +414,26 @@ namespace Dungeon.Game
                 return;
             }
 
+            // And the same courtesy to the ADVENTURERS, which is the third thing this one label has
+            // been found lying across. The lift above flips a top-of-screen label BELOW the thing it
+            // names so it clears the headline -- and below the opening chest is exactly where the
+            // party stands to open it, so the dodge moved the collision from the instructions onto
+            // the party's own sprites and health bars.
+            //
+            // Waiting rather than moving, for the reason the block check gives: the party is walking
+            // through, so the label comes back on its own a moment later, whereas a label nudged
+            // aside would stay nudged for the whole raid to dodge something that has gone.
+            if (bodies != null)
+            {
+                foreach (Rect body in bodies)
+                {
+                    if (rect.Overlaps(body))
+                    {
+                        return;
+                    }
+                }
+            }
+
             Write(rect, text, style, colour, 1f, scale);
         }
 
@@ -440,6 +474,24 @@ namespace Dungeon.Game
         private static Vector2 GuiPointOf(Camera camera, Vector2Int cell)
         {
             Vector3 screen = camera.WorldToScreenPoint(DungeonView.CellToWorld(cell));
+            return new Vector2(screen.x, Screen.height - screen.y);
+        }
+
+        /// <summary>
+        /// Where a world position sits on screen, in GUI space.
+        /// </summary>
+        /// <remarks>
+        /// The overload above rounds to a cell, which is right for a chest or a door because those
+        /// stand on one. An adventurer does not: it walks between cells, and rounding it would put
+        /// the box up to half a cell away from the body it is meant to describe.
+        /// </remarks>
+        /// <param name="camera">Camera the dungeon is drawn with.</param>
+        /// <param name="position">World position in grid units.</param>
+        /// <returns>The point in GUI space.</returns>
+        private static Vector2 GuiPointOf(Camera camera, Vector2 position)
+        {
+            Vector3 screen = camera.WorldToScreenPoint(new Vector3(
+                position.x * DungeonView.CellSize, position.y * DungeonView.CellSize, 0f));
             return new Vector2(screen.x, Screen.height - screen.y);
         }
     }
