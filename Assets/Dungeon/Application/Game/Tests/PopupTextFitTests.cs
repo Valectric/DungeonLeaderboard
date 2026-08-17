@@ -87,20 +87,7 @@ namespace Dungeon.Game.Tests
             }
         }
 
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>
         /// Every item name fits the box it is drawn in, on every screen the game ships to.
@@ -118,9 +105,9 @@ namespace Dungeon.Game.Tests
             var measurer = host.AddComponent<Measurer>();
             var where = new List<Vector2Int>();
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float scale = ScaleFor(size);
+                float scale = Screens.ScaleFor(size);
                 Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
@@ -142,7 +129,7 @@ namespace Dungeon.Game.Tests
 
             float worst = float.MinValue;
             string worstText = string.Empty;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
             float worstFont = 0f;
 
             for (int i = 0; i < measurer.Overflow.Count; i++)

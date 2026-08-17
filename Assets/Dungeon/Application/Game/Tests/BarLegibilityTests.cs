@@ -44,12 +44,6 @@ namespace Dungeon.Game.Tests
         /// <summary>Device pixels of clear space two bars need to read as two.</summary>
         private const float ReadableGapPixels = 1f;
 
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
         /// <summary>
         /// How many pixels one dungeon cell covers, framed the way the game frames a raid.
@@ -124,9 +118,9 @@ namespace Dungeon.Game.Tests
             var rows = new List<string>();
             float worstBar = float.MaxValue;
             float worstGap = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
                 float cell = PixelsPerCell(size);
                 float barPixels = cell * BarHeightCells;

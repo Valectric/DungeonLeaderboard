@@ -77,20 +77,7 @@ namespace Dungeon.Game.Tests
             }
         }
 
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>
         /// The party announcement fits the screen, for every roster at full strength.
@@ -111,7 +98,7 @@ namespace Dungeon.Game.Tests
             var where = new List<Vector2Int>();
             var lines = new List<string>();
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
                 foreach (PartyComposition roster in PartyComposition.All)
                 {
@@ -119,7 +106,7 @@ namespace Dungeon.Game.Tests
                         roster.Grown(PartyComposition.MaxSize));
 
                     measurer.Texts.Add(line);
-                    measurer.Scales.Add(ScaleFor(size));
+                    measurer.Scales.Add(Screens.ScaleFor(size));
                     measurer.Widths2.Add(size.x);
                     where.Add(size);
                     lines.Add(line);
@@ -135,7 +122,7 @@ namespace Dungeon.Game.Tests
 
             float worstOverflow = float.MinValue;
             string worstLine = string.Empty;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
             for (int i = 0; i < measurer.Widths.Count; i++)
             {

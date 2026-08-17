@@ -22,20 +22,7 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class PopupSizeTests
     {
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>
         /// A phone gets a menu row about three times the height it used to.
@@ -52,7 +39,7 @@ namespace Dungeon.Game.Tests
 
             foreach (Vector2Int size in new[] { new Vector2Int(390, 844), new Vector2Int(360, 780) })
             {
-                float scale = ScaleFor(size);
+                float scale = Screens.ScaleFor(size);
                 Rect[] popup = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.5f), scale, size.x, size.y);
 
@@ -82,11 +69,11 @@ namespace Dungeon.Game.Tests
         {
             var rows = new List<string>();
             float worstGap = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float scale = ScaleFor(size);
+                float scale = Screens.ScaleFor(size);
                 Rect ready = ShopLayout.ReadyRect(scale, size.x, size.y);
 
                 // Every anchor a tap can produce, not just the middle: the menu is placed relative
@@ -131,9 +118,9 @@ namespace Dungeon.Game.Tests
         [Test]
         public void TheFrame_ContainsEveryRow()
         {
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float scale = ScaleFor(size);
+                float scale = Screens.ScaleFor(size);
                 var anchor = new Vector2(size.x * 0.5f, size.y * 0.4f);
                 Rect frame = ShopLayout.PopupFrame(anchor, scale, size.x, size.y);
                 Rect[] rows = ShopLayout.PopupRows(anchor, scale, size.x, size.y);
@@ -169,12 +156,12 @@ namespace Dungeon.Game.Tests
         public void NothingOnTheBoard_IsDrawnOverTheHeader()
         {
             float worstOverlap = float.MinValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
             string worstWhat = string.Empty;
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float scale = ScaleFor(size);
+                float scale = Screens.ScaleFor(size);
                 float ceiling = ShopLayout.HeaderBottom(scale);
 
                 // Every anchor a tap can produce, including one right under the header, which is
@@ -224,7 +211,7 @@ namespace Dungeon.Game.Tests
         {
             var size = new Vector2Int(1280, 720);
             Rect[] popup = ShopLayout.PopupRows(
-                new Vector2(640f, 300f), ScaleFor(size), size.x, size.y);
+                new Vector2(640f, 300f), Screens.ScaleFor(size), size.x, size.y);
 
             MooseRunnerFacade.Log(
                 $"1280x720: row {popup[0].height:F0}px, width {popup[0].width:F0}px");

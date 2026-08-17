@@ -61,27 +61,14 @@ namespace Dungeon.Game.Tests
             }
         }
 
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>The scale the HUD lays out at, floored.</summary>
         /// <param name="size">Screen size in pixels.</param>
         /// <returns>Layout scale.</returns>
         private static float HudScaleFor(Vector2Int size)
         {
-            return Mathf.Max(ScaleFor(size), GameController.HudMinimumScale);
+            return Mathf.Max(Screens.ScaleFor(size), GameController.HudMinimumScale);
         }
 
         /// <summary>Nominal size of the HUD's captions, from the HUD block.</summary>
@@ -101,9 +88,9 @@ namespace Dungeon.Game.Tests
         public void TheSmallestHudType_StaysReadable()
         {
             float worst = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
                 float drawn = CaptionNominal * HudScaleFor(size);
                 if (drawn < worst)
@@ -115,7 +102,7 @@ namespace Dungeon.Game.Tests
 
             MooseRunnerFacade.Log(
                 $"smallest HUD caption: {worst:F0}px at {worstAt.x}x{worstAt.y} "
-                + $"(unfloored it would be {CaptionNominal * ScaleFor(worstAt):F0}px)");
+                + $"(unfloored it would be {CaptionNominal * Screens.ScaleFor(worstAt):F0}px)");
 
             Assert.GreaterOrEqual(worst, 9f,
                 $"the HUD draws its captions at {worst:F0}px on {worstAt.x}x{worstAt.y}");
@@ -142,7 +129,7 @@ namespace Dungeon.Game.Tests
             var host = new GameObject("hud-measurer");
             var measurer = host.AddComponent<Measurer>();
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
                 float hud = HudScaleFor(size);
                 measurer.Texts.Add("1:00");
@@ -161,11 +148,11 @@ namespace Dungeon.Game.Tests
             Assert.IsTrue(measurer.Done, "the measuring pass never ran");
 
             float worstGap = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            for (int i = 0; i < Screens.Length; i++)
+            for (int i = 0; i < Screens.All.Length; i++)
             {
-                Vector2Int size = Screens[i];
+                Vector2Int size = Screens.All[i];
                 float hud = HudScaleFor(size);
 
                 float clockRight = (24f * hud) + measurer.Widths[i * 3];

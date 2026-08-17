@@ -30,9 +30,6 @@ namespace Dungeon.Game.Tests
         /// <summary>The controller under test.</summary>
         private GameController _game;
 
-        /// <summary>Where frames are written to be looked at.</summary>
-        private static string ShotDirectory =>
-            Path.Combine(UnityEngine.Application.dataPath, "..", "Screenshots");
 
         /// <summary>Loads the play scene once for the fixture.</summary>
         [OneTimeSetUp]
@@ -52,20 +49,6 @@ namespace Dungeon.Game.Tests
         /// <summary>Photographs the composited frame, interface included.</summary>
         /// <param name="name">File name stem.</param>
         /// <param name="ct">Cancellation token.</param>
-        /// <returns>The awaitable capture.</returns>
-        private static async UniTask Capture(string name, CancellationToken ct)
-        {
-            await UniTask.WaitForEndOfFrame(ct);
-
-            Texture2D image = ScreenCapture.CaptureScreenshotAsTexture();
-            Directory.CreateDirectory(ShotDirectory);
-            string path = Path.Combine(ShotDirectory, $"{name}.png");
-            File.WriteAllBytes(path, image.EncodeToPNG());
-            Object.DestroyImmediate(image);
-
-            MooseRunnerFacade.Log($"captured {path}");
-            Assert.IsTrue(File.Exists(path), $"{name} was not written to disk");
-        }
 
         /// <summary>
         /// The shop, with a build menu open on a tile, over the dungeon the run opens with.
@@ -102,7 +85,7 @@ namespace Dungeon.Game.Tests
             }
 
             await UniTask.Yield(ct);
-            await Capture("06-shop-with-menu", ct);
+            await Frames.Capture("06-shop-with-menu", ct);
 
             Assert.IsTrue(_game.IsShopping, "the shop closed while being photographed");
 
@@ -175,7 +158,7 @@ namespace Dungeon.Game.Tests
             // the way to the collapse, so it costs one capture to cover the last screen that had a
             // photograph and no assertion.
             Assert.IsTrue(_game.IsReviewing, "expected the adventurers' review before dismissing it");
-            await Capture("12-review-screen", ct);
+            await Frames.Capture("12-review-screen", ct);
 
             System.Collections.Generic.List<string> litInReview = LitBars();
             MooseRunnerFacade.Log(
@@ -196,7 +179,7 @@ namespace Dungeon.Game.Tests
                 + $"position {_game.League.PlayerPosition}, relegated "
                 + $"{_game.League.PlayerRelegated}");
 
-            await Capture("07-collapse", ct);
+            await Frames.Capture("07-collapse", ct);
 
             // The same fault the standings had, on the screen most players will actually reach.
             // The first fix named Phase.Standings alone, so it shipped still broken here -- the bars
@@ -244,7 +227,7 @@ namespace Dungeon.Game.Tests
                 await UniTask.NextFrame(ct);
             }
 
-            await Capture("08-mid-season-standings", ct);
+            await Frames.Capture("08-mid-season-standings", ct);
 
             Assert.Less(_game.League.Entries.Count, LeagueTable.Size,
                 "the field never shrank, so this photographed the opening table");
@@ -282,7 +265,7 @@ namespace Dungeon.Game.Tests
                 "the run never reached the standings, so this proves nothing either way");
 
             await UniTask.NextFrame(ct);
-            await Capture("10-league-screen", ct);
+            await Frames.Capture("10-league-screen", ct);
 
             SpriteRenderer[] bars = Object.FindObjectsByType<SpriteRenderer>(
                 FindObjectsSortMode.None);

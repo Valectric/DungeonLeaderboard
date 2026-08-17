@@ -33,9 +33,6 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class SamplerRoomShot
     {
-        /// <summary>Where the reference frames are written.</summary>
-        private static string ShotDirectory =>
-            Path.Combine(UnityEngine.Application.dataPath, "..", "Screenshots", "rooms");
 
         /// <summary>Loads the play scene once for the fixture.</summary>
         [OneTimeSetUp]
@@ -185,9 +182,9 @@ namespace Dungeon.Game.Tests
             camera.targetTexture = null;
             camera.ResetAspect();
 
-            Directory.CreateDirectory(ShotDirectory);
+            Directory.CreateDirectory(Frames.Directory);
             File.WriteAllBytes(
-                Path.Combine(ShotDirectory, "04-sampler.png"), image.EncodeToPNG());
+                Path.Combine(Frames.Directory, "04-sampler.png"), image.EncodeToPNG());
 
             Object.DestroyImmediate(image);
             target.Release();
@@ -232,7 +229,7 @@ namespace Dungeon.Game.Tests
             }
 
             File.WriteAllText(
-                Path.Combine(ShotDirectory, "04-sampler.cells.txt"), lines.ToString());
+                Path.Combine(Frames.Directory, "04-sampler.cells.txt"), lines.ToString());
 
             MooseRunnerFacade.Log(
                 $"sampler {width}x{height} contains wall masks: {string.Join(", ", seen)} "

@@ -21,20 +21,7 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class ReviewLegibilityTests
     {
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>Nominal size of the smallest type on the screen, from <c>ReviewScreen.Draw</c>.</summary>
         private const float SmallestNominal = 13f;
@@ -54,11 +41,11 @@ namespace Dungeon.Game.Tests
         public void TheSmallestType_StaysReadable()
         {
             float worst = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float drawn = SmallestNominal * ReviewScreen.LayoutScale(ScaleFor(size));
+                float drawn = SmallestNominal * ReviewScreen.LayoutScale(Screens.ScaleFor(size));
                 if (drawn < worst)
                 {
                     worst = drawn;
@@ -68,7 +55,7 @@ namespace Dungeon.Game.Tests
 
             MooseRunnerFacade.Log(
                 $"smallest review type: {worst:F0}px at {worstAt.x}x{worstAt.y} "
-                + $"(unfloored it would be {SmallestNominal * ScaleFor(worstAt):F0}px)");
+                + $"(unfloored it would be {SmallestNominal * Screens.ScaleFor(worstAt):F0}px)");
 
             Assert.GreaterOrEqual(worst, 9f,
                 $"the review draws its smallest line at {worst:F0}px on {worstAt.x}x{worstAt.y}, "
@@ -89,11 +76,11 @@ namespace Dungeon.Game.Tests
         public void TheFlooredLayout_StillFits()
         {
             float worstSpare = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                float scale = ReviewScreen.LayoutScale(ScaleFor(size));
+                float scale = ReviewScreen.LayoutScale(Screens.ScaleFor(size));
                 float bottom = (size.y * 0.2f) + (LowestLine * scale);
                 float spare = size.y - bottom;
 

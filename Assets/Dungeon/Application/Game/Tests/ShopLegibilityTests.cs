@@ -71,20 +71,7 @@ namespace Dungeon.Game.Tests
             }
         }
 
-        /// <summary>Screens the game is expected to run on, matching the resolution sweep.</summary>
-        private static readonly Vector2Int[] Screens =
-        {
-            new(1920, 1080), new(1280, 720), new(1024, 768), new(800, 480),
-            new(768, 1024), new(390, 844), new(360, 780), new(523, 293)
-        };
 
-        /// <summary>The interface scale the game uses at a given size.</summary>
-        /// <param name="size">Screen size in pixels.</param>
-        /// <returns>Scale factor.</returns>
-        private static float ScaleFor(Vector2Int size)
-        {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
-        }
 
         /// <summary>
         /// Ready is big enough to press with a thumb on every screen.
@@ -99,11 +86,11 @@ namespace Dungeon.Game.Tests
         {
             float worstHeight = float.MaxValue;
             float worstWidth = float.MaxValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                Rect ready = ShopLayout.ReadyRect(ScaleFor(size), size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(Screens.ScaleFor(size), size.x, size.y);
                 MooseRunnerFacade.Log(
                     $"{size.x}x{size.y}: Ready is {ready.width:F0}x{ready.height:F0} at "
                     + $"y={ready.y:F0}");
@@ -132,10 +119,10 @@ namespace Dungeon.Game.Tests
             var host = new GameObject("ready-measurer");
             var measurer = host.AddComponent<Measurer>();
 
-            foreach (Vector2Int size in Screens)
+            foreach (Vector2Int size in Screens.All)
             {
-                Rect ready = ShopLayout.ReadyRect(ScaleFor(size), size.x, size.y);
-                measurer.Scales.Add(ScaleFor(size));
+                Rect ready = ShopLayout.ReadyRect(Screens.ScaleFor(size), size.x, size.y);
+                measurer.Scales.Add(Screens.ScaleFor(size));
                 measurer.Buttons.Add(ready.width);
             }
 
@@ -147,7 +134,7 @@ namespace Dungeon.Game.Tests
             Assert.IsTrue(measurer.Done, "the measuring pass never ran");
 
             float worst = float.MinValue;
-            Vector2Int worstAt = Screens[0];
+            Vector2Int worstAt = Screens.All[0];
             int worstFont = 0;
 
             for (int i = 0; i < measurer.Overflow.Count; i++)
@@ -155,7 +142,7 @@ namespace Dungeon.Game.Tests
                 if (measurer.Overflow[i] > worst)
                 {
                     worst = measurer.Overflow[i];
-                    worstAt = Screens[i];
+                    worstAt = Screens.All[i];
                     worstFont = measurer.Fonts[i];
                 }
             }

@@ -24,21 +24,18 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class RaidE2E
     {
-        /// <summary>Where frames are written for a human (or an agent) to look at.</summary>
-        private static string ShotDirectory =>
-            Path.Combine(UnityEngine.Application.dataPath, "..", "Screenshots");
 
         /// <summary>The controller in the loaded scene.</summary>
         private static GameController Controller => Object.FindFirstObjectByType<GameController>();
 
         /// <summary>Renders the active camera to a PNG so the frame can actually be inspected.</summary>
         /// <param name="name">File name stem.</param>
-        private static void Capture(string name)
+        private static void CaptureTo(string name)
         {
             Camera camera = Camera.main;
             Assert.IsNotNull(camera, "the scene must ship with a camera");
 
-            Directory.CreateDirectory(ShotDirectory);
+            Directory.CreateDirectory(Frames.Directory);
             var target = new RenderTexture(1280, 720, 24);
             RenderTexture previous = camera.targetTexture;
             camera.targetTexture = target;
@@ -52,7 +49,7 @@ namespace Dungeon.Game.Tests
             RenderTexture.active = active;
             camera.targetTexture = previous;
 
-            string path = Path.Combine(ShotDirectory, $"{name}.png");
+            string path = Path.Combine(Frames.Directory, $"{name}.png");
             File.WriteAllBytes(path, image.EncodeToPNG());
             Object.DestroyImmediate(image);
             target.Release();
@@ -86,8 +83,8 @@ namespace Dungeon.Game.Tests
             await UniTask.WaitForEndOfFrame(ct);
 
             Texture2D image = ScreenCapture.CaptureScreenshotAsTexture();
-            Directory.CreateDirectory(ShotDirectory);
-            string path = Path.Combine(ShotDirectory, $"{name}.png");
+            Directory.CreateDirectory(Frames.Directory);
+            string path = Path.Combine(Frames.Directory, $"{name}.png");
             File.WriteAllBytes(path, image.EncodeToPNG());
 
             MooseRunnerFacade.Log($"captured {path} ({image.width}x{image.height}, HUD included)");
@@ -135,7 +132,7 @@ namespace Dungeon.Game.Tests
                     $"'{renderer.name}' has no sprite -- a Resources path is wrong");
             }
 
-            Capture("01-raid-opening");
+            CaptureTo("01-raid-opening");
             await CaptureScreen("01-raid-opening-hud", ct);
         }
 
@@ -157,7 +154,7 @@ namespace Dungeon.Game.Tests
             Assert.Less(raid.TimeRemaining, startTime, "the clock must run");
             Assert.AreNotEqual(startCell, raid.Party.Cell, "an unopposed party must advance");
 
-            Capture("02-party-advancing");
+            CaptureTo("02-party-advancing");
             await CaptureScreen("02-party-advancing-hud", ct);
         }
 
@@ -216,7 +213,7 @@ namespace Dungeon.Game.Tests
             Assert.Greater(peak, idleRate * 1.5f,
                 "engaging the party must visibly lift the rate off its idle floor");
 
-            Capture("03-engaged");
+            CaptureTo("03-engaged");
             await CaptureScreen("03-engaged-hud", ct);
         }
 
@@ -234,7 +231,7 @@ namespace Dungeon.Game.Tests
             Assert.IsFalse(raid.IsRunning, "a raid must end within its own clock");
             Assert.AreNotEqual(RaidOutcome.InProgress, raid.Outcome);
 
-            Capture("04-raid-over");
+            CaptureTo("04-raid-over");
 
             // The stars land one at a time over about a second, and the photograph was racing them:
             // measured off the PNG, all five came out at an identical (60,54,68), because none had

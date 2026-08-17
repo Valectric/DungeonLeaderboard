@@ -55,7 +55,7 @@ namespace Dungeon.Game.Tests
         /// </remarks>
         /// <param name="camera">Camera to render.</param>
         /// <param name="name">File name, without extension.</param>
-        private static void Capture(Camera camera, string name)
+        private static void CaptureTo(Camera camera, string name)
         {
             string directory = Path.Combine(
                 UnityEngine.Application.dataPath, "..", "Screenshots");
@@ -152,7 +152,7 @@ namespace Dungeon.Game.Tests
             // runs framed the camera identically. They did not, and it produced a confident wrong
             // answer -- it named a wall tile whose brightest pixel is 63 as the source of a band
             // measuring 100. Capturing in this test removes the assumption entirely.
-            Capture(camera, "09-scenery-dump");
+            CaptureTo(camera, "09-scenery-dump");
             MooseRunnerFacade.Log(
                 $"camera ortho={camera.orthographicSize:F3} "
                 + $"pos=({camera.transform.position.x:F2},{camera.transform.position.y:F2}) "

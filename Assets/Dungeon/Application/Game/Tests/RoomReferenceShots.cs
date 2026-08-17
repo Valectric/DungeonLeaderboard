@@ -26,9 +26,6 @@ namespace Dungeon.Game.Tests
     /// </remarks>
     public sealed class RoomReferenceShots
     {
-        /// <summary>Where the reference frames are written.</summary>
-        private static string ShotDirectory =>
-            Path.Combine(UnityEngine.Application.dataPath, "..", "Screenshots", "rooms");
 
         /// <summary>Loads the play scene once for the fixture.</summary>
         [OneTimeSetUp]
@@ -113,8 +110,8 @@ namespace Dungeon.Game.Tests
             camera.targetTexture = null;
             camera.ResetAspect();
 
-            Directory.CreateDirectory(ShotDirectory);
-            string path = Path.Combine(ShotDirectory, $"{name}.png");
+            Directory.CreateDirectory(Frames.Directory);
+            string path = Path.Combine(Frames.Directory, $"{name}.png");
             File.WriteAllBytes(path, image.EncodeToPNG());
 
             Object.DestroyImmediate(image);
@@ -177,7 +174,7 @@ namespace Dungeon.Game.Tests
                 }
             }
 
-            File.WriteAllText(Path.Combine(ShotDirectory, $"{name}.cells.txt"), lines.ToString());
+            File.WriteAllText(Path.Combine(Frames.Directory, $"{name}.cells.txt"), lines.ToString());
         }
 
         /// <summary>A single room with no doors at all — the shape the game now opens on.</summary>
@@ -263,8 +260,8 @@ namespace Dungeon.Game.Tests
             RenderTexture.active = active;
             camera.targetTexture = null;
 
-            Directory.CreateDirectory(ShotDirectory);
-            string path = Path.Combine(ShotDirectory, "03-room-entrance-left.png");
+            Directory.CreateDirectory(Frames.Directory);
+            string path = Path.Combine(Frames.Directory, "03-room-entrance-left.png");
             File.WriteAllBytes(path, image.EncodeToPNG());
 
             Object.DestroyImmediate(image);

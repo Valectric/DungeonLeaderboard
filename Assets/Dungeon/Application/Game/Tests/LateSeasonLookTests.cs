@@ -34,9 +34,6 @@ namespace Dungeon.Game.Tests
         /// <summary>The controller under test.</summary>
         private GameController _game;
 
-        /// <summary>Where frames are written to be looked at.</summary>
-        private static string ShotDirectory =>
-            Path.Combine(UnityEngine.Application.dataPath, "..", "Screenshots");
 
         /// <summary>Loads the play scene once for the fixture.</summary>
         [OneTimeSetUp]
@@ -56,20 +53,6 @@ namespace Dungeon.Game.Tests
         /// <summary>Photographs the composited frame, interface included.</summary>
         /// <param name="name">File name stem.</param>
         /// <param name="ct">Cancellation token.</param>
-        /// <returns>The awaitable capture.</returns>
-        private static async UniTask Capture(string name, CancellationToken ct)
-        {
-            await UniTask.WaitForEndOfFrame(ct);
-
-            Texture2D image = ScreenCapture.CaptureScreenshotAsTexture();
-            Directory.CreateDirectory(ShotDirectory);
-            string path = Path.Combine(ShotDirectory, $"{name}.png");
-            File.WriteAllBytes(path, image.EncodeToPNG());
-            Object.DestroyImmediate(image);
-
-            MooseRunnerFacade.Log($"captured {path}");
-            Assert.IsTrue(File.Exists(path), $"{name} was not written to disk");
-        }
 
         /// <summary>
         /// A raid with a full nine-strong party, photographed once it is inside the dungeon.
@@ -196,7 +179,7 @@ namespace Dungeon.Game.Tests
                         MooseRunnerFacade.Log(
                             $"shop before the last raid: purse {_game.CurrentShop.Purse:F0}, "
                             + $"a door costs {_game.CurrentShop.Price(ShopItem.Door):F0}");
-                        await Capture("15-late-season-shop", ct);
+                        await Frames.Capture("15-late-season-shop", ct);
                     }
 
                     _game.CurrentShop.Ready();
@@ -231,7 +214,7 @@ namespace Dungeon.Game.Tests
                 $"the party at round {_game.League.Round} is only {size} strong, so this frame is "
                 + "not the late-season party the test is named for");
 
-            await Capture("13-late-season-raid", ct);
+            await Frames.Capture("13-late-season-raid", ct);
 
             // On through the end of that raid, so the review and the shop are photographed with a
             // nine-strong party too. Both have only ever been captured at four, and both put a
@@ -252,7 +235,7 @@ namespace Dungeon.Game.Tests
                 MooseRunnerFacade.Log(
                     $"review after a party of {size}: harvested {finalRaid.EnergyHarvested:F0}, "
                     + $"outcome {finalRaid.Outcome}, {finalRaid.Party.Living.Count()} still standing");
-                await Capture("14-late-season-review", ct);
+                await Frames.Capture("14-late-season-review", ct);
 
                 await UniTask.WaitForSeconds(
                     GameController.ReviewLockoutSeconds + 0.2f, cancellationToken: ct);
