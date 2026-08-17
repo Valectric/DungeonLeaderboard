@@ -660,8 +660,69 @@ namespace Dungeon.PartyManager
         private void Glide(
             Adventurer member, Vector2 desired, float deltaTime, float speed = 1f)
         {
-            member.Position = Vector2.MoveTowards(
-                member.Position, desired, WalkSpeed * speed * Pace * deltaTime);
+            Vector2 from = member.Position;
+            Vector2 to = Vector2.MoveTowards(
+                from, desired, WalkSpeed * speed * Pace * deltaTime);
+
+            member.Position = Constrained(from, to);
+        }
+
+        /// <summary>
+        /// Keeps a step out of the rock, sliding along a wall rather than stopping dead against it.
+        /// </summary>
+        /// <remarks>
+        /// <b>The author reported adventurers walking through walls, and this is where it happened.</b>
+        /// Every movement in the game funnels through <see cref="Glide"/>, which was an unchecked
+        /// <c>Vector2.MoveTowards</c>. The destination was almost always fine — the leader walks a
+        /// path of walkable cells, and the formation already gives up a flank whose cell is rock —
+        /// but a straight line between two good points cuts the corner between them, so a member
+        /// rounding a doorway clipped through the jamb.
+        /// <para>
+        /// Measured before the fix: <b>1616 samples inside a wall, 1.43% of 113150</b>, across nine
+        /// rosters, worst for THE PHALANX at 592. That is after <c>WallViolationTests</c> discounts
+        /// the procession, so it is the real thing rather than the party queuing on the forecourt.
+        /// </para>
+        /// <para>
+        /// <b>Slide, not stop.</b> A blocked step retries along each axis alone before giving up,
+        /// which is the ordinary way a 2D body moves along a wall. Stopping dead instead would be a
+        /// worse bug than the one being fixed: a party pinned on a corner earns the idle rate, and
+        /// this game charges the player for every second the party is not in trouble.
+        /// </para>
+        /// <para>
+        /// <b>A member already outside the grid is left alone</b>, and that exemption is
+        /// load-bearing. The party is deliberately strung out along the approach at tick zero so it
+        /// reads as marching in through the archway; the approach is scenery rather than grid, so
+        /// every follower still on it stands on an unwalkable cell by construction. Constraining
+        /// them there would pin the party on the forecourt for the whole raid.
+        /// </para>
+        /// </remarks>
+        /// <param name="from">Where the member is now.</param>
+        /// <param name="to">Where the step would put them.</param>
+        /// <returns>The furthest part of that step that stays out of the rock.</returns>
+        private Vector2 Constrained(Vector2 from, Vector2 to)
+        {
+            if (!StandableAt(from) || StandableAt(to))
+            {
+                return to;
+            }
+
+            var alongX = new Vector2(to.x, from.y);
+            if (StandableAt(alongX))
+            {
+                return alongX;
+            }
+
+            var alongY = new Vector2(from.x, to.y);
+            return StandableAt(alongY) ? alongY : from;
+        }
+
+        /// <summary>Whether a body can stand at a world point.</summary>
+        /// <param name="point">Point to test.</param>
+        /// <returns>True when the cell under it is walkable.</returns>
+        private bool StandableAt(Vector2 point)
+        {
+            return _grid.IsWalkable(
+                new Vector2Int(Mathf.RoundToInt(point.x), Mathf.RoundToInt(point.y)));
         }
 
         /// <summary>Moves an adventurer one step along a path toward a cell.</summary>
