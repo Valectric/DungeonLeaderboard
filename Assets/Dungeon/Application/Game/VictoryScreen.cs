@@ -38,6 +38,33 @@ namespace Dungeon.Game
         private static readonly Color Violet = new(0.85f, 0.7f, 1f);
 
         /// <summary>
+        /// The scale this screen lays out at, floored so it stays readable on a phone.
+        /// </summary>
+        /// <remarks>
+        /// Floored like every other screen in the game, and the floor goes on the SCALE rather than
+        /// on each font for the reason the review screen records: every offset here is derived from
+        /// it too, so growing the type alone would grow the words inside a layout that did not grow
+        /// with them.
+        /// <para>
+        /// 0.6 matches the HUD's floor. On a 360-pixel phone the raw scale is 0.28, which would put
+        /// this screen's caption at five pixels and its headline at fifteen — smaller than the
+        /// desktop caption underneath it.
+        /// </para>
+        /// <para>
+        /// Public so the tests can ask what the screen will do rather than restate its arithmetic.
+        /// The mobile sweep's legibility tests were checking a copy of production's scale formula
+        /// against itself until that was fixed this morning, and would have passed with the game
+        /// broken.
+        /// </para>
+        /// </remarks>
+        /// <param name="scale">Interface scale, unfloored.</param>
+        /// <returns>The scale the screen actually lays out at.</returns>
+        public static float LayoutScale(float scale)
+        {
+            return Mathf.Max(scale, 0.6f);
+        }
+
+        /// <summary>
         /// Draws the winning card.
         /// </summary>
         /// <remarks>
@@ -49,10 +76,7 @@ namespace Dungeon.Game
         /// <param name="age">Seconds this screen has been up.</param>
         public static void Draw(float total, float scale, float age)
         {
-            // Floored like every other screen in the game. On a 360-pixel phone the raw scale is
-            // 0.28, which would draw the headline at fourteen pixels -- see the review screen's note
-            // for why the floor goes on the scale rather than on each font.
-            float ui = Mathf.Max(scale, 0.6f);
+            float ui = LayoutScale(scale);
 
             var backdrop = new Rect(0f, 0f, Screen.width, Screen.height);
             GUI.color = new Color(0.09f, 0.07f, 0.12f);
