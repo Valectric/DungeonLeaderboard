@@ -89,6 +89,12 @@ no white flash while the WebGL build loads.
 >
 > **Controls** — click or tap a door, a spawner or a trap. Scroll or pinch to zoom, right-drag or
 > two fingers to move. That is the whole game.
+>
+> ---
+>
+> **Source:** [github.com/Valectric/DungeonLeaderboard](https://github.com/Valectric/DungeonLeaderboard)
+> — built to a documented module architecture with written coding guidelines and a test-driven
+> workflow, 445 tests across eight assemblies.
 
 **Community:** comments on. **Ratings:** on. If it is jam-entered, link the jam in the devlog.
 
