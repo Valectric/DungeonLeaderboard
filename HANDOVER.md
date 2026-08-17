@@ -2,8 +2,11 @@
 
 ## Start here — the whole of 2026-08-17 in one screen
 
-**`main` is green at 426 tests across seven assemblies, console clean, and
-`0.1.2608172052` is live on itch.** You asked for a refactor; that is done and behaviour-neutral.
+**`main` is green at 434 tests across eight assemblies, console clean, and `0.1.2608172052` is live
+on itch.** Every production change of the day is in that build; everything committed after it is
+tests and documentation, so there is nothing unshipped.
+<br>RaidManager 175, Game 141, ShopManager 49, LeagueManager 26, PartyManager 22, DungeonManager 9,
+AudioManager 8, MobManager 4 — the last three of those did not exist this morning. You asked for a refactor; that is done and behaviour-neutral.
 Everything after it was exploratory testing, which turned up four real defects.
 
 **Fixed and shipped**
