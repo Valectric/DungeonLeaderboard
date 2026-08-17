@@ -26,6 +26,14 @@ mask bit.
 The Crawl project maintains a `TILES_UNDER_UNKNOWN_LICENSE.md` listing tiles whose provenance is
 unclear. Nothing on that list is used here.
 
+`dungeon/door-top.png` is **cut from `door-a.png`** — its top seventeen rows of stone arch plus a
+five-row alpha ramp — and is therefore the same CC0 art, carrying the same absence of conditions. It
+is drawn over the party so adventurers pass behind the doorframe instead of over it. The author
+asked for that effect with the two-part doors in a Pipoya set; **that pack is not used, and none of
+it is in this repository**, because its licence forbids redistribution and this repo is public.
+Cutting the band out of the door we already ship gets the same effect, matches both door states pixel
+for pixel because the pixels underneath are the same pixels, and keeps the guarantee below true.
+
 ## Everything else
 
 | What | Source | Terms |

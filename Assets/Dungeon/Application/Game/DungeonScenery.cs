@@ -149,10 +149,16 @@ namespace Dungeon.Game
                 // A door drawn as one sprite can only ever be behind them, which reads as the party
                 // walking over the doorway rather than through it.
                 //
-                // Optional on purpose: loaded quietly and skipped when the art is absent, so the
-                // game keeps working on the single-piece Crawl doors it ships with. The two-part art
-                // the author asked for is the Pipoya set, which cannot be committed to this public
-                // repo -- see CREDITS.md -- so a clone without it must not break.
+                // The lintel is CUT FROM door-a's own top rows rather than imported from anywhere:
+                // seventeen solid rows of the stone arch and a five-row alpha ramp under them. That
+                // is what makes it free of the licence problem that held this feature up -- the
+                // two-part art originally wanted was Pipoya's, which cannot be committed to a public
+                // repo -- and it is also simply better, because a band cut from the door it covers
+                // matches it pixel for pixel in both states, door-a and door-gate alike. There is no
+                // seam to hide because the pixels underneath are the same pixels.
+                //
+                // Still loaded quietly and skipped when absent: the sprite is optional, and a clone
+                // that has not imported it should lose the occlusion, not the doors.
                 if (_sprites.Load(DoorTopSprite, quiet: true) != null)
                 {
                     _doorTops[door.Cell] = _sprites.Make(

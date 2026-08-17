@@ -66,6 +66,40 @@ namespace Dungeon.Game.Tests
         }
 
         /// <summary>
+        /// The lintel art is actually installed, so the feature is on rather than skipped.
+        /// </summary>
+        /// <remarks>
+        /// <c>DungeonScenery</c> loads this sprite <i>quietly</i> and builds no doorframe tops when
+        /// it is missing — which is the right behaviour and a hole in the two tests either side of
+        /// this one: both pin sorting orders that nothing is drawn at when the art is absent, so
+        /// deleting the PNG would leave the suite fully green and the feature silently gone.
+        /// <para>
+        /// It can be asserted now because the lintel is cut from <c>door-a</c> and ships with the
+        /// repository. While the plan was to use a pack whose licence forbids redistribution, the
+        /// art could not be committed and this assertion could not exist.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        [Test]
+        public async UniTask TheLintelArt_ShipsWithTheGame(CancellationToken ct)
+        {
+            var lintel = Resources.Load<Sprite>("dungeon/door-top");
+
+            Assert.IsNotNull(lintel,
+                "dungeon/door-top is not in Resources, so DungeonScenery builds no doorframe tops "
+                + "and adventurers walk over every doorway again -- regenerate it with "
+                + "Tools/make-door-lintel.py");
+
+            MooseRunnerFacade.Log(
+                $"lintel {lintel.rect.width}x{lintel.rect.height} at {lintel.pixelsPerUnit} ppu");
+
+            Assert.AreEqual(64f, lintel.rect.height,
+                "the lintel is not one cell tall, so it will not line up with the door it covers");
+
+            await UniTask.Yield(ct);
+        }
+
+        /// <summary>
         /// The lower doorframe stays below the party, so they are not hidden by the threshold.
         /// </summary>
         /// <remarks>
