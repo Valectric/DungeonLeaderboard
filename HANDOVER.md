@@ -44,6 +44,31 @@ were wrong, and the reasoning existed **only in a test name**, which is why it i
 
 ---
 
+## Shipped: the player's own position was invisible on the title screen
+
+**Live as `0.1.2608171808`, verified in the browser.** The standings are the title screen and the
+whole opening reads "you are 14th, the bottom two go down" — and the player's rank number was the
+one thing on it that could not be read. The table showed **12, 13, blank, 15**.
+
+Their row is washed green and their name and score are drawn in `PlayerGreen`; the rank alone was
+left `Dim`, a dark grey-purple on that wash at **1.59:1**. Present, and invisible. Now **2.96:1**,
+exactly what their own name has always used.
+
+**It was two renderers of the same fact disagreeing.** The mid-raid strip already had the right rule
+while the full table it summarises did not — so the game already held the opinion, in one of the two
+places that needed it. Both now share `RankInk`, with `RowInk` beside it for name and score.
+
+**Found by loading the published build and looking at the first screen.** 413 tests missed it and
+none of them could have: every assertion about this screen checks that something is *drawn* — the
+row exists, the order is right, it fits — and whether the ink is legible against what is behind it
+was a question nothing asked. `StandingsLegibilityTests` asks it now.
+
+The first draft of that test failed the fix, demanding 3:1 when 2.96 is what the name ships at and
+reads fine. A threshold that condemns legible shipping text is measuring the wrong thing, so the bar
+is now the row itself: the rank must be as legible as the name beside it.
+
+---
+
 ## Waiting on you: walls vs the greed curve (branch `wall-collision-wip`)
 
 **You reported adventurers walking through walls. It is fixed, it works, and I have not merged it,
