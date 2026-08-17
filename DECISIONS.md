@@ -3099,3 +3099,31 @@ rather than a dumping ground.
 
 The counts after the move: RaidManager 175, PartyManager 13, Game 133, ShopManager 49, LeagueManager
 26, AudioManager 8.
+
+---
+
+## D59 — 2026-08-17 — The entrance opening is scenery, and that is not negotiable
+
+`DungeonGrid.CarveOpening` makes a cell a `Doorway` with no `Door` registered on it. `IsWalkable`
+reads a doorway's walkability from its door, so an opening is **permanently impassable**. Its
+docstring claimed the opposite — "walkable and belongs to no room" — and that sentence was false for
+the whole life of the project.
+
+**The docstring is what was wrong.** The impassability is deliberate and load-bearing: the only
+opening the game carves sits at `margin - 1`, one cell *outside* the first room and on the boundary
+of the grid. A walkable one would let a monster leave the dungeon and a retreating adventurer walk
+off the map. The opening exists so the west wall *reads* as open — so the starting room looks like
+somewhere a party walks into rather than a sealed box with figures already inside it, which was the
+author's request.
+
+**Recorded here because the reasoning lived only in a test name, and that was not enough.** Writing
+the first direct test of the module, I believed the docstring, built a two-room fixture joined by
+openings, and got two sealed rooms whose route assertions all passed against an empty list. The
+repair I reached for was to make `IsWalkable` match the docstring — and
+`EntranceOpeningTests.TheEntranceOpening_IsScenery_NotAWayThrough` failed by name within the minute.
+
+The test did its job perfectly. But a decision defended only by a test is a decision that gets
+attacked once per person who reads the wrong docstring, and is discovered only after the change is
+written. `DECISIONS.md` is meant to be read *before* reversing something; this was not in it.
+
+**Do not make openings walkable.** To join two rooms, use `AddDoor`. An opening joins nothing.
