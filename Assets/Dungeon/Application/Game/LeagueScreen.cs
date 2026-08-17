@@ -51,6 +51,85 @@ namespace Dungeon.Game
         /// <param name="scale">UI scale.</param>
         /// <param name="hasNextParty">Whether the party announcement is shown.</param>
         /// <returns>The prompt's rectangle in GUI space.</returns>
+        /// <summary>
+        /// The line that names the party about to enter, exactly as it is drawn.
+        /// </summary>
+        /// <remarks>
+        /// Public so a test can measure the real string rather than rebuild it. The two halves of
+        /// this — the roster's name and the size clause — both grew on 2026-08-17, and the line is
+        /// drawn centred across the whole screen with no wrapping, so on a narrow phone it is the
+        /// most likely thing on the title screen to run off the edge.
+        /// </remarks>
+        /// <param name="party">The party about to raid.</param>
+        /// <returns>The announcement, or an empty string when there is no party.</returns>
+        public static string Announcement(PartyComposition party)
+        {
+            if (party == null)
+            {
+                return string.Empty;
+            }
+
+            int strength = party.Roles.Count;
+            return strength > PartyComposition.BaseSize
+                ? $"NEXT THROUGH THE DOOR:  {party.Name},  "
+                  + $"{PartyComposition.SpellSize(strength).ToUpperInvariant()} STRONG"
+                : "NEXT THROUGH THE DOOR:  " + party.Name;
+        }
+
+        /// <summary>Font size the announcement would like to be drawn at.</summary>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>Font size in pixels, before it is fitted to the screen.</returns>
+        public static int AnnouncementFontSize(float scale)
+        {
+            return Mathf.Max(10, Mathf.RoundToInt(15 * scale));
+        }
+
+        /// <summary>
+        /// Font size the announcement is actually drawn at, shrunk until the line fits the screen.
+        /// </summary>
+        /// <remarks>
+        /// <b>Must be called from inside <c>OnGUI</c></b> — it measures the real font.
+        /// <para>
+        /// Measured 2026-08-17: <i>"NEXT THROUGH THE DOOR:  THE BALANCED PARTY,  NINE STRONG"</i> is
+        /// 11 pixels wider than a 360-pixel phone at the nominal size. The line is <b>centred, not
+        /// clipped</b>, so an overrun spills off both edges at once and the player loses the ends of
+        /// it — on the standings, which SPEC.md makes the title screen and the ten-second hook.
+        /// </para>
+        /// <para>
+        /// It only became possible on 2026-08-17, when the growth curve was fixed and rosters
+        /// started reaching nine: the size clause appears only above the base four, so until then
+        /// the longest line the game could draw was two words shorter. Nine is floored rather than
+        /// ten because the warning line beneath already draws at nine, so it is a size this screen
+        /// is known to be readable at.
+        /// </para>
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="line">The announcement, from <see cref="Announcement"/>.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <returns>Font size in pixels.</returns>
+        public static int FittedAnnouncementFontSize(float scale, string line, float width)
+        {
+            int wanted = AnnouncementFontSize(scale);
+            if (string.IsNullOrEmpty(line))
+            {
+                return wanted;
+            }
+
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = wanted,
+                fontStyle = FontStyle.Bold
+            };
+
+            float drawn = style.CalcSize(new GUIContent(line)).x;
+            if (drawn <= width || drawn <= 0.01f)
+            {
+                return wanted;
+            }
+
+            return Mathf.Max(9, Mathf.FloorToInt(wanted * (width / drawn)));
+        }
+
         public static Rect PromptRect(float scale, bool hasNextParty)
         {
             return PromptRect(scale, hasNextParty, Screen.width, Screen.height);
@@ -231,9 +310,10 @@ namespace Dungeon.Game
 
             if (nextParty != null)
             {
+                string announcement = Announcement(nextParty);
                 var partyStyle = new GUIStyle(GUI.skin.label)
                 {
-                    fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
+                    fontSize = FittedAnnouncementFontSize(scale, announcement, Screen.width),
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.MiddleCenter
                 };
@@ -247,10 +327,6 @@ namespace Dungeon.Game
                 // Only above the base four, so the opening raids read exactly as they always have
                 // and the first "FIVE STRONG" is itself the signal that something has changed.
                 int strength = nextParty.Roles.Count;
-                string announcement = strength > PartyComposition.BaseSize
-                    ? $"NEXT THROUGH THE DOOR:  {nextParty.Name},  "
-                      + $"{PartyComposition.SpellSize(strength).ToUpperInvariant()} STRONG"
-                    : "NEXT THROUGH THE DOOR:  " + nextParty.Name;
 
                 GUI.Label(new Rect(0f, listTop + (rowHeight * promptRow), Screen.width, rowHeight),
                     announcement, partyStyle);
