@@ -31,6 +31,17 @@ is worth keeping — **the freeze was earning**, since a party standing in a roo
 combat and being paid. Restricted to a target in another room, the stalled figure is back to 182.6
 exactly and the greed curve still peaks mid-dial.
 
+**One more for you, found the same way and not touched.** `SpeedMultiplier` decides panic from
+`Nearest`, which takes a list of positions and no grid — so it **cannot** check line of sight, while
+`DesiredPosition` beside it uses `NearestVisible`, which requires it. A healer or mage therefore
+breaks into a 2.2x scramble because of a monster **on the other side of a wall**, while its
+destination is computed as though nothing were there, so it sprints along the party's path for no
+reason a player can see. Certain from the signature rather than inferred.
+<br>Left alone because it is a movement-speed change and today has already shown twice what those
+cost: a party that moves through corridors faster reaches the boss room sooner and earns less. One
+line if you want it — `Nearest` becomes `NearestVisible` — and the panic tests are already there to
+catch what it moves.
+
 **Refactor, as asked**
 
 `Party.cs` 1474 → 1165 (`MarchingOrder`, `DoorSearch`), the raid HUD out of `GameController` into
