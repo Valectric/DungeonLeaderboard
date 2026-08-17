@@ -2786,3 +2786,22 @@ live build confirmed loading.
 The uncomfortable part is that this is the *third* revision of this same check, and each previous
 version was also written after it had already let something through. A completion check for a
 multi-phase process cannot be derived by watching one output of it.
+
+### D50 addendum 2 — the central rule survives a day of balance changes
+
+Five things moved the economy on 2026-08-17: the room bonus settled at 1/s, `GoodRun` was
+re-measured twice, the growth curve was fixed so parties reach nine, the retreat valve was repaired,
+and the marching order fanned out. Any one of them could have inverted the rule the whole game rests
+on — *killing the adventurers is bad play* — so it was re-measured end to end afterwards rather than
+assumed.
+
+**Best wipe 102, best survival 675.** A raid where the party lives out-earns the best wipe by
+**6.6x**, which is a wider margin than the design needs.
+
+The sharpest illustration is THE COVEN: doing nothing to them earns **70**, and ambushing them earns
+**0**, because the party dies and the corpse penalty takes back everything the fight paid. A player
+who over-commits is not merely earning less, they are earning nothing at all — which is the
+inversion SPEC.md asks for, stated in the harshest terms the numbers allow.
+
+Worth recording because the rule is the one thing in this project that cannot be allowed to drift
+quietly, and five changes in one day is exactly the circumstance in which it would.
