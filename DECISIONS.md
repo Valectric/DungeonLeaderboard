@@ -2522,3 +2522,46 @@ season fields nine") rather than against a number that happened to be true when 
 a room and collapses at a doorway, which is correct and by design; the nine staggered bars above a
 party bunched in a threshold are legible individually and hard to attribute as a group. That is a
 judgement for the author, and the frame is the thing to look at.
+
+### D45 addendum — nine bars cannot be read on a phone, and it is geometry, not tuning
+
+D45 staggered the health bars so nine of them stop merging into one block, and offered the author
+three options: keep the stagger, add a HUD roster panel, or fan the formation. They chose the fan,
+and the fan works — in a room, on a desktop.
+
+**The phone case was never measured, and until D47 it could not have been**: the growth curve never
+produced nine, so the tightest case in the stagger's own reasoning had never once been drawn.
+Measured now, per screen, at the game's most zoomed-out framing:
+
+| screen | one cell | bar height | gap between bars |
+|---|---|---|---|
+| 1920x1080 | 64.0px | 6.40px | 1.92px |
+| 1280x720 | 42.7px | 4.27px | 1.28px |
+| 800x480 | 26.7px | 2.67px | 0.80px |
+| 768x1024 | 25.6px | 2.56px | 0.77px |
+| 523x293 | 17.4px | 1.74px | 0.52px |
+| 390x844 | 13.0px | 1.30px | 0.39px |
+| **360x780** | **12.0px** | **1.20px** | **0.36px** |
+
+On a phone a health bar is **1.2 pixels tall** and consecutive bars are **0.36 pixels** apart. The
+stack is a smear. That is the D8 condition — a party's state unreadable — returning by the route D45
+was written to close.
+
+**It cannot be tuned out.** A readable bar needs about two pixels with one of clear space, which at
+12px per cell means a pitch of 0.25 cells. Nine bars at that pitch put the top one **2.52 cells**
+above its owner against the **1.6 cells** of headroom `FrameCamera` leaves — 58% over. And there is
+no slack to find: the shipped pitch of 0.13 is already within four percent of the 0.135 that is the
+largest fitting value. The stagger is at its optimum; the optimum is sub-pixel on a phone.
+
+Scaling the bars with the camera, the way the VFX and damage numbers already do, does not rescue it
+either — it is the same arithmetic, and it runs into the same margin.
+
+**So the phone needs D45's option 2, the HUD roster panel, and this is the measurement that says so.**
+That is the author's call, not a bug fix, and the fan they chose was not wrong: it fixed the case it
+was chosen for.
+
+`BarLegibilityTests` pins both halves. One asserts the stagger uses all the headroom there is, so a
+future reduction has to be argued for rather than drifted into. The other **passes because the game
+cannot do it**, and fails if the contradiction ever lifts — a wider margin, a smaller party, a
+shorter bar — which is precisely when somebody should be told that bars over heads have become
+viable on a phone and the alternative is no longer needed.
