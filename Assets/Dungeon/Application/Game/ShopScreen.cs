@@ -119,7 +119,35 @@ namespace Dungeon.Game
         /// </remarks>
         /// <param name="scale">UI scale.</param>
         /// <returns>The lowest safe top edge for anything drawn over the board.</returns>
-        public static float HeaderBottom(float scale) => Mathf.Max(24f, 106f * scale);
+        public static float HeaderBottom(float scale) => 106f * HeaderScale(scale);
+
+        /// <summary>
+        /// Smallest scale the shop's header lays itself out at.
+        /// </summary>
+        /// <remarks>
+        /// The header is the purse, the countdown and the one-line instruction, and two of the three
+        /// had no floor: on a 360x780 phone the countdown drew at <b>eleven pixels</b> and the
+        /// instruction at <b>four</b>. The comment on the countdown calls it "the pressure, and it
+        /// turns red at the end, because a shop that quietly closes is a shop the player will swear
+        /// they were never given" — which it cannot be at eleven pixels.
+        /// <para>
+        /// Floored on the scale for the same reason as the HUD and the review screen: the three
+        /// lines are stacked at offsets derived from it, so flooring the type alone would pile them
+        /// on top of each other. <see cref="HeaderBottom"/> is derived from the same value, so the
+        /// tile menu and the hall markers move down with the header they must keep clear of, rather
+        /// than being left overlapping it.
+        /// </para>
+        /// </remarks>
+        /// <para>
+        /// 0.7 rather than the HUD's 0.6, because the header's smallest line is a 13-pixel nominal
+        /// and 0.6 leaves it at eight — a pixel under the nine the rest of the interface floors at,
+        /// and the whole point of this sweep was to stop screens each inventing their own minimum.
+        /// The header sits above the board rather than over it, so the extra ten pixels cost a strip
+        /// of background rather than a strip of dungeon.
+        /// </para>
+        /// <param name="scale">UI scale.</param>
+        /// <returns>The scale the header block uses.</returns>
+        public static float HeaderScale(float scale) => Mathf.Max(scale, 0.7f);
 
         /// <summary>
         /// The Ready button's rectangle, in GUI space.
@@ -399,11 +427,13 @@ namespace Dungeon.Game
         /// <summary>Draws the title, the countdown, the purse and the one-line instruction.</summary>
         private static void DrawHeader(Shop shop, float scale)
         {
+            // See HeaderScale: the whole block scales together, so the three stacked lines cannot
+            // collide with each other however small the screen gets.
+            scale = HeaderScale(scale);
+
             var title = new GUIStyle(GUI.skin.label)
             {
-                // Floored: the purse is the number every decision on this screen is made against,
-                // and at 24 * scale it drew at seven pixels on a phone.
-                fontSize = Mathf.Max(14, Mathf.RoundToInt(24 * scale)),
+                fontSize = Mathf.RoundToInt(24 * scale),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
