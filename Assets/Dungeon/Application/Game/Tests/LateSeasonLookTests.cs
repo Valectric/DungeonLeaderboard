@@ -5,6 +5,7 @@ using Cysharp.Threading.Tasks;
 using System.Linq;
 using Dungeon.PartyManager;
 using Dungeon.RaidManager;
+using Dungeon.ShopManager;
 using MooseRunner;
 using MooseRunner.helper;
 using NUnit.Framework;
@@ -180,10 +181,24 @@ namespace Dungeon.Game.Tests
             // Into the raid itself, then let the party walk in so they are inside the dungeon and
             // strung out in marching order rather than stacked on the entrance.
             guard = 0;
+            bool shopShot = false;
             while (!_game.IsRaiding && guard++ < 30)
             {
                 if (_game.IsShopping)
                 {
+                    // The shop standing between the player and the last raid of the season. The one
+                    // AFTER it does not exist -- round nine is the final, so the run ends on the
+                    // review rather than opening another shop, which is why the first version of
+                    // this capture never fired.
+                    if (!shopShot)
+                    {
+                        shopShot = true;
+                        MooseRunnerFacade.Log(
+                            $"shop before the last raid: purse {_game.CurrentShop.Purse:F0}, "
+                            + $"a door costs {_game.CurrentShop.Price(ShopItem.Door):F0}");
+                        await Capture("15-late-season-shop", ct);
+                    }
+
                     _game.CurrentShop.Ready();
                 }
                 else if (_game.IsReviewing)
@@ -217,6 +232,37 @@ namespace Dungeon.Game.Tests
                 + "not the late-season party the test is named for");
 
             await Capture("13-late-season-raid", ct);
+
+            // On through the end of that raid, so the review and the shop are photographed with a
+            // nine-strong party too. Both have only ever been captured at four, and both put a
+            // party-sized number on screen -- the review spells the death notices, the shop draws
+            // the purse a nine-strong raid earned.
+            Raid finalRaid = _game.CurrentRaid;
+            int finalSpin = 0;
+            while (finalRaid.IsRunning && finalSpin++ < 4000)
+            {
+                finalRaid.Tick(0.05f);
+            }
+
+            await UniTask.Yield(ct);
+            await UniTask.Yield(ct);
+
+            if (_game.IsReviewing)
+            {
+                MooseRunnerFacade.Log(
+                    $"review after a party of {size}: harvested {finalRaid.EnergyHarvested:F0}, "
+                    + $"outcome {finalRaid.Outcome}, {finalRaid.Party.Living.Count()} still standing");
+                await Capture("14-late-season-review", ct);
+
+                await UniTask.WaitForSeconds(
+                    GameController.ReviewLockoutSeconds + 0.2f, cancellationToken: ct);
+                _game.DismissReview();
+                await UniTask.Yield(ct);
+            }
+
+            MooseRunnerFacade.Log(
+                $"after the last raid: won={_game.HasWon}, field={_game.League.Entries.Count}, "
+                + $"round {_game.League.Round}");
         }
     }
 }
