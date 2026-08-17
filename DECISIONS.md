@@ -2760,3 +2760,29 @@ agrees with itself.
 API captures, and an attempt to play the itch embed down to the shop ended in renderer timeouts. The
 geometry and the type are measured at every shipped resolution and the desktop case is photographed;
 the phone case is arithmetic. Worth one look on the author's own handset.
+
+### D50 addendum — the documented build-completion check published a broken build
+
+The build rule in `CLAUDE.md` was followed exactly and still shipped an empty game. Publishing the
+Ready-button fix, the check reported "settled" while:
+
+- `Builds.wasm.unityweb` was **0 bytes** — truncated moments earlier, not yet rewritten
+- `Builds.data.unityweb` was **stable at its old size**, so "stopped growing" was satisfied
+- the compiler count had momentarily hit zero between phases
+
+All three conditions of the documented rule were true at once, and the upload went out with no wasm.
+The game could not have loaded for anyone who opened it in that window.
+
+**The tell was in the publish output and nearly missed**: `butler status` reported version
+`0.1.2608170934` — the *previous* build's string — while `ProjectSettings` already read
+`0.1.2608171001`. A version that does not move after a publish means the build was still running when
+the publish started.
+
+**The rule now watches both artefacts and a size floor**, because `data.unityweb` and
+`wasm.unityweb` are rewritten in different phases: either one alone is stable while the other is
+mid-write, and a truncated file is stable at zero. Corrected in `CLAUDE.md`, republished, and the
+live build confirmed loading.
+
+The uncomfortable part is that this is the *third* revision of this same check, and each previous
+version was also written after it had already let something through. A completion check for a
+multi-phase process cannot be derived by watching one output of it.

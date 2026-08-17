@@ -509,13 +509,29 @@ cached `Builds.wasm.unityweb` and `Builds.framework.js.unityweb`**, rewriting on
 `loader.js`. That build is complete and correct with two files hours older than the trigger. A rule
 demanding all five would have spun until timeout and called a good build broken.
 
+**And that rule is STILL not enough — it published a broken build on 2026-08-17.** "Compilers idle
+AND `data.unityweb` stopped growing" was followed exactly, and it fired during the gap where
+`data.unityweb` was sitting stable **at its old size**, not yet rewritten, while `wasm.unityweb` had
+just been **truncated to 0 bytes**. The upload went out with an empty wasm; the game could not load
+at all. Nothing in the check noticed, because it never looked at the wasm.
+
 What actually works:
 
 ```
 compilers idle  (clang | emcc | wasm-opt | il2cpp | bee_backend  == 0)
-AND Builds/Build/Builds.data.unityweb has stopped growing
+AND Builds.data.unityweb AND Builds.wasm.unityweb are BOTH > 1 MB
+AND both have been unchanged for several consecutive polls
 ```
 
-`data.unityweb` carries the assets, so it is rewritten on every build including asset-only ones.
-Timing is a sanity check, not a test: **8-9 minutes** for a code change, well under a minute when only
-assets moved.
+Watching **both** artefacts is the part that matters: they are rewritten in different phases, so
+either one alone is stable while the other is mid-write. The size floor catches the truncation
+window, where a file exists and is zero. Four consecutive stable polls at 30s is what finally held.
+
+`data.unityweb` carries the assets, so it is rewritten on every build including asset-only ones — but
+an asset-only rebuild correctly **reuses** `wasm.unityweb`, so require it to be large, never to be
+newer than the trigger. Timing is a sanity check, not a test: **8-9 minutes** for a code change, well
+under a minute when only assets moved.
+
+**Check the published version afterwards.** `butler status` reporting the *previous* version string
+after an upload is the tell that the build was still running when the publish began — that is how the
+broken upload was spotted.
