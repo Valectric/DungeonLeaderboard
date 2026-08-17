@@ -179,6 +179,14 @@ namespace Dungeon.Game.Tests
                 + $"position {_game.League.PlayerPosition}, relegated "
                 + $"{_game.League.PlayerRelegated}");
 
+            // Before the shutter, not after: this test's own assertions are about what is NOT drawn
+            // -- no party bars -- and "nothing is drawn" is true of the standings too. Without this
+            // it would photograph the wrong screen and pass, which is precisely what the mid-season
+            // standings test did for its whole life.
+            Assert.IsTrue(_game.HasCollapsed,
+                "banking nothing did not relegate the player, so this is about to photograph some "
+                + "other screen and call it the collapse");
+
             await Frames.Capture("07-collapse", ct);
 
             // The same fault the standings had, on the screen most players will actually reach.

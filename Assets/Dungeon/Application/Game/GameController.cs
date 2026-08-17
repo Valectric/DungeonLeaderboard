@@ -177,6 +177,19 @@ namespace Dungeon.Game
         /// </remarks>
         public bool IsLoading => _phase == Phase.Loading;
 
+        /// <summary>
+        /// Whether the run has ended with the player relegated out of the league.
+        /// </summary>
+        /// <remarks>
+        /// The losing ending, and the last phase to get an accessor — which completes the set, so
+        /// every entry in <see cref="Phase"/> can now be asked about from outside. All three that
+        /// were missing were missing for the same reason and cost the same thing: the collapse
+        /// screen is photographed by a test that asserts nobody's health bars are drawn on it, and
+        /// that assertion passes just as happily on the standings, so nothing was checking the
+        /// picture was of a collapse at all.
+        /// </remarks>
+        public bool HasCollapsed => _phase == Phase.Destroyed;
+
         /// <summary>Builds the dungeon and starts the first raid.</summary>
         private void Awake()
         {
