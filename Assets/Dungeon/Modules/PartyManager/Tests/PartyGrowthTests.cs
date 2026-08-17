@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
 
-namespace Dungeon.RaidManager.Tests
+namespace Dungeon.PartyManager.Tests
 {
     /// <summary>
     /// Pins how parties grow through a season, and which rosters are allowed in when.

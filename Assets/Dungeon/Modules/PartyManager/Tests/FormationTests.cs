@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using Dungeon.DungeonManager;
-using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace Dungeon.RaidManager.Tests
+namespace Dungeon.PartyManager.Tests
 {
     /// <summary>
     /// Measures the shape of the party as it grows, not just that it moves.

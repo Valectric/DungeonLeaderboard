@@ -1,9 +1,8 @@
 using System.Collections.Generic;
-using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
 
-namespace Dungeon.RaidManager.Tests
+namespace Dungeon.PartyManager.Tests
 {
     /// <summary>
     /// Measures which party arrives in which raid, across many runs.

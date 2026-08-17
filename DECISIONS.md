@@ -3045,3 +3045,57 @@ votes, and it should be weighed against the other open decisions accordingly.
 `StuckPartyTests` now holds the opener to the **original twelve-second standard** rather than the
 33-second regression guard the sweep uses. Whatever is decided about the decimated party, it must not
 arrive in round one.
+
+## 2026-08-17 — D53. Where tests live, and why most of them are where they are
+
+The author asked for the project to be refactored, the modules correctly structured, the tests
+grouped correctly and the duplication removed. This records the grouping rule, because the answer is
+less tidy than "one test folder per module" and the reasoning should outlive the decision.
+
+### The duplication is gone
+
+Six interface test classes were written in a single day during the mobile sweep, and each carried its
+own copy of the same scaffolding:
+
+| helper | copies before | after |
+|---|---|---|
+| resolution list + `ScaleFor` | 7 | **1** (`Screens`) |
+| `OnGUI` text measurer | 4 | **1** (`GuiPass`) |
+| screenshot directory + capture | 5 | **1** (`Frames`) |
+
+That is the same failure these tests keep finding in the game: a formula with more than one copy will
+disagree with itself. A screen added to the sweep would have landed in one file and been silently
+missing from six.
+
+`GuiPass` took two attempts. The first shared version took a list of strings and sizes and could
+replace only one of the four, because three of them call `ShopLayout.NameFontSize`,
+`ShopScreen.ReadyFontSize` and `LeagueScreen.FittedAnnouncementFontSize` — production functions that
+measure the font themselves and so must run inside the pass. **Asking production what it will draw,
+rather than restating its arithmetic, is the property that made those tests find real defects**, so
+the helper had to accommodate it rather than the tests bending to fit the helper.
+
+### PartyManager gets its own tests; DungeonManager and MobManager do not
+
+`ArchitectureGuidelines.md` says a module has its own `Tests`. Three modules had none, and every one
+of their tests lived under `Dungeon.RaidManager.Tests`. Classifying all 34 files by what they
+actually touch shows why, and that the answer differs per module.
+
+**Three files exercise the party and never build a raid** — `FormationTests`, `PartyGrowthTests`,
+`PartySequenceTests`. Those were genuinely mis-filed and now live in `Dungeon.PartyManager.Tests`,
+which references only PartyManager and DungeonManager. That is worth having on its own: a party suite
+that cannot see RaidManager is a suite that will notice if the party module starts depending on it.
+
+**Nothing is purely a DungeonManager or MobManager test.** The dungeon-heavy files (`RoomPlanTests`,
+`LayoutSweepTests`) and the mob-heavy ones (`MobBehaviourSweepTests`, `SpawnRefundTests`) all build a
+`Raid` and drive it, because what they assert is behaviour that only exists once the pieces are
+composed — a mob staying in its room *while a party is pulling it*, a room plan that a party can
+actually cross in sixty seconds. Filing those under the module whose name appears most often would
+put an integration test in a unit-test folder and make its dependencies look accidental.
+
+**So the rule is: a test lives with the module it exercises, and a test of the composition lives with
+the composition.** The raid *is* the composition — `Raid` owns the party, the dungeon and the mobs
+and ticks them together — which is why `Dungeon.RaidManager.Tests` is legitimately the largest suite
+rather than a dumping ground.
+
+The counts after the move: RaidManager 175, PartyManager 13, Game 133, ShopManager 49, LeagueManager
+26, AudioManager 8.
