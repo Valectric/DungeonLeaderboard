@@ -253,14 +253,30 @@ namespace Dungeon.DungeonManager
         }
 
         /// <summary>
-        /// Opens a cell permanently, with no door in it.
+        /// Carves a cell into an opening: a hole in a wall that reads as open and cannot be walked
+        /// through.
         /// </summary>
         /// <remarks>
-        /// The way into the first room. A <see cref="CellKind.Doorway"/> is walkable and belongs to
-        /// no room, which is exactly right for a threshold — and because no <see cref="Door"/> is
-        /// registered here, nothing can shut it. That is the point: an entrance the player could
-        /// close is an entrance they could accidentally seal the party behind, losing the raid to
-        /// the idle rate before it starts.
+        /// The way into the first room, and <b>scenery rather than a route</b>. The cell becomes a
+        /// <see cref="CellKind.Doorway"/> belonging to no room, and because no <see cref="Door"/> is
+        /// registered on it, <see cref="IsWalkable"/> answers false forever. Both halves are
+        /// deliberate:
+        /// <para>
+        /// <b>No door</b>, because an entrance the player could close is an entrance they could
+        /// accidentally seal the party behind, losing the raid to the idle rate before it starts.
+        /// </para>
+        /// <para>
+        /// <b>Not walkable</b>, because the only opening the game carves sits one cell outside the
+        /// first room, on the boundary of the grid. If anything could cross it a monster could
+        /// leave the dungeon and a retreating adventurer could walk off the map.
+        /// <c>EntranceOpeningTests.TheEntranceOpening_IsScenery_NotAWayThrough</c> pins this.
+        /// </para>
+        /// <para>
+        /// This remark said the cell was "walkable" until 2026-08-17, which was simply false and
+        /// cost the first fixture written against it: two rooms joined by an opening came out sealed,
+        /// and every route assertion passed against an empty list. <b>To join two rooms, use
+        /// <see cref="AddDoor"/></b> — an opening joins nothing.
+        /// </para>
         /// </remarks>
         /// <param name="cell">Cell to open.</param>
         public void CarveOpening(Vector2Int cell)
@@ -306,6 +322,12 @@ namespace Dungeon.DungeonManager
                 return false;
             }
 
+            // A doorway with NO door registered is an opening, and an opening is deliberately not
+            // walkable -- see CarveOpening. It is scenery: a hole in the west wall so the starting
+            // room reads as somewhere a party walks into. The entrance opening sits on the boundary
+            // of the grid, so letting anything cross it would let a monster leave the dungeon and a
+            // retreating adventurer walk off the map, which is what
+            // EntranceOpeningTests.TheEntranceOpening_IsScenery_NotAWayThrough exists to catch.
             Door door = DoorAt(cell);
             return door != null && door.IsOpen;
         }
