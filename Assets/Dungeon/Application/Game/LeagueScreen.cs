@@ -26,6 +26,54 @@ namespace Dungeon.Game
         private static readonly Color Dim = new(0.45f, 0.43f, 0.52f);
 
         /// <summary>
+        /// The colour a row's rank number is drawn in.
+        /// </summary>
+        /// <remarks>
+        /// <b>The player's own position was invisible on the game's title screen.</b> The standings
+        /// ARE the title screen, and the one thing a player looks for on it is which line is theirs
+        /// and what number is against it — the whole opening reads "you are 14th, the bottom two go
+        /// down". Their row is highlighted with a green wash, their name and score are drawn in
+        /// <c>PlayerGreen</c>, and their rank number alone was left <c>Dim</c>: a dark grey-purple
+        /// on a green background, at the contrast of a watermark. Ranks 12, 13, _blank_, 15.
+        /// <para>
+        /// Stated once here because the bug was two renderers of the same fact disagreeing. The
+        /// mid-raid strip already got it right — <c>entry.IsPlayer ? PlayerGreen : ...</c> — while
+        /// the table it summarises did not, which is what makes this a defect rather than a style
+        /// choice: the game already had an opinion and only one of the two places held it.
+        /// </para>
+        /// <para>
+        /// Found by loading the published build on itch and looking at the first screen. No test saw
+        /// it, and none could have as written: every assertion here checks that a row is drawn, not
+        /// whether the ink is legible against what is behind it.
+        /// </para>
+        /// </remarks>
+        /// <param name="entry">The standing being drawn.</param>
+        /// <param name="doomed">Whether this row is inside the relegation zone.</param>
+        /// <returns>The colour to draw the rank number in.</returns>
+        public static Color RankInk(LeagueEntry entry, bool doomed)
+        {
+            return entry.IsPlayer ? PlayerGreen : doomed ? RelegationRed : Dim;
+        }
+
+        /// <summary>
+        /// The colour a row's name and score are drawn in.
+        /// </summary>
+        /// <remarks>
+        /// Differs from <see cref="RankInk"/> on ordinary rows on purpose: a rival's rank number is
+        /// dimmer than its name, so the eye reads down the names and the numbers stay out of the
+        /// way. <b>On the player's own row the two must match</b> — that row is the one thing the
+        /// title screen exists to point at, and half of it drawn in the quiet colour is the defect
+        /// this pair of methods was split out to prevent.
+        /// </remarks>
+        /// <param name="entry">The standing being drawn.</param>
+        /// <param name="doomed">Whether this row is inside the relegation zone.</param>
+        /// <returns>The colour to draw the name and score in.</returns>
+        public static Color RowInk(LeagueEntry entry, bool doomed)
+        {
+            return entry.IsPlayer ? PlayerGreen : doomed ? RelegationRed : Ink;
+        }
+
+        /// <summary>
         /// Draws the full standings screen.
         /// </summary>
         /// <param name="league">Table to show.</param>
@@ -361,6 +409,9 @@ namespace Dungeon.Game
         private static void DrawRow(
             LeagueEntry entry, int position, Rect row, float scale, bool doomed)
         {
+            // See RankInk: the player's own rank number used to be drawn Dim on the green highlight
+            // and was effectively invisible.
+
             if (entry.IsPlayer)
             {
                 Color was = GUI.color;
@@ -369,14 +420,14 @@ namespace Dungeon.Game
                 GUI.color = was;
             }
 
-            Color ink = entry.IsPlayer ? PlayerGreen : doomed ? RelegationRed : Ink;
+            Color ink = RowInk(entry, doomed);
 
             var rank = new GUIStyle(GUI.skin.label)
             {
                 fontSize = Mathf.Max(10, Mathf.RoundToInt(15 * scale)),
                 alignment = TextAnchor.MiddleRight
             };
-            rank.normal.textColor = doomed && !entry.IsPlayer ? RelegationRed : Dim;
+            rank.normal.textColor = RankInk(entry, doomed);
             GUI.Label(new Rect(row.x, row.y, 34f * scale, row.height),
                 position.ToString(CultureInfo.InvariantCulture), rank);
 
@@ -440,7 +491,9 @@ namespace Dungeon.Game
                 var row = new Rect(x, y + ((i - first) * rowHeight), width, rowHeight);
 
                 var style = new GUIStyle(GUI.skin.label) { fontSize = Mathf.Max(9, Mathf.RoundToInt(12 * scale)) };
-                style.normal.textColor = entry.IsPlayer ? PlayerGreen : doomed ? RelegationRed : Dim;
+                // The strip draws rank and name as one string, so it takes the rank's colour -- and
+                // it is where the correct rule already lived while the full table disagreed.
+                style.normal.textColor = RankInk(entry, doomed);
 
                 float shown = entry.IsPlayer ? entry.Score + liveScore : entry.Score;
                 GUI.Label(row, $"{i + 1,2}  {Trim(entry.Name, 16)}", style);
