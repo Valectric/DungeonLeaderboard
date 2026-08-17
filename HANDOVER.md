@@ -54,9 +54,10 @@ fell below 53%, and never once ran. Your only mercy was attached to nothing, and
 written and stopped being correct at M6 — the old curve multiplied a party-wide health figure, so a
 corpse dragging it down really would have paid you for a kill. The live rate is per-member, and the
 aggregate's only consumer is the retreat decision. Fixed: the valve now fires at every size and
-**fewer adventurers die at every size** (4.0→3.0, 5.8→5.3, 8.0→7.0). The season sweep moved from 4
-of 12 to **6 of 12**, which bears on M13's open question about the right win rate — it is now a half,
-and driven by a valve that works rather than one that never fired.
+**fewer adventurers die at every size** (4.0→3.0, 5.8→5.3, 8.0→7.0). I also claimed the season sweep moved from
+4 of 12 to 6 of 12 on the strength of this; **that claim is withdrawn** — run four times unchanged it
+gives 6, 3, 4, 4, because the shop counts down in wall-clock time and the Ready bonus it pays feeds
+the next raid. See D49. The death counts are from a fixed-step harness and stand.
 
 **What still needs your judgement**
 

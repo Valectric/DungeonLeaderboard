@@ -2617,8 +2617,12 @@ aggregate must fall when somebody dies.
 | 9 | **1.0** | **7.0 (8.0)** |
 
 The valve fires at every size and **fewer adventurers die at every size**, which is the outcome the
-design's central rule is about. The season sweep moves from **4 of 12 to 6 of 12** — a party that
-retreats instead of dying keeps earning, so the player wins more.
+design's central rule is about.
+
+**A claim made here has since been withdrawn.** This said the season sweep moved from 4 of 12 to
+6 of 12 and credited the fix. Re-run three more times on the unchanged build, it reports **6, 3, 4,
+4** — the win count varies by itself between a quarter and a half, and the 4-to-6 difference was
+inside that. See D49. The death counts above are from a fixed-step harness and are not affected.
 
 ### Two instrument errors on the way to the replacement test, both caught by controls
 
@@ -2638,3 +2642,37 @@ bereaved **1.003/s**. The death lowers the rate, as designed.
 That is the fifth and sixth time in one night that a measurement moved for a reason other than the
 one being tested. The pattern has not changed since D46 recorded it: *ask what else differs between
 the two things being compared.*
+
+
+## 2026-08-17 — D49. "Wins N of 12" is not a measurement, and one was reported as if it were
+
+The season sweep logs how many of twelve competitions a bot wins, and that number has been quoted
+all night as though it were a reading. Run four times on an unchanged build it gives **6, 3, 4, 4** —
+anywhere from a quarter to a half. D48 credited a 4-to-6 move to the retreat valve; that move was
+noise, and the claim is withdrawn there.
+
+**Where the non-determinism enters.** The raids themselves are deterministic — `PlayRaid` ticks at a
+fixed step, and `seed 31337 replayed three times: 73.457, 73.457, 73.457` still holds. The leak is
+between raids: `GameController.TickShop` counts the shop down with **`Time.deltaTime`**, and
+`Shop.Ready` pays `TimeRemaining * BonusPerSecond`. So the number of real frames the fixture spends
+in the shop decides the bonus energy it carries into the next raid — a fraction of one energy, which
+is enough. That energy decides whether one spawn is affordable at one moment, and a spawn changes a
+sixty-second fight, and the fight decides the round.
+
+**A butterfly, not a bug in the game.** A human player also presses Ready when they press it; the
+bonus is *meant* to depend on how long they took. What is wrong is measuring a season with an
+instrument that carries wall-clock into a seeded simulation, and then reading three of its digits.
+
+**What survives.** `best per season` was **identical — 10, 6, 10 — on every run**, and the
+assertion the test actually makes (`best >= 6`) is stable. The sweep is sound as a
+*survivability* check and unusable as a *win-rate* one.
+
+**Which matters for M13**, whose open question is phrased as "is a quarter the right win rate?". The
+honest answer is that the number is somewhere between a quarter and a half and this harness cannot
+narrow it. Deciding that question needs either a fixed-step shop in the fixture or a great many more
+seeds — and the question is worth answering, because it is the one dial the author was asked to
+judge.
+
+Seventh instrument error of the night, and the first one where the instrument was mine and I quoted
+it four times before checking it. The pattern from D46 stands and gains a clause: *ask what else
+differs between the two things being compared — including the two runs of the same thing.*
