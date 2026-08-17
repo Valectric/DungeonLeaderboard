@@ -101,5 +101,73 @@ namespace Dungeon.Game.Tests
                 "a wall shape that cannot exist loaded anyway, so the two checks above cannot fail "
                 + "and prove nothing");
         }
+    
+        /// <summary>
+        /// The open door reads as a hole, not as a differently-coloured closed door.
+        /// </summary>
+        /// <remarks>
+        /// <b>The author's complaint, turned into a number.</b> He reported that the open door "looks
+        /// like it's closed", and the measurement said exactly why: the middle of the open sprite was
+        /// luminance <b>56.7</b> against the shut one's <b>47.8</b>. It was BRIGHTER — a solid, lit
+        /// surface either way, just a different colour. Nothing about it said "you can walk through
+        /// this", which matters because the door is one of the three verbs and the only one whose
+        /// state the player has to read at a glance.
+        /// <para>
+        /// So the rule is about the centre rather than the frame: whatever art either state uses, the
+        /// open one has to be substantially darker where the doorway is, because that is what seeing
+        /// through into an unlit room looks like. Stated as a ratio rather than an absolute so a
+        /// future repaint of both doors cannot fail it for being generally darker.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheOpenDoor_ReadsAsAnOpening()
+        {
+            Assert.IsNotNull(Resources.Load<Sprite>("dungeon/door-a"), "the shut door is missing");
+            Assert.IsNotNull(Resources.Load<Sprite>("dungeon/door-gate"), "the open door is missing");
+
+            float shutCentre = CentreLuminance("door-a");
+            float openCentre = CentreLuminance("door-gate");
+
+            MooseRunnerFacade.Log(
+                $"door centre luminance: shut {shutCentre:F1}, open {openCentre:F1}");
+
+            Assert.Less(openCentre, shutCentre * 0.5f,
+                $"the open door's middle reads at {openCentre:F1} against the shut door's "
+                + $"{shutCentre:F1}, so it is a lit surface rather than a way through -- which is "
+                + "exactly the complaint that produced this test");
+        }
+
+        /// <summary>Mean luminance of the middle third of a door sprite, read from the PNG.</summary>
+        /// <remarks>
+        /// From disk rather than from the loaded <c>Sprite</c>, because an imported texture is not
+        /// CPU-readable unless Read/Write is ticked — and ticking it on art to satisfy a test would
+        /// put a second copy of every door in the shipped build's memory. Decoding the file into a
+        /// throwaway texture costs nothing anybody plays.
+        /// </remarks>
+        /// <param name="name">File stem under <c>Assets/Art/Resources/dungeon</c>.</param>
+        /// <returns>Mean luminance, 0 to 255, with transparent pixels counted as black.</returns>
+        private static float CentreLuminance(string name)
+        {
+            string path = System.IO.Path.Combine(
+                UnityEngine.Application.dataPath, "Art", "Resources", "dungeon", name + ".png");
+            Assert.IsTrue(System.IO.File.Exists(path), $"{path} is not on disk");
+
+            var texture = new Texture2D(2, 2);
+            texture.LoadImage(System.IO.File.ReadAllBytes(path));
+
+            int x0 = texture.width / 3;
+            int y0 = texture.height / 3;
+            Color[] pixels = texture.GetPixels(x0, y0, texture.width / 3, texture.height / 3);
+            Object.DestroyImmediate(texture);
+
+            float total = 0f;
+            foreach (Color pixel in pixels)
+            {
+                total += ((0.2126f * pixel.r) + (0.7152f * pixel.g) + (0.0722f * pixel.b))
+                         * pixel.a * 255f;
+            }
+
+            return total / pixels.Length;
+        }
     }
 }
