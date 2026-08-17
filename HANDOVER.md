@@ -1,41 +1,47 @@
 # Handover
 
-## Read this first — the 2026-08-16 session
+## Read this first — the 2026-08-17 session
 
-**Everything you asked for is built, tested and live on itch except the dungeon flip**, which is on a
-branch and explained below. `main` is green at **358 tests** across five assemblies.
+**All four of your rulings are shipped, and live on itch as `0.1.2608170212`.** `main` is green at
+**371 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
+flip.
 
-| you asked | state |
+| you ruled | state |
 |---|---|
-| +2 seconds per room entered | shipped |
-| an open door into the first room | shipped |
-| bigger tutorial text, clearing when the chest is looted | shipped |
-| "don't kill them" shown before the raid | shipped |
-| teams vary more; skirmishers later | shipped — nine rosters, gated to raid 5+ |
-| party grows to 5 / 6 / 9 through the season | shipped |
-| chest tag clears once grabbed; both tags twice the size | shipped |
-| +2/s per room, permanent | **built, held on `room-bonus-permanent`** — D40 |
-| dungeon runs bottom to top | **built, held on `flip-vertical-wip`** — D43 |
-| Pipoya tileset, credited with a direct link | credited; **cannot be committed**, see CREDITS.md |
-| record a raid, read it with Gemini | shipped, and it found a real defect — D44, D45 |
+| room bonus down to 1/s, permanent and stacking | shipped — `af08a64`, stall-vs-stroll back to 2.57x |
+| raise `GoodRun` | shipped — `aa0b621`, re-measured to 560 |
+| fan the formation laterally (option 3) | shipped — `87d9e69`, nine now 2.44 cells deep, was 4.96 |
+| the doorway should cover the team as they walk under | shipped — `50078b7`, and it needed no third-party art |
 
-**Three things need your judgement, in order of how much they matter.**
+**The league is a contest again, which is the biggest change.** It was a walkover: the season sweep
+won **12 of 12** — every play-style, every seed — because `GoodRun` had drifted to the 75th
+percentile of measured raids while parties grew and the room bonus compounded. Re-measured to the
+same *percentile* as the original figure rather than the same *word*, it now wins **2 of 12**, best
+play reaches round 10 and average play goes out at 8-9. The full reasoning, including why the obvious
+reading of "the best raid measured" is wrong, is D46.
 
-**A. A late-season raid now lands on the rivals' ceiling (D42).** Growing the party to nine takes a
-worked raid from **240 to 433**, and `LeagueTable.GoodRun` is **430**. D20 handicaps rivals a tenth
-below your range so a good raid cannot be beaten by luck; that holds at raid one and has no room left
-by raid eighteen. Levers: raise `GoodRun`, cap growth below nine, or let it stand.
+**The doorway did not need the Pipoya pack.** The lintel is cut from `door-a`'s own top rows, so it
+matches both door states pixel for pixel, is CC0 like the door it came from, and **ships to every
+clone** — where imported art could never have been committed to a public repo. The pack was
+downloaded to evaluate, was not used, and has been deleted; nothing from it is in this repository.
+`Tools/make-door-lintel.py` regenerates the band.
 
-**B. Nine adventurers cannot wear their health bars on their heads (D45).** Your ramp reintroduced
-the exact problem D8 was written to fix. Measured on video: only **3 or 4 of 9** bars readable, a
-wound mid-cluster "masked", a death "completely obscured". Bars now stagger by marching rank, which
-makes them readable and drifts them off their owners. Three options in D45 — keep it, a HUD roster
-panel, or fan the formation laterally. The frame is the thing to look at.
+**What still needs your judgement**
 
-**C. The permanent room bonus inverts a design rule (D40).** Implemented faithfully; it takes the
-stall-versus-stroll ratio to **2.09x against a 2.5x floor** — the party that walks through and leaves
-gains 3x where the party that stays and bleeds gains 2x. The recommendation is to pay it only while
-the party is engaged, which is the one option leaving both rules standing.
+**A. The dungeon flip is still on `flip-vertical-wip` (D43).** Eleven addenda of investigation; the
+failure is real and now evidenced rather than guessed. A vertical corridor lets monsters form a line
+across the party's only route while their back is against the entrance, which is a `Doorway` with no
+`Door` and so passable to nobody. The cheapest test is to give the opening room a real threshold the
+party can retreat through — the retreat valve SPEC calls the player's only mercy, which the opening
+room has never had. That is a design decision, not a bug fix, so it is waiting on you.
+
+**B. Followers clip the inside of corners, and always have.** Found while measuring the fan, by
+adding the control the first version of the test lacked: a single-file party of four stands in rock
+**2.6 %** of member-ticks against the fan's 3.1 %, so the fan is not the cause. A follower glides to
+its formation slot instead of pathfinding to it. Cheap to leave, cheap to fix; nobody has ever
+reported seeing it.
+
+## From the 2026-08-16 session
 
 **Two phone defects were found and fixed after that table was written**, both by exploratory
 testing rather than by anything failing. The world tags had **no resolution coverage at all** and
