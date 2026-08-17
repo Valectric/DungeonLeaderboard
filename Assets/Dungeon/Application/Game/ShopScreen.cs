@@ -69,6 +69,39 @@ namespace Dungeon.Game
         private const float PopupWidth = 250f;
 
         /// <summary>
+        /// How much bigger the tile menu is on a small screen than it used to be.
+        /// </summary>
+        /// <remarks>
+        /// The author, playing on a phone: <i>"the UI that pops up when clicking on the ground is
+        /// way too small on mobile, let's make it 3 times larger"</i>.
+        /// <para>
+        /// <b>Applied to the screens the old floors were already rescuing, and to no others.</b>
+        /// The obvious reading — multiply the three floors below by three — does not do that, and
+        /// was tried: 26 times three is 78, which is above the 30 a 1280x720 desktop computes from
+        /// its own scale, so the floor starts binding where it never bound and the menu grows
+        /// everywhere. Measured that way it took a desktop row from 30 pixels to 78 and the whole
+        /// menu to 72% of the window, which is not what "too small on mobile" asks for.
+        /// </para>
+        /// <para>
+        /// So <c>PopupRows</c> asks whether the old floor was doing the work: if the scaled size
+        /// falls under it this is a small screen and the enlargement applies, and if not the scaled
+        /// size stands. Measured after: 78 pixels a row on both phones, <b>30 unchanged at
+        /// 1280x720</b>, 45 unchanged at 1920x1080, and short screens squeezed back to fit rather
+        /// than overflowing onto the Ready button.
+        /// </para>
+        /// </remarks>
+        private const float MobileEnlargement = 3f;
+
+        /// <summary>The row height a small screen used before the author asked for three times.</summary>
+        private const float OldMinimumRowHeight = 26f;
+
+        /// <summary>The title height a small screen used before the author asked for three times.</summary>
+        private const float OldMinimumTitleHeight = 18f;
+
+        /// <summary>The width a small screen used before the author asked for three times.</summary>
+        private const float OldMinimumPopupWidth = 180f;
+
+        /// <summary>
         /// The Ready button's rectangle, in GUI space.
         /// </summary>
         /// <param name="scale">UI scale.</param>
@@ -124,10 +157,52 @@ namespace Dungeon.Game
             // the scale at 0.4 and would give 12-pixel rows -- on screen, drawn correctly, and far
             // too small for a thumb or for the text to be read. A control that cannot be hit is not
             // a control.
-            float popupWidth = Mathf.Min(width * 0.88f, Mathf.Max(180f, PopupWidth * scale));
-            float rowHeight = Mathf.Max(26f, RowHeight * scale);
-            float titleHeight = Mathf.Max(18f, 24f * scale);
+            // Enlarged on exactly the screens that needed a floor in the first place, and nowhere
+            // else. Multiplying the floors directly does NOT do that: three times 26 is 78, which is
+            // above the 30 a 1280x720 desktop computes from its own scale, so the floor starts
+            // binding on screens it never bound on and the menu grows everywhere. Measured that way
+            // it took a desktop row from 30 pixels to 78 and the whole menu to 72% of the window.
+            //
+            // So the test is whether the OLD floor was doing the work. If it was, this is a small
+            // screen and the author's three times applies; if it was not, the scaled size stands.
+            float popupWidth = PopupWidth * scale < OldMinimumPopupWidth
+                ? OldMinimumPopupWidth * MobileEnlargement
+                : PopupWidth * scale;
+            popupWidth = Mathf.Min(width * 0.88f, popupWidth);
+
+            float rowHeight = RowHeight * scale < OldMinimumRowHeight
+                ? OldMinimumRowHeight * MobileEnlargement
+                : RowHeight * scale;
+
+            float titleHeight = 24f * scale < OldMinimumTitleHeight
+                ? OldMinimumTitleHeight * MobileEnlargement
+                : 24f * scale;
+
             float popupHeight = titleHeight + (rowHeight * Items.Length);
+
+            // Shrink to fit rather than overflow. Tripling the floors is what makes the menu usable
+            // on a phone, and on a SHORT screen -- the 523x293 itch embed, or a phone held
+            // sideways -- three times 26 pixels a row does not fit between the header and Ready.
+            // Overflowing there would push rows under the Ready button, which is the exact fault
+            // the note above records: buying the bottom item would start the raid instead.
+            float band = ReadyRect(scale, width, height).y - (6f * scale) - HeaderBottom(scale);
+            if (popupHeight > band && band > 0f)
+            {
+                float squeeze = band / popupHeight;
+                rowHeight = Mathf.Max(OldMinimumRowHeight, rowHeight * squeeze);
+                titleHeight = Mathf.Max(OldMinimumTitleHeight, titleHeight * squeeze);
+                popupHeight = titleHeight + (rowHeight * Items.Length);
+            }
+
+            // WHOLE PIXELS, and it is not only tidiness. Rows are laid out exactly adjacent -- each
+            // one starts where the last ended -- and with a squeezed height like 55.1005 the
+            // accumulated top of one row lands an ulp past the bottom of the one before it, so
+            // Rect.Overlaps reports them as overlapping. ResolutionSweepTests caught precisely that
+            // at 800x480, and it matters: overlapping rectangles mean a tap lands on whichever row
+            // the hit test checks first, which the player experiences as buying the wrong thing.
+            rowHeight = Mathf.Floor(rowHeight);
+            titleHeight = Mathf.Floor(titleHeight);
+            popupHeight = titleHeight + (rowHeight * Items.Length);
 
             float left = Mathf.Clamp(anchor.x - (popupWidth * 0.5f), 4f, width - popupWidth - 4f);
             float floor = Mathf.Min(
@@ -138,10 +213,11 @@ namespace Dungeon.Game
             float ceiling = HeaderBottom(scale);
             float top = Mathf.Clamp(anchor.y + (14f * scale), ceiling, Mathf.Max(ceiling, floor));
 
+            float first = Mathf.Floor(top + titleHeight);
             var rows = new Rect[Items.Length];
             for (int i = 0; i < Items.Length; i++)
             {
-                rows[i] = new Rect(left, top + titleHeight + (i * rowHeight), popupWidth, rowHeight);
+                rows[i] = new Rect(left, first + (i * rowHeight), popupWidth, rowHeight);
             }
 
             return rows;
