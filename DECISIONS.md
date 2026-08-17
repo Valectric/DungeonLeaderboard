@@ -2880,3 +2880,38 @@ guess.
 The three tests keep the figures honest as the game changes. All three assert loosely — a third of
 time at paying actions, a peak that is neither extreme, some time below 60% health — because tight
 bounds here would be balance opinions smuggled into a suite.
+
+### D51 addendum — what the shop's items are worth cannot be measured this way, and here is why
+
+Having priced the hall (D29 addendum), the obvious next question was what the other four items do.
+Four attempts, each fixing the previous one's flaw, and the honest answer is that **this kind of
+harness cannot answer it**. Recorded so nobody repeats the sequence.
+
+| attempt | policy | result | why it was wrong |
+|---|---|---|---|
+| 1 | three mobs a room | spawner **−36**, trap 0, chest 0 | a per-room cap means an extra spawner cannot add a monster — it measured the cap |
+| 2 | no cap | everything ≈ 70 | the party is buried; it measured a wipe |
+| 3 | global cap at party size | spawner **−157**, trap 0, chest 0 | plausible, but still a fact about the cap |
+| 4 | as 3, and **fire the traps** | spawner **−133**, trap 0, chest 0 | traps were never fired in 1–3: a trap is one of the three verbs, and a trap nobody fires does nothing |
+
+**Two real things did come out of it.**
+
+**The instrument was placing the items correctly** — 5 spawners against 4, 4 traps against 3, 2 chests
+against 1, checked before any figure was believed, because a trap and a chest both moving the harvest
+by exactly 0.0 is the signature of something never placed.
+
+**And the fourth attempt found the actual blocker.** With traps firing, the baseline moved (585 to
+547) but the *extra* trap still changed nothing, and neither did the second chest. The reason is that
+`DungeonLayout.Build` chooses where they go, and it puts them where the party does not walk — the
+party reaches about three rooms, and the route is already covered. **In the real game the player
+picks the tile.** Item value here is a question about placement, and a harness that places for you is
+answering a different question.
+
+**What it would take:** a bot that buys through the shop and places on the party's route, which is
+the real decision the shop asks for. That is a build, not a measurement, and it is worth doing only
+if the author wants the price list checked.
+
+The test was deleted rather than left asserting something it cannot establish. The one finding that
+survived all four policies — that adding a spawner to an already-furnished dungeon *lowers* the
+harvest, by 36 to 157 depending on how it is played — is suggestive and not trustworthy, for exactly
+the reason the table above gives.
