@@ -103,7 +103,7 @@ namespace Dungeon.Game.Tests
 
             foreach (Vector2Int size in Screens)
             {
-                Rect ready = ShopScreen.ReadyRect(ScaleFor(size), size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(ScaleFor(size), size.x, size.y);
                 MooseRunnerFacade.Log(
                     $"{size.x}x{size.y}: Ready is {ready.width:F0}x{ready.height:F0} at "
                     + $"y={ready.y:F0}");
@@ -134,7 +134,7 @@ namespace Dungeon.Game.Tests
 
             foreach (Vector2Int size in Screens)
             {
-                Rect ready = ShopScreen.ReadyRect(ScaleFor(size), size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(ScaleFor(size), size.x, size.y);
                 measurer.Scales.Add(ScaleFor(size));
                 measurer.Buttons.Add(ready.width);
             }

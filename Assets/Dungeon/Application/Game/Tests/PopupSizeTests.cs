@@ -53,7 +53,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in new[] { new Vector2Int(390, 844), new Vector2Int(360, 780) })
             {
                 float scale = ScaleFor(size);
-                Rect[] popup = ShopScreen.PopupRows(
+                Rect[] popup = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.5f), scale, size.x, size.y);
 
                 float rowHeight = popup[0].height;
@@ -87,14 +87,14 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Screens)
             {
                 float scale = ScaleFor(size);
-                Rect ready = ShopScreen.ReadyRect(scale, size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(scale, size.x, size.y);
 
                 // Every anchor a tap can produce, not just the middle: the menu is placed relative
                 // to where the tile was, and the bottom of the board is where it can run out of room.
                 for (int step = 0; step <= 10; step++)
                 {
                     float y = size.y * (step / 10f);
-                    Rect[] popup = ShopScreen.PopupRows(
+                    Rect[] popup = ShopLayout.PopupRows(
                         new Vector2(size.x * 0.5f, y), scale, size.x, size.y);
 
                     float gap = ready.y - popup[^1].yMax;
@@ -105,7 +105,7 @@ namespace Dungeon.Game.Tests
                     }
                 }
 
-                rows.Add($"{size.x}x{size.y}: row {ShopScreen.PopupRows(new Vector2(size.x * 0.5f, size.y * 0.5f), scale, size.x, size.y)[0].height:F0}px");
+                rows.Add($"{size.x}x{size.y}: row {ShopLayout.PopupRows(new Vector2(size.x * 0.5f, size.y * 0.5f), scale, size.x, size.y)[0].height:F0}px");
             }
 
             MooseRunnerFacade.Log("row height by screen -- " + string.Join("  |  ", rows));
@@ -135,8 +135,8 @@ namespace Dungeon.Game.Tests
             {
                 float scale = ScaleFor(size);
                 var anchor = new Vector2(size.x * 0.5f, size.y * 0.4f);
-                Rect frame = ShopScreen.PopupFrame(anchor, scale, size.x, size.y);
-                Rect[] rows = ShopScreen.PopupRows(anchor, scale, size.x, size.y);
+                Rect frame = ShopLayout.PopupFrame(anchor, scale, size.x, size.y);
+                Rect[] rows = ShopLayout.PopupRows(anchor, scale, size.x, size.y);
 
                 Assert.LessOrEqual(frame.y, rows[0].y + 0.01f,
                     $"{size.x}x{size.y}: the frame starts below its first row, so the title strip "
@@ -175,7 +175,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Screens)
             {
                 float scale = ScaleFor(size);
-                float ceiling = ShopScreen.HeaderBottom(scale);
+                float ceiling = ShopLayout.HeaderBottom(scale);
 
                 // Every anchor a tap can produce, including one right under the header, which is
                 // where a control that does not clamp would end up.
@@ -183,7 +183,7 @@ namespace Dungeon.Game.Tests
                 {
                     var anchor = new Vector2(size.x * 0.5f, size.y * (step / 10f));
 
-                    float menuTop = ShopScreen.PopupFrame(anchor, scale, size.x, size.y).y;
+                    float menuTop = ShopLayout.PopupFrame(anchor, scale, size.x, size.y).y;
                     if (ceiling - menuTop > worstOverlap)
                     {
                         worstOverlap = ceiling - menuTop;
@@ -191,7 +191,7 @@ namespace Dungeon.Game.Tests
                         worstWhat = "the tile menu";
                     }
 
-                    float markerTop = ShopScreen.HallMarkerRect(anchor, scale, size.x, size.y).y;
+                    float markerTop = ShopLayout.HallMarkerRect(anchor, scale, size.x, size.y).y;
                     if (ceiling - markerTop > worstOverlap)
                     {
                         worstOverlap = ceiling - markerTop;
@@ -223,7 +223,7 @@ namespace Dungeon.Game.Tests
         public void OnADesktop_NothingChanged()
         {
             var size = new Vector2Int(1280, 720);
-            Rect[] popup = ShopScreen.PopupRows(
+            Rect[] popup = ShopLayout.PopupRows(
                 new Vector2(640f, 300f), ScaleFor(size), size.x, size.y);
 
             MooseRunnerFacade.Log(

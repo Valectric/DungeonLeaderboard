@@ -69,7 +69,7 @@ namespace Dungeon.Game.Tests
         /// <returns>A screen point inside that row.</returns>
         private static Vector2 PopupRowPoint(Vector2Int cell, ShopItem item)
         {
-            Rect[] rows = ShopScreen.PopupRows(
+            Rect[] rows = ShopLayout.PopupRows(
                 GuiPoint(cell), Scale, Screen.width, Screen.height);
 
             for (int i = 0; i < ShopScreen.Items.Length; i++)
@@ -90,7 +90,7 @@ namespace Dungeon.Game.Tests
         {
             List<Vector2Int> offered = _game.CurrentRaid.Layout.Plan.Expansions();
             Vector2Int lattice = offered[Mathf.Clamp(index, 0, offered.Count - 1)];
-            Rect rect = ShopScreen.HallMarkerRect(
+            Rect rect = ShopLayout.HallMarkerRect(
                 GuiPoint(_game.CurrentRaid.Layout.CentreOfLattice(lattice)),
                 Scale, Screen.width, Screen.height);
             return new Vector2(rect.center.x, Screen.height - rect.center.y);
@@ -100,7 +100,7 @@ namespace Dungeon.Game.Tests
         /// <returns>A screen point inside the Ready button.</returns>
         private static Vector2 ReadyPoint()
         {
-            Rect ready = ShopScreen.ReadyRect(Scale, Screen.width, Screen.height);
+            Rect ready = ShopLayout.ReadyRect(Scale, Screen.width, Screen.height);
             return new Vector2(ready.center.x, Screen.height - ready.center.y);
         }
 

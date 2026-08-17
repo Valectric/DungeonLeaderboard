@@ -256,7 +256,7 @@ namespace Dungeon.Game.Tests
                 Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
                 game.TapShop(new Vector2(screen.x, screen.y));
 
-                Rect[] rows = ShopScreen.PopupRows(
+                Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(screen.x, Screen.height - screen.y),
                     Screen.height / 720f, Screen.width, Screen.height);
                 game.TapShop(new Vector2(rows[0].center.x, Screen.height - rows[0].center.y));
@@ -304,7 +304,7 @@ namespace Dungeon.Game.Tests
                 Vector3 screen = Camera.main.WorldToScreenPoint(DungeonView.CellToWorld(cell));
                 game.TapShop(new Vector2(screen.x, screen.y));
 
-                Rect[] rows = ShopScreen.PopupRows(
+                Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(screen.x, Screen.height - screen.y),
                     Screen.height / 720f, Screen.width, Screen.height);
                 game.TapShop(new Vector2(rows[0].center.x, Screen.height - rows[0].center.y));

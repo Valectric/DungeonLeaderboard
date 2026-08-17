@@ -87,7 +87,7 @@ namespace Dungeon.Game.Tests
         /// <returns>A screen point inside the Ready button.</returns>
         private static Vector2 ReadyPoint()
         {
-            Rect ready = ShopScreen.ReadyRect(Scale, Screen.width, Screen.height);
+            Rect ready = ShopLayout.ReadyRect(Scale, Screen.width, Screen.height);
             return new Vector2(ready.center.x, Screen.height - ready.center.y);
         }
 
@@ -117,7 +117,7 @@ namespace Dungeon.Game.Tests
             Vector2 anchor = GuiPoint(cell);
             _game.TapShop(new Vector2(anchor.x, Screen.height - anchor.y));
 
-            Rect[] rows = ShopScreen.PopupRows(anchor, Scale, Screen.width, Screen.height);
+            Rect[] rows = ShopLayout.PopupRows(anchor, Scale, Screen.width, Screen.height);
             for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
                 if (ShopScreen.Items[i] == item)
@@ -187,7 +187,7 @@ namespace Dungeon.Game.Tests
             }
 
             int before = layout.RoomCentres.Count;
-            Rect marker = ShopScreen.HallMarkerRect(
+            Rect marker = ShopLayout.HallMarkerRect(
                 GuiPoint(layout.CentreOfLattice(offered[0])), Scale, Screen.width, Screen.height);
             _game.TapShop(new Vector2(marker.center.x, Screen.height - marker.center.y));
 

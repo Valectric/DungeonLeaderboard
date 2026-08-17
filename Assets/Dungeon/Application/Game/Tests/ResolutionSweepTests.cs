@@ -99,7 +99,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Sizes)
             {
                 float scale = UiScaleAt(size);
-                Rect ready = ShopScreen.ReadyRect(scale, size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(scale, size.x, size.y);
 
                 Assert.LessOrEqual(ready.yMax, size.y,
                     $"{size.x}x{size.y}: the Ready button runs {ready.yMax - size.y:F0}px "
@@ -115,7 +115,7 @@ namespace Dungeon.Game.Tests
                              new Vector2(size.x * 0.5f, size.y * 0.5f)
                          })
                 {
-                    Rect[] rows = ShopScreen.PopupRows(corner, scale, size.x, size.y);
+                    Rect[] rows = ShopLayout.PopupRows(corner, scale, size.x, size.y);
                     foreach (Rect row in rows)
                     {
                         Assert.GreaterOrEqual(row.x, 0f,
@@ -155,13 +155,13 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Sizes)
             {
                 float scale = UiScaleAt(size);
-                Rect ready = ShopScreen.ReadyRect(scale, size.x, size.y);
+                Rect ready = ShopLayout.ReadyRect(scale, size.x, size.y);
 
                 for (int step = 0; step <= 10; step++)
                 {
                     var anchor = new Vector2(size.x * (step / 10f), size.y * (step / 10f));
 
-                    foreach (Rect row in ShopScreen.PopupRows(anchor, scale, size.x, size.y))
+                    foreach (Rect row in ShopLayout.PopupRows(anchor, scale, size.x, size.y))
                     {
                         Assert.IsFalse(row.Overlaps(ready),
                             $"{size.x}x{size.y}: a menu row opened at {anchor} covers Ready, so "
@@ -169,7 +169,7 @@ namespace Dungeon.Game.Tests
                     }
 
                     Assert.IsFalse(
-                        ShopScreen.HallMarkerRect(anchor, scale, size.x, size.y).Overlaps(ready),
+                        ShopLayout.HallMarkerRect(anchor, scale, size.x, size.y).Overlaps(ready),
                         $"{size.x}x{size.y}: the hall marker at {anchor} covers Ready");
                 }
             }
@@ -186,7 +186,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Sizes)
             {
                 float scale = UiScaleAt(size);
-                Rect[] rows = ShopScreen.PopupRows(
+                Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
                 for (int i = 0; i < rows.Length; i++)
@@ -212,7 +212,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Sizes)
             {
                 float scale = UiScaleAt(size);
-                Rect[] rows = ShopScreen.PopupRows(
+                Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
                 foreach (Rect row in rows)
@@ -223,7 +223,7 @@ namespace Dungeon.Game.Tests
                         $"{size.x}x{size.y}: a menu row is only {row.height:F0}px tall");
                 }
 
-                Rect marker = ShopScreen.HallMarkerRect(
+                Rect marker = ShopLayout.HallMarkerRect(
                     new Vector2(size.x * 0.8f, size.y * 0.5f), scale, size.x, size.y);
                 Assert.Greater(marker.width, 24f,
                     $"{size.x}x{size.y}: the hall marker is only {marker.width:F0}px wide");

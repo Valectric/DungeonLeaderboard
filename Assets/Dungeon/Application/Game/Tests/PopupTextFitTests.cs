@@ -121,7 +121,7 @@ namespace Dungeon.Game.Tests
             foreach (Vector2Int size in Screens)
             {
                 float scale = ScaleFor(size);
-                Rect[] rows = ShopScreen.PopupRows(
+                Rect[] rows = ShopLayout.PopupRows(
                     new Vector2(size.x * 0.5f, size.y * 0.4f), scale, size.x, size.y);
 
                 foreach (ShopItem item in ShopScreen.Items)

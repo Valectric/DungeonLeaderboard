@@ -73,7 +73,7 @@ namespace Dungeon.Game.Tests
         /// <param name="lattice">Lattice cell to build on.</param>
         private void BuyHallAt(Vector2Int lattice)
         {
-            Rect marker = ShopScreen.HallMarkerRect(
+            Rect marker = ShopLayout.HallMarkerRect(
                 GuiPoint(_game.CurrentRaid.Layout.CentreOfLattice(lattice)),
                 Scale, Screen.width, Screen.height);
             _game.TapShop(new Vector2(marker.center.x, Screen.height - marker.center.y));

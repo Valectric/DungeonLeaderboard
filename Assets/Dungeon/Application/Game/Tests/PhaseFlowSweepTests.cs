@@ -265,7 +265,7 @@ namespace Dungeon.Game.Tests
                     var anchor = new Vector2(screen.x, Screen.height - screen.y);
                     _game.TapShop(new Vector2(screen.x, screen.y));
 
-                    Rect[] rows = ShopScreen.PopupRows(anchor, scale, Screen.width, Screen.height);
+                    Rect[] rows = ShopLayout.PopupRows(anchor, scale, Screen.width, Screen.height);
                     for (int i = 0; i < ShopScreen.Items.Length; i++)
                     {
                         if (ShopScreen.Items[i] == item)
@@ -385,7 +385,7 @@ namespace Dungeon.Game.Tests
         /// <returns>A screen point inside the Ready button.</returns>
         private static Vector2 ReadyPoint()
         {
-            Rect ready = ShopScreen.ReadyRect(
+            Rect ready = ShopLayout.ReadyRect(
                 Screen.height / 720f, Screen.width, Screen.height);
             return new Vector2(ready.center.x, Screen.height - ready.center.y);
         }

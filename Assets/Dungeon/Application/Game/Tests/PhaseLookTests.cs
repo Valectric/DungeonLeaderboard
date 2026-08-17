@@ -151,7 +151,7 @@ namespace Dungeon.Game.Tests
 
             if (_game.IsShopping)
             {
-                Rect ready = ShopScreen.ReadyRect(
+                Rect ready = ShopLayout.ReadyRect(
                     Mathf.Min(Screen.width / 1280f, Screen.height / 720f),
                     Screen.width, Screen.height);
                 _game.TapShop(new Vector2(ready.center.x, Screen.height - ready.center.y));
@@ -383,7 +383,7 @@ namespace Dungeon.Game.Tests
 
             if (_game.IsShopping)
             {
-                Rect ready = ShopScreen.ReadyRect(
+                Rect ready = ShopLayout.ReadyRect(
                     Mathf.Min(Screen.width / 1280f, Screen.height / 720f),
                     Screen.width, Screen.height);
                 _game.TapShop(new Vector2(ready.center.x, Screen.height - ready.center.y));

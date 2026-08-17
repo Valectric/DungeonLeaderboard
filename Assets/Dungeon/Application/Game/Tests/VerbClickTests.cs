@@ -97,7 +97,7 @@ namespace Dungeon.Game.Tests
             await UniTask.Yield(ct);
 
             Vector2Int lattice = game.CurrentRaid.Layout.Plan.Expansions()[0];
-            Rect marker = ShopScreen.HallMarkerRect(
+            Rect marker = ShopLayout.HallMarkerRect(
                 GuiPointOver(game.CurrentRaid.Layout.CentreOfLattice(lattice)),
                 Scale, Screen.width, Screen.height);
             game.TapShop(new Vector2(marker.center.x, Screen.height - marker.center.y));
@@ -105,7 +105,7 @@ namespace Dungeon.Game.Tests
             Vector2Int cell = FirstBuildableCell(game);
             game.TapShop(ScreenPointOver(cell));
 
-            Rect[] rows = ShopScreen.PopupRows(
+            Rect[] rows = ShopLayout.PopupRows(
                 GuiPointOver(cell), Scale, Screen.width, Screen.height);
             for (int i = 0; i < ShopScreen.Items.Length; i++)
             {
@@ -115,7 +115,7 @@ namespace Dungeon.Game.Tests
                 }
             }
 
-            Rect ready = ShopScreen.ReadyRect(Scale, Screen.width, Screen.height);
+            Rect ready = ShopLayout.ReadyRect(Scale, Screen.width, Screen.height);
             game.TapShop(new Vector2(ready.center.x, Screen.height - ready.center.y));
 
             // The controller starts the raid on the frame after it notices the shop closed.

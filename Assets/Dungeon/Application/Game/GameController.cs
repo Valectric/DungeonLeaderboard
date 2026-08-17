@@ -992,7 +992,7 @@ namespace Dungeon.Game
 
             float scale = UiScale;
 
-            if (ShopScreen.HitReady(screenPosition, scale))
+            if (ShopLayout.HitReady(screenPosition, scale))
             {
                 // The bonus is carried into the next raid rather than paid into the purse being
                 // closed, so pressing Ready buys starting energy instead of buying nothing.
@@ -1005,7 +1005,7 @@ namespace Dungeon.Game
             if (_popupCell.HasValue)
             {
                 Vector2 anchor = GuiPointOf(_popupCell.Value);
-                if (ShopScreen.TryHitPopup(screenPosition, anchor, scale, out ShopItem picked))
+                if (ShopLayout.TryHitPopup(screenPosition, anchor, scale, out ShopItem picked))
                 {
                     BuyOnto(picked, _popupCell.Value);
                     return;
@@ -1021,7 +1021,7 @@ namespace Dungeon.Game
             {
                 foreach (Vector2Int lattice in ExpansionCells())
                 {
-                    if (!ShopScreen.HitHallMarker(
+                    if (!ShopLayout.HitHallMarker(
                             screenPosition, GuiPointOf(_raid.Layout.CentreOfLattice(lattice)),
                             scale))
                     {
