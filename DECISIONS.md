@@ -2980,3 +2980,53 @@ The test was deleted rather than left asserting something it cannot establish. T
 survived all four policies — that adding a spawner to an already-furnished dungeon *lowers* the
 harvest, by 36 to 157 depending on how it is played — is suggestive and not trustworthy, for exactly
 the reason the table above gives.
+
+## 2026-08-17 — D52. A decimated party stands at the door, and four fixes each broke something else
+
+Found by sweeping for the failure that would embarrass this game in front of a jam voter: the clock
+running while the adventurers stand still. It exists.
+
+**THE COVEN, in a three-room dungeon under pressure, stood motionless for 30.9 seconds of a
+sixty-second raid** — at the entrance, with no monster in its room, nothing to loot and no door to
+force. State at the stall: *goal Retreating, pooled health 25%, worst member 100%, **one alive**.*
+
+### The mechanism, and it is D48's fix
+
+`HealthFraction` counts the dead as zero. That is exactly what makes the retreat fire for a party
+being wiped out one member at a time, which is the defect D48 repaired this morning. The corollary
+went unexamined: **a party that has lost enough of itself can never climb back over
+`RecoverThreshold`**. Three of four dead caps the pool at 25% against a 62% threshold, however
+healthy the survivor. So it retreats, arrives, and waits for a recovery that cannot arrive.
+
+Before D48 this could not happen — the pool counted only the living, so one healthy survivor read as
+100% and the party advanced. **The stall is the price of the valve working**, and it was introduced
+this morning by the fix that made it work.
+
+### Four attempts, four different breakages
+
+| fix | what happened |
+|---|---|
+| recover on the worst **living** member | goal flipped every tick: the trigger reads "still losing" while the exit reads "patched up", and they disagree permanently once somebody dies. Retreat episodes **1.0 → 946** a raid |
+| latch on **no mana** | same flap; the exit fired on the same tick as the entry |
+| latch on **recovery being unreachable** | the valve stopped firing at all — 0.0 episodes, and 4, 6 and 8 dead at the three party sizes |
+| **let them leave** (Goal = Escaped at the entrance) | no stall and no flap, but the raid ends early: THE GLASS CANNONS earned **39 by playing against 57 by doing nothing**, inverting the rule that playing must beat not playing |
+
+Every one traded the stall for something worse, which is the argument that this is **not a local rule
+change**. A threshold pair only works as hysteresis when both ends read the same measure — and the two
+questions here genuinely differ: *"is the party losing"* has to count the dead, *"is the party ready
+to go back in"* cannot.
+
+### What it needs from the author
+
+A decision about what a broken party should **do**, which is a design question rather than a tuning
+one. The options, with what each costs:
+
+- **Leave.** Honest fiction, terminal, no oscillation — and it ends the earning window, which is what
+  made playing worse than not playing. Would need the do-nothing baseline re-priced.
+- **Fight on.** Keeps them earning and very likely kills them; the player let the healer die.
+- **Wait, but visibly.** Keep the stall and make it legible — a "they will not go back in" line on
+  the HUD — so the player understands rather than sees a frozen game.
+
+`StuckPartyTests` sweeps 54 raids and now guards at **33 seconds**, just above the observed worst, so
+the stall cannot get longer while this is open. That number is a regression guard on a known defect,
+not a standard; the figure to return to is the 12 seconds the test was written with.
