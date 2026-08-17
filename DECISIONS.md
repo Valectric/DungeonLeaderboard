@@ -11,6 +11,71 @@ built, and any place where the build has deliberately departed from the spec.
 
 ---
 
+## Index
+
+58 decisions. Newest at the bottom of the file; addenda sit under their parent.
+
+- **D1** — Unity 6000.3.17f1, 2D URP
+- **D2** — MooseRunner from the first commit
+- **D3** — itch.io only; no GitHub Pages
+- **D4** — Fixed rooms on a grid, mouse input
+- **D5** — The spec is recorded verbatim and outranks the code
+- **D6** — 64x64 pixel tiles, PPU 64
+- **D7** — Moodboard extraction is the primary art path
+- **D8** — Health bars on adventurers, superseding SPEC.md §3
+- **D9** — Per-role adventurer AI, and disarmable traps
+- **D10** — The shop spends *leftovers*, and Ready buys starting energy
+- **D11** — Chests are a stall, and the reach that makes them one
+- **D12** — The energy curve reads the party's *worst* survivor
+- **D13** — Rival dungeons earn on the scale the player can actually reach
+- **D14** — Sprites animate procedurally, not from drawn frames
+- **D15** — The audio module brings its own AudioListener
+- **D16** — The shop is spatial: buy onto the dungeon, not off a list
+- **D17** — Why the tankless rosters earn a ninth of the others (diagnosed, not decided)
+- **D18** — The retreat valve never fires before a death (fix attempted, measured, reverted)
+- **D19** — Two rosters cannot get through a shut door at all
+- **D20** — The league is an elimination, and the game can now be won
+- **D21** — A second shut door froze the party for the rest of the raid
+- **D22** — The monster health nerf: measured, viable, and what still blocks it
+- **D23** — Only the halls the player buys arrive empty
+- **D24** — Spawning is a loan against the room, not a purchase
+- **D25** — The dungeons left standing get better, but never luckier
+- **D26** — A straggler pulled monsters out of their rooms
+- **D27** — The simulation stays plain C#. Prefabs and Unity systems go in the view.
+- **D28** — A pinned CPU affinity fails the perf test and looks like a code regression
+- **D29** — Room-scoped combat inverted "aim your purchases", and the test's premise is what broke
+- **D30** — The author's four calls, and what each one cost
+- **D31** — The run opens on one room, so "they left" had to be re-defined
+- **D32** — A tap is decided on release, because a pinch starts exactly like one
+- **D33** — A retreating party forces the door behind it
+- **D34** — The opening hint had to carry the restraint, not just the instruction
+- **D27** — The rivals were priced against a raid that does not exist
+- **D28** — A gate that ranked the fix below the fault
+- **D29** — Two of the four halls the shop sells cannot be used
+- **D31** — The season instrument was seeded from the clock, so D27 was luck until now
+- **D32** — The wall complaint, measured at last, against a target we already had
+- **D33** — The shipped build can be played now, and the first play found something
+- **D34** — Round one measured: not sudden death, and not reliably a lesson either
+- **D35** — Five files are over the architecture's hard cap, and nothing had said so
+- **D36** — CLAUDE.md's headline formula described the curve M6 replaced
+- **D37** — A "hard constraint" that D8 had already overturned
+- **D38** — The energy curve superseded SPEC §3, and this ledger never said so
+- **D39** — The author's pass, and what the room bonus costs elsewhere
+- **D40** — The permanent room bonus is built, measured, and held on a branch
+- **D41** — "Skirmish is always third" was not a bias, and measuring said so first
+- **D42** — What growing the party costs the league, measured twice because the first was wrong
+- **D44** — A recorded raid, read by Gemini, and what it says about parties of nine
+- **D45** — Nine adventurers cannot wear their health bars on their heads
+- **D43** — Turning the dungeon vertical: four real bugs, and one open failure
+- **D46** — The author's four rulings, shipped, and the three instruments that lied on the way
+- **D47** — The nine-strong party had never once happened
+- **D48** — The retreat valve had stopped working, and a green test was holding it shut
+- **D49** — "Wins N of 12" is not a measurement, and one was reported as if it were
+- **D50** — The mobile interface sweep: one report, five defects
+- **D51** — What a minute of this game actually is
+
+---
+
 ## 2026-08-12 — D1. Unity 6000.3.17f1, 2D URP
 
 **Decided:** the project Unity Hub already created — Unity 6000.3.17f1 from the **2D (URP)**
