@@ -6,6 +6,7 @@
         "Dungeon.DungeonManager",
         "Dungeon.PartyManager",
         "Dungeon.MobManager",
+        "Dungeon.LeagueManager",
         "MooseRunner",
         "MooseRunner.helper",
         "UniTask",

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Dungeon.DungeonManager;
 using Dungeon.MobManager;
+using Dungeon.LeagueManager;
 using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
@@ -13,7 +14,7 @@ namespace Dungeon.RaidManager.Tests
     /// </summary>
     /// <remarks>
     /// The energy rate sums <b>per member</b>, so party size scales the whole economy — and the
-    /// league's rivals are priced against parties of four (<c>GoodRun</c> 430, D30). Growing to nine
+    /// league's rivals are priced against what the player can produce (<c>GoodRun</c>, D30). Growing to nine
     /// is therefore an economic change wearing the clothes of a difficulty change.
     /// <para>
     /// <b>Why this file had to exist.</b> <c>SeasonSweepTests</c> plays whole seasons and would have
@@ -147,13 +148,32 @@ namespace Dungeon.RaidManager.Tests
         /// Records what growth is worth on a raid the player actually works.
         /// </summary>
         /// <remarks>
-        /// <c>LeagueTable</c>'s <c>GoodRun</c> is the ceiling a rival dungeon can earn in a round, set
-        /// at the measured 430 against four-member parties (D30). If growth alone lifts a late-season
-        /// raid near that, the player starts winning on the calendar rather than on play, which
-        /// inverts the promise D20 and D25 rest on.
+        /// <see cref="LeagueTable.RivalCeiling"/> is the most a rival dungeon can earn in a round. If
+        /// growth alone lifts a late-season raid near it, the player starts winning on the calendar
+        /// rather than on play, which inverts the promise D20 and D25 rest on.
+        /// <para>
+        /// <b>Read from the constant, never restated.</b> This log line said "rival ceiling is 430"
+        /// as a literal, and the figure moved twice on 2026-08-17 alone — to 560 and then 620 — so
+        /// it was reporting a comparison against a number the league had stopped using. That is the
+        /// same drift that made the growth curve unreachable in D47, in a log line instead of a
+        /// constant. The test assembly now references LeagueManager purely so this cannot recur.
+        /// </para>
         /// <para>
         /// <b>Logged, not asserted against <c>GoodRun</c>.</b> Retuning the rivals is the author's
         /// call, and a test that quietly enforced a ratio would be taking that decision for them.
+        /// </para>
+        /// <para>
+        /// <b>The result is the opposite of the worry, and it is worth understanding.</b> Measured
+        /// 2026-08-17: a worked raid earns <b>291 at four and 281 at nine — 0.97x</b>, while a raid
+        /// nobody works rises 71 to 77. Headcount does not inflate a worked raid, because nine
+        /// adventurers kill what they meet faster and a party that takes less damage per member sits
+        /// lower on the wound curve, which is where the money is.
+        /// </para>
+        /// <para>
+        /// Growth pays in <i>survival</i>, not in rate: a nine-strong party lives through raids that
+        /// wipe a four, and so keeps earning for more of the clock. That is why the season sweep's
+        /// best raid rose from 694 to 1120 when D47 fixed the curve while this figure did not move.
+        /// The two measurements disagree only if the mechanism is assumed rather than asked about.
         /// </para>
         /// </remarks>
         [Test]
@@ -162,7 +182,10 @@ namespace Dungeon.RaidManager.Tests
             float atFour = 0f;
             float atNine = 0f;
 
-            foreach (int round in new[] { 0, 8, 17 })
+            // Rounds, not raids: 0 is the opening raid and 9 is the last of a ten-round season. This
+            // read { 0, 8, 17 } and reported "raid 18", which no season reaches -- the same rejected
+            // nineteen-round league that D47 found in the growth curve itself.
+            foreach (int round in new[] { 0, 5, 9 })
             {
                 float strolled = 0f;
                 float fought = 0f;
@@ -176,11 +199,12 @@ namespace Dungeon.RaidManager.Tests
                 }
 
                 if (round == 0) { atFour = fought / 6f; }
-                if (round == 17) { atNine = fought / 6f; }
+                if (size >= PartyComposition.MaxSize) { atNine = fought / 6f; }
 
                 MooseRunnerFacade.Log(
                     $"raid {round + 1}, party of {size}: strolled {strolled / 6f:F0}, "
-                    + $"held and fought {fought / 6f:F0} (rival ceiling is 430)");
+                    + $"held and fought {fought / 6f:F0} "
+                    + $"(rival ceiling is {LeagueTable.RivalCeiling:F0})");
             }
 
             MooseRunnerFacade.Log(
