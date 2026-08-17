@@ -3127,3 +3127,31 @@ attacked once per person who reads the wrong docstring, and is discovered only a
 written. `DECISIONS.md` is meant to be read *before* reversing something; this was not in it.
 
 **Do not make openings walkable.** To join two rooms, use `AddDoor`. An opening joins nothing.
+
+---
+
+## D58 addendum — 2026-08-17 — "nothing is purely a MobManager test" was wrong
+
+D58 concluded that DungeonManager and MobManager should have no test assemblies, because every test
+touching them built a `Raid` and drove it. **That was true of the tests as they were written, and
+false of the modules**, which is a different claim — and I wrote it earlier the same day, so this is
+a correction rather than a change of mind.
+
+Both now have suites of their own, and neither constructs a `Raid`:
+
+- **`Dungeon.DungeonManager.Tests`** asks `FindPath` about a two-room fixture. Writing it found
+  `CarveOpening`'s docstring to be false (D59).
+- **`Dungeon.MobManager.Tests`** asks `MobPack.Tick` about room-bounded pursuit. `MobPack` takes a
+  grid and a list of party *positions*, so the rule the retreat valve depends on can be stated in
+  two rooms and one monster: the party retreats through an open door and the skeleton moves
+  **0.00 cells**; a straggler left behind next door does not draw it across the threshold; and a
+  tank's `pull` brings it to 0.85 cells of the tank rather than 0.82 of the nearer body.
+
+**What survives from D58 is the rule, not the conclusion.** A test lives with the module it
+exercises, and a test of the composition lives with the composition — `RaidManager.Tests` is
+legitimately the largest suite. What was wrong was inferring, from a set of raid-driven tests, that
+raid-driven tests were the only kind available. The module surfaces were always directly
+interrogable; nobody had tried.
+
+Counts after: RaidManager 175, Game 141, ShopManager 49, LeagueManager 26, PartyManager 22,
+DungeonManager 9, AudioManager 8, MobManager 4.
