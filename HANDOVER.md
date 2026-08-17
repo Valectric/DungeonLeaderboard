@@ -2,7 +2,7 @@
 
 ## Read this first — the 2026-08-17 session
 
-**All four of your rulings are shipped, and live on itch as `0.1.2608170607`.** `main` is green at
+**All four of your rulings are shipped, and live on itch as `0.1.2608171039`.** `main` is green at
 **385 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
 flip.
 
@@ -64,6 +64,36 @@ slime pit hard: the rate held **10.5 to 13.8/s** with `+ ROOMS x1 + CROWD x1` on
 numbers bubbling in both colours, the healer casting `+17`, staggered bars readable on a four-strong
 party, **186 harvested by 0:39**. Nothing regressed and the economy reads correctly in the renderer
 that actually ships.
+
+**Your mobile report turned into a sweep, and the sweep found six more (D50).** You said the tile
+menu was too small on a phone. Fixing it and then checking every other screen the same way found that
+**three screens had no floor on the interface scale at all** — where `LeagueScreen` carries thirteen
+such floors and `ShopScreen` five, so the idea was understood and applied only where somebody had
+noticed. On a 360x780 phone the scale is 0.28, so anything unfloored drew at a quarter size:
+
+| where | was | now |
+|---|---|---|
+| tile menu rows | 26px | **78px** |
+| review screen quip and lesson | **4px** | 10px |
+| HUD captions | 4px | 9px |
+| HUD rate — "the game" per its own comment | 15px | 31px |
+| shop countdown | 11px | 27px |
+| shop instruction | 4px | 9px |
+| Ready button | **174x14px** | 320x34px |
+| title screen's longest line | spilled off both edges | 5px spare |
+
+Every `fontSize` in `Application/Game` now either carries a floor or derives from a floored scale.
+The technique that found them is in D50 and is reusable: measure the real font with
+`GUIStyle.CalcSize` from inside an `OnGUI` pass, and have the test ask production what it will draw
+rather than restating the arithmetic.
+
+**None of it has been seen on an actual phone** — it is all measured at every shipped resolution, and
+the desktop cases are photographed. Worth one look on your own handset.
+
+**I also published a broken build this morning and fixed it.** The completion check in `CLAUDE.md`
+was followed exactly and still shipped a wasm of zero bytes, because it watched one artefact while
+another was mid-write. Live for about six minutes. The rule is corrected and `Tools/publish-itch.sh`
+now refuses to upload an unfinished build — tested by truncating the wasm and confirming it exits 1.
 
 **What still needs your judgement**
 
