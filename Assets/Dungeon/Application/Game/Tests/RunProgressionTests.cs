@@ -589,6 +589,33 @@ namespace Dungeon.Game.Tests
                 "winning the final did not put the game on its winning ending, so the screen the "
                 + "whole run is played for cannot be reached");
             Assert.IsFalse(sawError, "the winning ending logged an error while drawing");
+
+            // THE HOLD, asserted where the win has already been paid for. The author asked for the
+            // card to stay up "five seconds or so" before a key starts a new run, and the reason is
+            // that a player who has just won is usually still pressing to clear the review -- so
+            // without the hold they would blow straight through the one screen the season was for.
+            //
+            // Both halves are needed. Checking only that the key is ignored would pass just as
+            // happily if the key NEVER worked and the player were stranded on the card forever.
+            _game.Advance();
+            await UniTask.NextFrame(ct);
+
+            Assert.IsTrue(_game.HasWon,
+                $"a key pressed immediately started a new run, so the {VictoryScreen.Seconds:F0}"
+                + "-second hold is not holding and the winning card can be skipped by the press "
+                + "that was dismissing the review");
+
+            await UniTask.WaitForSeconds(VictoryScreen.Seconds + 0.5f, cancellationToken: ct);
+            _game.Advance();
+            await UniTask.NextFrame(ct);
+
+            MooseRunnerFacade.Log(
+                $"victory hold: key ignored during {VictoryScreen.Seconds:F0}s, "
+                + $"accepted after (won={_game.HasWon})");
+
+            Assert.IsFalse(_game.HasWon,
+                $"a key pressed after the {VictoryScreen.Seconds:F0}-second hold did not start a "
+                + "new run, so the player is stranded on the winning card with no way on");
         }
 
         /// <summary>
