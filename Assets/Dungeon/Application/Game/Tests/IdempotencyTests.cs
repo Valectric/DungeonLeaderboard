@@ -125,5 +125,68 @@ namespace Dungeon.Game.Tests
                 $"DontDestroyOnLoad went from {census[0].persistent} to {census[2].persistent} "
                 + "objects across three runs, which is the leak that survives every teardown");
         }
+
+        /// <summary>
+        /// Restarting a run on the SAME controller leaks nothing, five times over.
+        /// </summary>
+        /// <remarks>
+        /// The path a player actually takes, and the one the test above does not cover. That one
+        /// builds a fresh controller for each pass and destroys it, which measures teardown;
+        /// <c>NewRun</c> keeps the controller and rebuilds the dungeon <b>in place</b>, which is what
+        /// happens when a run ends and the player presses a key to start another.
+        /// <para>
+        /// It matters here more than it would elsewhere. This ships as a WebGL page for jam voting,
+        /// so a voter who loses twice and tries again is doing this in a tab with a fixed memory
+        /// budget, and every sprite the view forgets to destroy is still there at the end of it.
+        /// </para>
+        /// <para>
+        /// Run 1 is allowed to differ — first-time allocations and lazily built sprites — so the
+        /// comparison is run 5 against run 2, and growth after the first rebuild is the leak.
+        /// </para>
+        /// </remarks>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The awaitable check.</returns>
+        [Test]
+        public async UniTask RestartingARun_LeaksNothing(CancellationToken ct)
+        {
+            var game = new GameObject("game").AddComponent<GameController>();
+            game.Advance();
+            await UniTask.Yield(ct);
+
+            var counts = new List<int>();
+
+            for (int run = 1; run <= 5; run++)
+            {
+                game.NewRun();
+
+                // Into a raid and a few frames of it, so the view has built everything it builds
+                // before anything is counted.
+                for (int press = 0; press < 4 && !game.IsRaiding && !game.IsShopping; press++)
+                {
+                    game.Advance();
+                    await UniTask.Yield(ct);
+                }
+
+                for (int frame = 0; frame < 6; frame++)
+                {
+                    await UniTask.NextFrame(ct);
+                }
+
+                (int total, int _) = Census();
+                counts.Add(total);
+                MooseRunnerFacade.Log($"restart {run}: {total} objects in the scene");
+            }
+
+            Object.DestroyImmediate(game.gameObject);
+
+            MooseRunnerFacade.Log(
+                $"restarts: {string.Join(" -> ", counts.ConvertAll(c => c.ToString()))} objects, "
+                + $"growth after the first rebuild {counts[4] - counts[1]:+#;-#;0}");
+
+            Assert.AreEqual(counts[1], counts[4],
+                $"restarting the run grew the scene from {counts[1]} to {counts[4]} objects over "
+                + "four rebuilds, so every restart leaves something behind -- in a browser tab that "
+                + "is a player who loses a few times running out of memory");
+        }
     }
 }
