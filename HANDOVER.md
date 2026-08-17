@@ -1,5 +1,52 @@
 # Handover
 
+## Your four changes are live — `0.1.2608172304`
+
+**All four done, 440 tests green across eight assemblies, published and verified.**
+
+| you asked | what landed |
+|---|---|
+| a real congratulations screen with the total, a fitting image, five seconds then any key | `VictoryScreen` — CONGRATULATIONS, YOURS IS THE LAST DUNGEON STANDING, the season total in violet, over a throne hall generated for it. Photographed at 45,382. |
+| the open door should look open | it now does. See the measurement below — you were right for a reason worth knowing |
+| party 30% faster, slimes and skeletons 30% slower | 0.9 → 1.17 and 1.9 → 1.33. A party that reached 5.7 cells in twenty seconds now reaches 11.5 |
+| keep the "+ ROOMS / + CROWD" line | untouched |
+
+**The door, because the number explains the complaint.** The "open" sprite's centre measured
+luminance **56.7 — brighter than the shut door's 47.8**. Both were solid lit surfaces; the open one
+was just a different colour, so of course it read as closed. The new one is **0.0** at the centre:
+you see through it into darkness. Generated against `door-a` as the reference with **no** palette
+string, per the note about not dragging an existing sprite off its own colours.
+
+---
+
+## Waiting on you: the speed change flattens the greed curve
+
+**This is the one thing from tonight that needs a decision.** `GreedCurveTests` asks whether pressing
+harder stops paying before the end — the property everything else rests on, and the reason the wound
+curve and the corpse penalty exist.
+
+```
+before   260 / 280 / 301 / 510 / 458 / 482    peak at "stop at 50%"
+after    313 / 313 / 313 / 404 / 473 / 486    monotonic, the most timid wins
+```
+
+Both halves of your instruction push the same way: a faster party reaches the exit sooner, so the
+earning window shortens, and slower mobs make a spawn less able to catch anyone, so pressing buys
+less. Maximum caution is now the dominant strategy, which means the player is watching rather than
+deciding.
+
+**I did not quietly delete the check.** What is still asserted is the half that remains true and is
+the worse failure of the two — if *recklessness* won, the wound curve would be decoration and a
+corpse too cheap. The interior peak is not asserted, because it is currently false, and the test says
+so in full.
+
+Ways out, none of them mine to pick: make the dungeon longer so a faster party still spends the
+minute in it; raise the room bonus so advancing pays for itself; or accept that "do not over-commit"
+is the whole lesson. The speeds feel right to play — that was the point — so this is a question about
+what to change *around* them.
+
+---
+
 ## Start here — the whole of 2026-08-17 in one screen
 
 **`main` is green at 434 tests across eight assemblies, console clean, and `0.1.2608172052` is live
