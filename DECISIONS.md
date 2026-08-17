@@ -2676,3 +2676,29 @@ judge.
 Seventh instrument error of the night, and the first one where the instrument was mine and I quoted
 it four times before checking it. The pattern from D46 stands and gains a clause: *ask what else
 differs between the two things being compared — including the two runs of the same thing.*
+
+
+### D49 addendum — one of the two leaks is closed, and the other names the work
+
+The shop leak is fixed in the fixture rather than in the game: `PlayARun` no longer yields between
+opening the shop and playing it, so the whole shop happens inside the frame it opened in, at exactly
+`ShopSeconds` remaining, every run. Nothing in the game changed — a human still presses Ready when
+they press it, and the bonus is meant to depend on that.
+
+It helped and did not finish the job. Four runs before: **6, 3, 4, 4**. Three runs after: **6, 4, 5**.
+`best per season` did firm up, from 10/6/10 to a repeatable **10/7/10**.
+
+**The second leak is structural, and worth naming precisely because it decides how much the fix
+costs.** `GameController.Update` ticks the live raid itself — `_raid.Tick(Time.fixedDeltaTime)` at
+line 680. The step is fixed, so each tick is deterministic; the *number* of them is not, because it
+depends on how many frames elapse. The fixture yields twice after closing the shop so the controller
+can notice and call `StartRaid`, and any frame after that start lands extra ticks on the raid before
+`PlayRaid` takes over its deterministic loop.
+
+So a fully reproducible season needs the fixture to **own the clock** — to drive the controller's
+phases without the live `Update` also advancing the simulation. That is a real refactor of the
+harness rather than a comment, and it is the price of answering M13's open question about the win
+rate. Recorded here so the cost is known before somebody starts.
+
+Until then: `best >= 6` and `best per season` are trustworthy, and the win count should be read as
+*"between a third and a half"* rather than as a number.

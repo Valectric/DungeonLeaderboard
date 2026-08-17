@@ -280,6 +280,23 @@ namespace Dungeon.Game.Tests
                 for (int press = 0; press < 4 && !_game.IsRaiding && !_game.IsShopping; press++)
                 {
                     _game.Advance();
+
+                    // Do NOT yield once the shop is open. GameController.TickShop counts it down
+                    // with Time.deltaTime, and Shop.Ready pays TimeRemaining * BonusPerSecond, so a
+                    // single rendered frame between opening the shop and pressing Ready puts
+                    // wall-clock into the bonus this fixture carries into the next raid. That is a
+                    // fraction of one energy, and it is enough: it decides whether one spawn is
+                    // affordable at one moment, a spawn changes a sixty-second fight, and the fight
+                    // decides the round. Measured with the yield in place, this sweep reported
+                    // 6, 3, 4 and 4 wins of twelve on an unchanged build (D49).
+                    //
+                    // Buying and pressing Ready are synchronous, so the whole shop can be played
+                    // inside the frame it opened in, at exactly ShopSeconds remaining, every run.
+                    if (_game.IsShopping || _game.IsRaiding)
+                    {
+                        break;
+                    }
+
                     await UniTask.Yield(ct);
                 }
 
