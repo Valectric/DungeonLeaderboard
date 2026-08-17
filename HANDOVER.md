@@ -44,6 +44,56 @@ were wrong, and the reasoning existed **only in a test name**, which is why it i
 
 ---
 
+## Waiting on you: walls vs the greed curve (branch `wall-collision-wip`)
+
+**You reported adventurers walking through walls. It is fixed, it works, and I have not merged it,
+because it flattens the game's one decision.**
+
+The fix is small and in one place. Every movement funnels through `Party.Glide`, which was an
+unchecked `Vector2.MoveTowards`; the *destinations* were nearly always fine, but a straight line
+between two good points cuts the corner between them. A blocked step now retries along each axis
+alone — the ordinary way a 2D body slides a wall — with members still out on the forecourt exempt so
+the party can march in. On the instrument built for exactly this:
+
+```
+inside a wall    1616 (1.43% of 113150)  ->  0 (0.00%)
+through a wall   1667 (1.47%)            ->  33 (0.03%)
+```
+
+**And `GreedCurveTests` went red**, which is the test that asks whether pressing harder stops paying
+before the end — the property everything else rests on.
+
+```
+before   260 / 280 / 301 / 510 / 458 / 482    peak at "stop at 50%"
+after          223 / 317 / 334 / 437 / 455    monotonic; the most timid wins
+```
+
+Monotonic means the right play is always "stop", so the player is watching rather than deciding.
+Deterministic across reruns, and reverting restores 510 exactly — so the fix is the cause, with a
+clean control on both sides.
+
+**The mechanism is not the obvious one.** Crossing time barely moved (25.8 -> 25.7s plain, 30.5 ->
+30.3s with a chest), so the party is not simply slower. What moved is *deaths in the middle of the
+dial*: 2.5 -> 3.8 at "stop at 50%", while the timid end still loses nobody. **Clipping through walls
+was making retreat work better than it should** — parties were escaping through rock. Honest
+collision makes your safety valve genuinely tighter, and only extreme caution survives it.
+
+So this is a correctness fix that uncovered a balance question, and the balance is yours. Three ways
+I can see, and I have deliberately not picked one:
+
+1. **Merge and widen the valve** — retreat is now doing the job it always claimed to; make it
+   survivable (faster flee, or the party breaking off earlier) until the curve peaks in the middle
+   again.
+2. **Merge and accept the shape** — decide that "do not over-commit" is the whole lesson and the
+   interior peak was an artifact of a movement bug. This is a real position, but it makes
+   `GreedCurveTests` wrong rather than red, and that test is the design written down.
+3. **Leave it on the branch** — wall-clipping is cosmetic and rare (1.4% of samples), the curve is
+   not. Costs you the bug you actually reported.
+
+`main` is green at 413 and shippable either way.
+
+---
+
 ## Read this first — the 2026-08-17 session
 
 **All four of your rulings are shipped, and live on itch as `0.1.2608171039`.** `main` is green at
