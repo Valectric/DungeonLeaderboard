@@ -59,6 +59,12 @@ aggregate's only consumer is the retreat decision. Fixed: the valve now fires at
 gives 6, 3, 4, 4, because the shop counts down in wall-clock time and the Ready bonus it pays feeds
 the next raid. See D49. The death counts are from a fixed-step harness and stand.
 
+**The shipped build was played, not just tested.** `0.1.2608170607` on itch, first raid, pressing the
+slime pit hard: the rate held **10.5 to 13.8/s** with `+ ROOMS x1 + CROWD x1` on the HUD, damage
+numbers bubbling in both colours, the healer casting `+17`, staggered bars readable on a four-strong
+party, **186 harvested by 0:39**. Nothing regressed and the economy reads correctly in the renderer
+that actually ships.
+
 **What still needs your judgement**
 
 **0. Nine health bars cannot be read on a phone, and it is geometry (D45 addendum).** Newly
