@@ -784,6 +784,18 @@ namespace Dungeon.Game
         public const float ReviewLockoutSeconds = 1.4f;
 
         /// <summary>
+        /// Smallest interface scale the raid HUD lays itself out at.
+        /// </summary>
+        /// <remarks>
+        /// The same defect the review screen had, on the screen the player spends the most time
+        /// looking at: only the modifier line was floored, so on a 360x780 phone the clock drew at
+        /// ten pixels and both captions at four. See the note in the HUD block for why the floor is
+        /// on the scale rather than on each font, and why this is 0.6 where the review screen's is
+        /// 0.7 — the HUD sits over the board, so every pixel it grows is a pixel of dungeon it hides.
+        /// </remarks>
+        public const float HudMinimumScale = 0.6f;
+
+        /// <summary>
         /// Dismisses the review and banks the raid, exactly as tapping the screen does.
         /// </summary>
         /// <remarks>
@@ -1269,17 +1281,35 @@ namespace Dungeon.Game
 
             CombatNumbers.Draw(_raid.Feed, _camera, scale);
             LeagueScreen.DrawStrip(_league, scale, _raid.EnergyHarvested);
+            // The HUD lays itself out from a FLOORED scale, and the review screen's note explains
+            // why the floor goes on the scale rather than on each font: every offset here -- the
+            // clock's inset, the rate's band, the modifier line, the harvest block -- is derived
+            // from it too, so flooring the type alone would grow the text inside a layout that did
+            // not grow with it.
+            //
+            // Measured on a 360x780 phone, where the interface scale is 0.28 and only the modifier
+            // line had a floor: the clock drew at 10 pixels, "ENERGY RATE" and "HARVESTED" at four,
+            // and the harvest figure at eight. The rate is described three comments above as the
+            // game itself -- "the biggest thing on screen", the number the player has to SEE cost
+            // them -- and on a phone it was 15 pixels tall.
+            //
+            // 0.6 rather than the review screen's 0.7: it is the smallest value that brings this
+            // screen's smallest type to the nine the rest of the interface floors at, and the HUD
+            // sits over the dungeon rather than on a screen of its own, so every pixel it grows is
+            // a pixel of the board it covers.
+            float hud = Mathf.Max(scale, HudMinimumScale);
+
             var clock = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(34 * scale),
+                fontSize = Mathf.RoundToInt(34 * hud),
                 fontStyle = FontStyle.Bold
             };
-            var caption = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(15 * scale) };
+            var caption = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(15 * hud) };
 
             clock.normal.textColor = _raid.TimeRemaining <= 10f
                 ? new Color(0.95f, 0.35f, 0.35f)
                 : Color.white;
-            GUI.Label(new Rect(24f * scale, 16f * scale, 320f * scale, 50f * scale),
+            GUI.Label(new Rect(24f * hud, 16f * hud, 320f * hud, 50f * hud),
                 $"{Mathf.FloorToInt(_raid.TimeRemaining / 60f):0}:{Mathf.FloorToInt(_raid.TimeRemaining % 60f):00}",
                 clock);
 
@@ -1296,7 +1326,7 @@ namespace Dungeon.Game
             float pulse = 1f + (Mathf.Sin(_ratePulse * beat) * (0.05f + (intensity * 0.13f)));
             var rate = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(52 * scale * pulse),
+                fontSize = Mathf.RoundToInt(52 * hud * pulse),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperCenter
             };
@@ -1313,11 +1343,11 @@ namespace Dungeon.Game
             // Invariant culture throughout the HUD. The build picks up the machine's locale, and on
             // this one the rate rendered as "0,1/s" -- a comma reads as a thousands separator to
             // most players and makes the game's most important number ambiguous.
-            GUI.Label(new Rect(0f, 10f * scale, Screen.width, 80f * scale),
+            GUI.Label(new Rect(0f, 10f * hud, Screen.width, 80f * hud),
                 _raid.CurrentRate.ToString("0.0", CultureInfo.InvariantCulture) + "/s", rate);
 
             caption.normal.textColor = new Color(0.7f, 0.7f, 0.78f);
-            GUI.Label(new Rect(0f, 66f * scale, Screen.width, 30f * scale), "ENERGY RATE",
+            GUI.Label(new Rect(0f, 66f * hud, Screen.width, 30f * hud), "ENERGY RATE",
                 new GUIStyle(caption) { alignment = TextAnchor.UpperCenter });
 
             // WHY the rate is what it is. Without this the modifiers are invisible: the number
@@ -1331,7 +1361,7 @@ namespace Dungeon.Game
                 {
                     // Floored with a minimum, because the itch embed runs at 0.4 scale and that is
                     // where a menu row once came out twelve pixels tall and unreadable.
-                    fontSize = Mathf.Max(9, Mathf.RoundToInt(13 * scale)),
+                    fontSize = Mathf.Max(9, Mathf.RoundToInt(13 * hud)),
                     fontStyle = FontStyle.Bold,
                     alignment = TextAnchor.UpperCenter
                 };
@@ -1344,20 +1374,20 @@ namespace Dungeon.Game
                     : new Color(0.55f, 0.85f, 0.5f);
 
                 GUI.Label(
-                    new Rect(0f, Mathf.Floor(86f * scale), Screen.width, Mathf.Floor(24f * scale)),
+                    new Rect(0f, Mathf.Floor(86f * hud), Screen.width, Mathf.Floor(24f * hud)),
                     why, modifierStyle);
             }
 
             var total = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(28 * scale),
+                fontSize = Mathf.RoundToInt(28 * hud),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperRight
             };
             total.normal.textColor = new Color(0.85f, 0.7f, 1f);
-            GUI.Label(new Rect(0f, 16f * scale, Screen.width - (24f * scale), 44f * scale),
+            GUI.Label(new Rect(0f, 16f * hud, Screen.width - (24f * hud), 44f * hud),
                 _raid.EnergyHarvested.ToString("0", CultureInfo.InvariantCulture), total);
-            GUI.Label(new Rect(0f, 50f * scale, Screen.width - (24f * scale), 30f * scale),
+            GUI.Label(new Rect(0f, 50f * hud, Screen.width - (24f * hud), 30f * hud),
                 "HARVESTED   spend " + _raid.TotalEnergy.ToString("0", CultureInfo.InvariantCulture),
                 new GUIStyle(caption) { alignment = TextAnchor.UpperRight });
 
