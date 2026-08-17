@@ -4,6 +4,26 @@ using UnityEngine;
 namespace Dungeon.AudioManager
 {
     /// <summary>
+    /// The looping tracks the game can play.
+    /// </summary>
+    /// <remarks>
+    /// Two, because the game has two moods: the sixty seconds with a party inside it, and
+    /// everything else. Both are CC0 -- see CREDITS.md -- which is the only kind of asset this
+    /// repository can carry, being public and MIT.
+    /// </remarks>
+    public enum Music
+    {
+        /// <summary>Silence.</summary>
+        None = 0,
+
+        /// <summary>The raid: driving, and the only minute that scores.</summary>
+        Raid = 1,
+
+        /// <summary>Standings, shop, review and the endings.</summary>
+        Calm = 2
+    }
+
+    /// <summary>
     /// Plays the game's sound effects.
     /// </summary>
     /// <remarks>
@@ -53,6 +73,22 @@ namespace Dungeon.AudioManager
         private readonly Dictionary<Sfx, AudioClip> _clips = new();
         private readonly Dictionary<Sfx, float> _lastPlayed = new();
         private AudioSource[] _sources;
+
+        /// <summary>The looping voice music plays on.</summary>
+        private AudioSource _music;
+
+        /// <summary>Which track is playing, so re-cueing the same one does not restart it.</summary>
+        private Music _playing = Music.None;
+
+        /// <summary>
+        /// How loud music sits under the effects.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately well down. The game's sounds carry information -- a door forcing, a heal
+        /// landing, a body dropping -- and the rate is read from the HUD while they play. Music that
+        /// competes with those is music that costs the player points.
+        /// </remarks>
+        public const float MusicVolume = 0.38f;
         private int _next;
 
         /// <summary>Whether sound is switched on.</summary>
@@ -106,6 +142,15 @@ namespace Dungeon.AudioManager
                 source.spatialBlend = 0f;
                 _sources[i] = source;
             }
+
+            // Music gets a voice of its own rather than sharing the pool. The pool is a round-robin
+            // of one-shots that steal from each other by design; a track has to keep playing while
+            // forty of those fire over the top of it.
+            _music = gameObject.AddComponent<AudioSource>();
+            _music.playOnAwake = false;
+            _music.loop = true;
+            _music.spatialBlend = 0f;
+            _music.volume = MusicVolume;
         }
 
         /// <summary>
@@ -149,6 +194,55 @@ namespace Dungeon.AudioManager
             if (facade != null)
             {
                 facade.Play(sfx, volume);
+            }
+        }
+
+        /// <summary>
+        /// Starts a looping track, or switches to another, or stops.
+        /// </summary>
+        /// <remarks>
+        /// Re-cueing whatever is already playing does nothing, which is what lets the caller say
+        /// what the music should be every frame without the track stuttering back to its first bar.
+        /// </remarks>
+        /// <param name="track">Track to loop, or <see cref="Music.None"/> for silence.</param>
+        public void PlayMusic(Music track)
+        {
+            if (_music == null || _playing == track)
+            {
+                return;
+            }
+
+            _playing = track;
+
+            if (track == Music.None || Muted)
+            {
+                _music.Stop();
+                return;
+            }
+
+            AudioClip clip = Resources.Load<AudioClip>(
+                track == Music.Raid ? "music/raid" : "music/calm");
+
+            // Quietly, like every other optional asset here: a missing track costs the music and
+            // not the game.
+            if (clip == null)
+            {
+                return;
+            }
+
+            _music.clip = clip;
+            _music.volume = MusicVolume;
+            _music.Play();
+        }
+
+        /// <summary>Cues music without the caller needing to hold the facade.</summary>
+        /// <param name="track">Track to loop, or <see cref="Music.None"/>.</param>
+        public static void CueMusic(Music track)
+        {
+            AudioFacade facade = Instance();
+            if (facade != null)
+            {
+                facade.PlayMusic(track);
             }
         }
 

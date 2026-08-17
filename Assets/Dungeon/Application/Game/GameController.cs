@@ -721,6 +721,15 @@ namespace Dungeon.Game
                 _wonAge += Time.deltaTime;
             }
 
+            // Said every frame rather than on each transition, and the facade ignores a repeat of
+            // whatever is already playing. Driving the music off the phase means it can never get
+            // out of step with the screen -- a track left running into the wrong phase is the kind
+            // of fault nobody notices in a test and everybody notices while playing.
+            AudioFacade.CueMusic(
+                _phase == Phase.Raiding ? Dungeon.AudioManager.Music.Raid
+                : _phase == Phase.Loading ? Dungeon.AudioManager.Music.None
+                : Dungeon.AudioManager.Music.Calm);
+
             if (_phase == Phase.Loading)
             {
                 _loadingAge += Time.deltaTime;
