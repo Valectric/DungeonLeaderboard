@@ -780,28 +780,6 @@ namespace Dungeon.RaidManager
             return best;
         }
 
-        /// <summary>The living mob nearest a point.</summary>
-        /// <param name="mobs">Mobs to search.</param>
-        /// <param name="from">Point to measure from.</param>
-        /// <returns>The nearest mob.</returns>
-        private static Mob Nearest(List<Mob> mobs, Vector2 from)
-        {
-            Mob best = mobs[0];
-            float bestDistance = Vector2.Distance(from, best.Position);
-
-            for (int i = 1; i < mobs.Count; i++)
-            {
-                float distance = Vector2.Distance(from, mobs[i].Position);
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    best = mobs[i];
-                }
-            }
-
-            return best;
-        }
-
         /// <summary>
         /// Seconds the rate takes to cover most of the distance to a new value.
         /// </summary>

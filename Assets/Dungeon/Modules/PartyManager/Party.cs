@@ -173,7 +173,6 @@ namespace Dungeon.PartyManager
         private readonly Vector2Int _entranceCell;
         private readonly HashSet<Vector2Int> _looted = new();
         private IReadOnlyCollection<Vector2Int> _chests = System.Array.Empty<Vector2Int>();
-        private float _healCooldown;
         private float _lootProgress;
         private float _combatGraceLeft;
 
