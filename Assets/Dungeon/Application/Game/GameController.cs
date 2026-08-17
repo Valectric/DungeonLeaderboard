@@ -1214,6 +1214,18 @@ namespace Dungeon.Game
         public static float UiScale => ScaleFor(Screen.width, Screen.height);
 
         /// <summary>
+        /// How far up from the bottom of the screen the verb reminder sits, in pixels.
+        /// </summary>
+        /// <remarks>
+        /// Stated here because two things need it and they are in different files: this controller
+        /// draws the bar, and <c>Hints</c> has to keep its tags clear of it. <c>Hints</c> used to
+        /// restate the arithmetic with a comment arguing the duplication was better than holding a
+        /// reference to the controller — which was true of the reference and false of the
+        /// conclusion, since a shared number needs no reference at all.
+        /// </remarks>
+        public static float VerbBarHeight => 44f * UiScale;
+
+        /// <summary>
         /// The interface scale a screen of the given size produces.
         /// </summary>
         /// <remarks>
@@ -1417,7 +1429,7 @@ namespace Dungeon.Game
             GUI.Label(new Rect(24f * scale, 62f * scale, Screen.width, 30f * scale),
                 _raid.Party.Composition.Name, who);
 
-            GUI.Label(new Rect(24f * scale, Screen.height - (44f * scale), Screen.width, 30f * scale),
+            GUI.Label(new Rect(24f * scale, Screen.height - VerbBarHeight, Screen.width, 30f * scale),
                 "TAP A DOOR TO STALL   /   A SPAWNER TO AMBUSH   /   A TRAP TO WOUND"
                 + "   /   SCROLL OR PINCH TO ZOOM   /   RIGHT-DRAG OR TWO FINGERS TO MOVE",
                 caption);

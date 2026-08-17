@@ -242,16 +242,6 @@ namespace Dungeon.Game
         /// <param name="scale">UI scale.</param>
         /// <param name="layout">The dungeon being raided.</param>
         /// <returns>The block's rectangle in GUI space.</returns>
-        /// <summary>
-        /// How much of the bottom of the screen the verb bar occupies, in pixels.
-        /// </summary>
-        /// <remarks>
-        /// Mirrors the rect <c>GameController</c> draws that bar into — <c>Screen.height - 44 * scale</c>
-        /// with a 30-high label. Duplicated deliberately rather than plumbed through: the alternative
-        /// is Hints holding a reference to the controller to ask where one label went, and the number
-        /// has not moved in the project's life. If it ever does, this is the other end of it.
-        /// </remarks>
-        private static float VerbBarHeight => 44f * GameController.UiScale;
 
         public static Rect HeadlineBlock(Camera camera, float scale, DungeonLayout layout)
         {
@@ -289,7 +279,7 @@ namespace Dungeon.Game
                 // over "TAP A DOOR TO STALL". Photographed at that size, which is the only way this
                 // shows -- the fault is one drawn thing landing on another and no rect check sees it.
                 Vector2 belowRoom = GuiPointOf(camera, anchor - new Vector2Int(0, 3));
-                float aboveVerbBar = Screen.height - VerbBarHeight - blockHeight - (6f * scale);
+                float aboveVerbBar = Screen.height - GameController.VerbBarHeight - blockHeight - (6f * scale);
                 top = Mathf.Min(belowRoom.y + (8f * scale), aboveVerbBar);
             }
 
