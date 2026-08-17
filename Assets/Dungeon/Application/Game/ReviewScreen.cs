@@ -38,6 +38,35 @@ namespace Dungeon.Game
         /// <summary>Cached backdrop, so the card does not hit Resources every frame.</summary>
         private static Texture2D _backdrop;
 
+        /// <summary>
+        /// Smallest interface scale this screen will lay itself out at.
+        /// </summary>
+        /// <remarks>
+        /// <b>This screen had no floor of any kind, and every other one does.</b> Measured
+        /// 2026-08-17 on a 360x780 phone, where the interface scale is 0.28: the quip and the
+        /// instruction drew at <b>four pixels</b>, "HARVESTED" at seven, the headline at thirteen.
+        /// <c>LeagueScreen</c> carries thirteen <c>Mathf.Max</c> floors and <c>ShopScreen</c> five;
+        /// this one carried none, so it shrank without limit. It is the screen that tells the player
+        /// what the minute they just played was worth, and on a phone it was illegible.
+        /// <para>
+        /// Floored on the <b>scale</b> rather than on each font, because every offset on this screen
+        /// — the star row, the headline, the quip box, the harvest line — is derived from it too.
+        /// Flooring the fonts alone would have grown the text inside a layout that did not grow with
+        /// it, and the lines would have collided instead of being small.
+        /// </para>
+        /// <para>
+        /// 0.7 is the smallest value that keeps the caption above nine pixels, which is the floor
+        /// the rest of the interface already uses. At that scale the whole screen is about 230
+        /// pixels tall, so it still fits the shortest screen the game ships to.
+        /// </para>
+        /// </remarks>
+        public const float MinimumScale = 0.7f;
+
+        /// <summary>The scale this screen actually lays out at, given the interface scale.</summary>
+        /// <param name="scale">Interface scale.</param>
+        /// <returns>The scale used for every font and offset here.</returns>
+        public static float LayoutScale(float scale) => Mathf.Max(scale, MinimumScale);
+
         public static void Draw(RaidReview review, float harvested, float scale, float age)
         {
             Color previous = GUI.color;
@@ -63,6 +92,10 @@ namespace Dungeon.Game
 
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = previous;
+
+            // Everything below is laid out from this, so it is floored once here rather than in
+            // each of the eight places it is used. See MinimumScale.
+            scale = LayoutScale(scale);
 
             float top = Screen.height * 0.2f;
 
