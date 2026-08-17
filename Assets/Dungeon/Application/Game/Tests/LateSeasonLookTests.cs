@@ -208,7 +208,7 @@ namespace Dungeon.Game.Tests
             int size = _game.CurrentRaid.Party.Living.Count();
             MooseRunnerFacade.Log(
                 $"round {_game.League.Round}: {size} living, "
-                + $"{Party.AbreastFor(size)} abreast, goal {_game.CurrentRaid.Party.Goal}");
+                + $"{MarchingOrder.AbreastFor(size)} abreast, goal {_game.CurrentRaid.Party.Goal}");
 
             Assert.GreaterOrEqual(size, 7,
                 $"the party at round {_game.League.Round} is only {size} strong, so this frame is "

@@ -388,10 +388,10 @@ namespace Dungeon.PartyManager.Tests
         [Test]
         public void TheFormation_TightensAsThePartyIsCutDown()
         {
-            Assert.AreEqual(1, Party.AbreastFor(4), "an opening party must still walk in single file");
-            Assert.AreEqual(1, Party.AbreastFor(3), "three survivors must walk in single file");
-            Assert.AreEqual(2, Party.AbreastFor(6), "a six-strong party walks two abreast");
-            Assert.AreEqual(3, Party.AbreastFor(9), "a nine-strong party walks three abreast");
+            Assert.AreEqual(1, MarchingOrder.AbreastFor(4), "an opening party must still walk in single file");
+            Assert.AreEqual(1, MarchingOrder.AbreastFor(3), "three survivors must walk in single file");
+            Assert.AreEqual(2, MarchingOrder.AbreastFor(6), "a six-strong party walks two abreast");
+            Assert.AreEqual(3, MarchingOrder.AbreastFor(9), "a nine-strong party walks three abreast");
         }
     }
 }

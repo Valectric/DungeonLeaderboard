@@ -1211,8 +1211,26 @@ namespace Dungeon.Game
         /// shop, the review card and the startup screen at once.
         /// </para>
         /// </remarks>
-        private static float UiScale =>
-            Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
+        public static float UiScale => ScaleFor(Screen.width, Screen.height);
+
+        /// <summary>
+        /// The interface scale a screen of the given size produces.
+        /// </summary>
+        /// <remarks>
+        /// Split out from <see cref="UiScale"/> so the rule can be asked about a size the game is
+        /// not currently running at. Two callers needed that and neither could have it: <c>Hints</c>
+        /// restated the arithmetic inline, and the test support class stated it a third time with a
+        /// comment explaining that it mirrors a private member. Three copies of a formula are three
+        /// chances to disagree, and a test that restates production's arithmetic passes when both
+        /// copies are wrong the same way.
+        /// </remarks>
+        /// <param name="width">Screen width in pixels.</param>
+        /// <param name="height">Screen height in pixels.</param>
+        /// <returns>Scale factor.</returns>
+        public static float ScaleFor(float width, float height)
+        {
+            return Mathf.Min(width / 1280f, height / 720f);
+        }
 
         private void OnGUI()
         {

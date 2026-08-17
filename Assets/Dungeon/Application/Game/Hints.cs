@@ -251,8 +251,7 @@ namespace Dungeon.Game
         /// is Hints holding a reference to the controller to ask where one label went, and the number
         /// has not moved in the project's life. If it ever does, this is the other end of it.
         /// </remarks>
-        private static float VerbBarHeight => 44f * Mathf.Min(
-            Screen.width / 1280f, Screen.height / 720f);
+        private static float VerbBarHeight => 44f * GameController.UiScale;
 
         public static Rect HeadlineBlock(Camera camera, float scale, DungeonLayout layout)
         {

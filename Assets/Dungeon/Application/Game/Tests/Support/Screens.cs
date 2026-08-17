@@ -42,14 +42,18 @@ namespace Dungeon.Game.Tests
         /// The interface scale the game uses at a given size.
         /// </summary>
         /// <remarks>
-        /// Mirrors <c>GameController.UiScale</c>, which is private. Stated once here rather than in
-        /// each test that needs it, so there is one place to correct if the game's own rule changes.
+        /// <b>Asks the game rather than mirroring it.</b> This used to restate
+        /// <c>GameController</c>'s arithmetic, with a comment saying so, because the rule was
+        /// private — which meant every legibility test in the sweep was checking a copy of the
+        /// formula against itself and would have passed with production broken. The rule is now
+        /// <c>internal</c> and answered for an arbitrary size, so these tests measure the scale the
+        /// game will actually lay out at.
         /// </remarks>
         /// <param name="size">Screen size in pixels.</param>
         /// <returns>Scale factor.</returns>
         public static float ScaleFor(Vector2Int size)
         {
-            return Mathf.Min(size.x / 1280f, size.y / 720f);
+            return GameController.ScaleFor(size.x, size.y);
         }
     }
 }
