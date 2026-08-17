@@ -2,7 +2,9 @@
 
 ## The refactor you asked for — 2026-08-17
 
-**Done, and behaviour-neutral: 394 tests green across six assemblies, console clean.** Nothing about
+**Done, and behaviour-neutral: 413 tests green across seven assemblies, console clean.**
+RaidManager 175, Game 133, ShopManager 49, LeagueManager 26, PartyManager 13, DungeonManager 9,
+AudioManager 8. Nothing about
 the game moved, which is the whole claim. The live itch build is unchanged and does not need
 republishing — no player-visible behaviour changed.
 
