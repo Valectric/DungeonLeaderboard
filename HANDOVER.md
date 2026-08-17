@@ -2,16 +2,32 @@
 
 ## Read this first — the 2026-08-17 session
 
-**All four of your rulings are shipped, and live on itch as `0.1.2608170212`.** `main` is green at
-**371 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
+**All four of your rulings are shipped, and live on itch as `0.1.2608170421`.** `main` is green at
+**378 tests** across five assemblies, console clean. The only thing still on a branch is the dungeon
 flip.
 
 | you ruled | state |
 |---|---|
 | room bonus down to 1/s, permanent and stacking | shipped — `af08a64`, stall-vs-stroll back to 2.57x |
-| raise `GoodRun` | shipped — `aa0b621`, re-measured to 560 |
+| raise `GoodRun` | shipped — `aa0b621`, re-measured to 620 (twice in one night -- see D47) |
 | fan the formation laterally (option 3) | shipped — `87d9e69`, nine now 2.44 cells deep, was 4.96 |
 | the doorway should cover the team as they walk under | shipped — `50078b7`, and it needed no third-party art |
+
+**Read this one first: the nine-strong party had never once happened (D47).** Found by trying to
+photograph one. `PartyComposition` grew the party by one member every three raids, which reaches nine
+at **raid 18** — and a season is **ten rounds**, so the last raid of every season you have ever
+played fielded **six**. Your *"last should be 9 team"* was never produced by the game. The constant's
+own doc justified it with "a full run is nineteen raids", citing the note that records the
+nineteen-round league as **rejected** for being too long. It was calibrated against a game that does
+not exist, and the test guarding it asserted the same stale premise, so it passed for as long as the
+bug lasted. Now one member per raid from the sixth: `4,4,4,4,4,5,6,7,8,9`.
+
+That invalidates everything measured about parties of nine — D42's cost of growth, D45's bar
+stagger, the lateral fan — none of the mechanisms are wrong, they were tuned against a party the
+game could not produce. **`Screenshots/13-late-season-raid.png` is the first picture of one.** The
+fan holds in a room and collapses at a doorway, which is by design; the nine staggered bars over a
+party bunched in a threshold are legible one by one and hard to attribute as a group. That is a
+judgement for you, and the frame is the thing to look at.
 
 **The league is a contest again, which is the biggest change.** It was a walkover: the season sweep
 won **12 of 12** — every play-style, every seed — because `GoodRun` had drifted to the 75th
