@@ -2,8 +2,8 @@
 
 ## Start here — the whole of 2026-08-17 in one screen
 
-**`main` is green at 421 tests across seven assemblies, console clean, and
-`0.1.2608171808` is live on itch.** You asked for a refactor; that is done and behaviour-neutral.
+**`main` is green at 426 tests across seven assemblies, console clean, and
+`0.1.2608172052` is live on itch.** You asked for a refactor; that is done and behaviour-neutral.
 Everything after it was exploratory testing, which turned up four real defects.
 
 **Fixed and shipped**
@@ -14,6 +14,22 @@ Everything after it was exploratory testing, which turned up four real defects.
 | **A look test named for the standings was photographing a raid** — and feeding that frame to the store page as "the league is an elimination" | regenerating the itch art and reading the picture |
 | **`CarveOpening`'s docstring was false** — it promised a walkable cell and delivered an impassable one | writing the module's first direct test, whose fixture came out sealed |
 | **A comment claiming "two seconds"** beside a constant reading six | playing the shipped build |
+| **A healthy tank froze the moment it could see a monster it could not reach** — party stalled for the rest of the raid on the idle rate | asking `AdventurerAI` directly, the first time anything had |
+
+
+**The tank one is the one to read.** `TankReach` is 0.85 and `StandOff`'s search floor is 1.2, so
+for a healthy tank that loop never ran and the method fell through to "hold position" — and
+`NearestVisible` has no range limit, so line of sight alone was enough. It looked fine and 426 tests
+passed, because a monster in the *same* room walks over and the fight happens anyway. The one that
+costs the raid is the monster that cannot come, since pursuit stops at a threshold: measured, a tank
+at (3,5) looking at a monster at (13,5) in the next room wanted to stand at (3,5). `git blame` says
+the floor arrived *after* `TankReach`, in the commit that stopped anyone shooting through walls — it
+disabled the charge as a side effect.
+<br>**The fix is the narrowest of three I measured**, because the other two changed the game: each
+cost 2.6% of a stalled raid's harvest and failed the threshold you already narrowed once. The reason
+is worth keeping — **the freeze was earning**, since a party standing in a room with a monster is in
+combat and being paid. Restricted to a target in another room, the stalled figure is back to 182.6
+exactly and the greed curve still peaks mid-dial.
 
 **Refactor, as asked**
 
