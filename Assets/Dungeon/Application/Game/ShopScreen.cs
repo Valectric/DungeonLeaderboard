@@ -206,16 +206,22 @@ namespace Dungeon.Game
             //
             // So the test is whether the OLD floor was doing the work. If it was, this is a small
             // screen and the author's three times applies; if it was not, the scaled size stands.
-            float popupWidth = PopupWidth * scale < OldMinimumPopupWidth
+            // ONE decision for the whole menu, not three. Asking the question per dimension lets
+            // them disagree: at 1024x768 the row height fell under its floor and tripled while the
+            // width did not, so 33-pixel type landed in a 114-pixel name box and "TREASURE CHEST"
+            // overflowed by 219 pixels. A menu is one object and grows as one.
+            bool smallScreen = RowHeight * scale < OldMinimumRowHeight;
+
+            float popupWidth = smallScreen
                 ? OldMinimumPopupWidth * MobileEnlargement
                 : PopupWidth * scale;
             popupWidth = Mathf.Min(width * 0.88f, popupWidth);
 
-            float rowHeight = RowHeight * scale < OldMinimumRowHeight
+            float rowHeight = smallScreen
                 ? OldMinimumRowHeight * MobileEnlargement
                 : RowHeight * scale;
 
-            float titleHeight = 24f * scale < OldMinimumTitleHeight
+            float titleHeight = smallScreen
                 ? OldMinimumTitleHeight * MobileEnlargement
                 : 24f * scale;
 
@@ -462,6 +468,47 @@ namespace Dungeon.Game
         /// Unaffordable rows are dimmed rather than hidden. A menu that changes length as the purse
         /// empties moves every other row out from under the player's finger.
         /// </remarks>
+        /// <summary>
+        /// The font size an item's name is drawn at, shrunk until it fits its half of the row.
+        /// </summary>
+        /// <remarks>
+        /// <b>Must be called from inside <c>OnGUI</c></b> — it measures the real font, which is the
+        /// point. Sizing the type from the row height alone assumes the row grew wider in the same
+        /// proportion it grew taller, and it does not: the width is capped by the screen. Measured
+        /// before this existed, a phone-sized menu drew "TREASURE CHEST" 219 pixels wider than the
+        /// box it was given.
+        /// <para>
+        /// Public so <c>PopupTextFitTests</c> can ask the game what size it will use, rather than
+        /// keeping its own copy of the arithmetic. A test carrying its own copy of a font size is
+        /// exactly how the phone defects of 2026-08-16 got past the sweep meant to catch them.
+        /// </para>
+        /// </remarks>
+        /// <param name="row">The row the name is drawn in.</param>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="item">The item whose name is being drawn.</param>
+        /// <returns>Font size in pixels.</returns>
+        public static float NameFontSize(Rect row, float scale, ShopItem item)
+        {
+            float type = Mathf.Max(14f * scale, row.height * 0.42f);
+            float pad = Mathf.Max(10f * scale, row.height * 0.13f);
+            float nameBox = (row.width * 0.62f) - pad;
+
+            var measure = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(type),
+                fontStyle = FontStyle.Bold
+            };
+
+            // FLOORED, not rounded. The style draws at RoundToInt of whatever comes back, so a
+            // shrink that lands on 30.6 is drawn at 31 and overflows the box it was shrunk to fit --
+            // measured at exactly one pixel on "SPIKE TRAP" at 390x844, which is the kind of margin
+            // that is invisible until it clips a letter.
+            float wanted = measure.CalcSize(new GUIContent(NameOf(item))).x;
+            return wanted > nameBox && wanted > 0.01f
+                ? Mathf.Max(11f, Mathf.Floor(type * (nameBox / wanted)))
+                : type;
+        }
+
         private static void DrawPopupRow(Shop shop, ShopItem item, Rect row, float scale)
         {
             bool affordable = shop.CanAfford(item);
@@ -472,6 +519,13 @@ namespace Dungeon.Game
             // scaled size still wins wherever it is larger, so a desktop is untouched.
             float type = Mathf.Max(14f * scale, row.height * 0.42f);
             float pad = Mathf.Max(10f * scale, row.height * 0.13f);
+
+            // SHRINK TO FIT, measured. Sizing the type from the row height alone assumes the row got
+            // wider in the same proportion it got taller, and it does not -- the width is capped by
+            // the screen. Rather than tune a ratio until the longest name happens to fit, ask the
+            // font: this is inside OnGUI, so CalcSize is available and exact, and it stays right if
+            // an item is ever renamed to something longer.
+            type = NameFontSize(row, scale, item);
 
             var name = new GUIStyle(GUI.skin.label)
             {
