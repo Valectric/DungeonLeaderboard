@@ -165,6 +165,18 @@ namespace Dungeon.Game
         /// </remarks>
         public bool HasWon => _phase == Phase.Won;
 
+        /// <summary>
+        /// Whether the game is still on its opening card.
+        /// </summary>
+        /// <remarks>
+        /// Added for the same reason <see cref="HasWon"/> was, and it is the same lesson twice: a
+        /// state a test cannot observe is a state no test asserts. <c>Loading</c> was the only phase
+        /// with no photographed frame and no check on it, despite CLAUDE.md asking for one per
+        /// phase by name — and it is the <b>first</b> thing every player sees, for six seconds, or
+        /// longer on an itch embed whose frames the browser is throttling.
+        /// </remarks>
+        public bool IsLoading => _phase == Phase.Loading;
+
         /// <summary>Builds the dungeon and starts the first raid.</summary>
         private void Awake()
         {
