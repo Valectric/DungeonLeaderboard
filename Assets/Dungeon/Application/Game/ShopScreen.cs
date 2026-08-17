@@ -121,14 +121,30 @@ namespace Dungeon.Game
         /// <returns>The lowest safe top edge for anything drawn over the board.</returns>
         public static float HeaderBottom(float scale) => Mathf.Max(24f, 106f * scale);
 
+        /// <summary>
+        /// The Ready button's rectangle, in GUI space.
+        /// </summary>
+        /// <remarks>
+        /// <b>Floored in absolute pixels, like the tile menu it sits under.</b> Unfloored, a 360x780
+        /// phone drew the button that starts the raid at <b>174 by 14 pixels</b> with a five-pixel
+        /// label on it — the primary action of the whole shop, smaller than a fingertip and
+        /// unreadable. Every other control on this screen had been given a floor at some point; this
+        /// one had not, and nothing measured it because the tests here ask where it is rather than
+        /// how big.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="width">Canvas width in pixels.</param>
+        /// <param name="height">Canvas height in pixels.</param>
+        /// <returns>Where Ready is drawn and clicked.</returns>
         public static Rect ReadyRect(float scale, float width, float height)
         {
-            float buttonWidth = Mathf.Min(width * 0.9f, 620f * scale);
+            float buttonWidth = Mathf.Min(width * 0.9f, Mathf.Max(320f, 620f * scale));
+            float buttonHeight = Mathf.Max(34f, 50f * scale);
             return new Rect(
                 (width - buttonWidth) * 0.5f,
-                height - (66f * scale),
+                height - buttonHeight - Mathf.Max(10f, 16f * scale),
                 buttonWidth,
-                50f * scale);
+                buttonHeight);
         }
 
         /// <summary>
@@ -347,12 +363,47 @@ namespace Dungeon.Game
             DrawReady(shop, ReadyRect(scale, Screen.width, Screen.height), scale);
         }
 
+        /// <summary>
+        /// Font size the Ready caption is drawn at: floored, then fitted to the button.
+        /// </summary>
+        /// <remarks>
+        /// Must be called from inside <c>OnGUI</c> — it measures the real font. Public so
+        /// <c>ShopLegibilityTests</c> can ask the game what it will draw rather than keeping a copy
+        /// of the arithmetic, which is the arrangement the tile menu and the title line now use.
+        /// </remarks>
+        /// <param name="scale">UI scale.</param>
+        /// <param name="caption">The caption about to be drawn.</param>
+        /// <param name="buttonWidth">Width of the button it goes in.</param>
+        /// <returns>Font size in pixels.</returns>
+        public static int ReadyFontSize(float scale, string caption, float buttonWidth)
+        {
+            int size = Mathf.Max(12, Mathf.RoundToInt(19 * scale));
+            if (string.IsNullOrEmpty(caption))
+            {
+                return size;
+            }
+
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = size,
+                fontStyle = FontStyle.Bold
+            };
+
+            float room = buttonWidth * 0.94f;
+            float drawn = style.CalcSize(new GUIContent(caption)).x;
+            return drawn <= room || drawn <= 0.01f
+                ? size
+                : Mathf.Max(9, Mathf.FloorToInt(size * (room / drawn)));
+        }
+
         /// <summary>Draws the title, the countdown, the purse and the one-line instruction.</summary>
         private static void DrawHeader(Shop shop, float scale)
         {
             var title = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(24 * scale),
+                // Floored: the purse is the number every decision on this screen is made against,
+                // and at 24 * scale it drew at seven pixels on a phone.
+                fontSize = Mathf.Max(14, Mathf.RoundToInt(24 * scale)),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -551,16 +602,21 @@ namespace Dungeon.Game
             GUI.DrawTexture(ready, Texture2D.whiteTexture);
             GUI.color = was;
 
+            string caption = "READY  -  OPEN THE DOORS NOW FOR +"
+                             + shop.PendingBonus.ToString("0", CultureInfo.InvariantCulture)
+                             + " STARTING ENERGY";
+
+            // Floored so it is readable, then fitted so it stays inside the button. The caption is
+            // fifty characters and the button is capped by the screen, so on a phone a floor alone
+            // would push the words out past both ends of the thing they label.
             var label = new GUIStyle(GUI.skin.label)
             {
-                fontSize = Mathf.RoundToInt(19 * scale),
+                fontSize = ReadyFontSize(scale, caption, ready.width),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
             label.normal.textColor = Green;
-            GUI.Label(ready, "READY  -  OPEN THE DOORS NOW FOR +"
-                             + shop.PendingBonus.ToString("0", CultureInfo.InvariantCulture)
-                             + " STARTING ENERGY", label);
+            GUI.Label(ready, caption, label);
         }
 
         /// <summary>
