@@ -96,8 +96,23 @@ namespace Dungeon.PartyManager
         /// <summary>Most members a party can ever field.</summary>
         public const int MaxSize = 9;
 
-        /// <summary>Raids between each extra member, once growth has started.</summary>
-        public const int RaidsPerExtraMember = 3;
+        /// <summary>
+        /// Raids between each extra member, once growth has started.
+        /// </summary>
+        /// <remarks>
+        /// <b>Was 3, which made the nine-strong party unreachable.</b> Three raids a member puts the
+        /// ninth adventurer at raid 18, and the doc below justified that with "a full run is nineteen
+        /// raids" — a figure from the one-eliminated-a-round league that
+        /// <see cref="LeagueManager.LeagueTable.RelegationCount"/> records as <i>rejected</i>. Two go
+        /// out a round, so twenty dungeons reach a winner in <b>ten</b>. Measured 2026-08-17: the
+        /// curve ran 4,4,4,4,4,5,5,5,6,6 and the final raid fielded <b>six</b>.
+        /// <para>
+        /// So the author's "last should be 9" had never once happened, and neither had anything
+        /// measured about parties of nine — D42's cost of growth, D45's health-bar stagger, the
+        /// lateral fan — all of it tuned against a configuration the game could not produce.
+        /// </para>
+        /// </remarks>
+        public const int RaidsPerExtraMember = 1;
 
         /// <summary>First raid number that fields more than <see cref="BaseSize"/>.</summary>
         public const int GrowthStartsAtRaid = 6;
@@ -107,12 +122,19 @@ namespace Dungeon.PartyManager
         /// </summary>
         /// <remarks>
         /// The author's rule: <b>"make team after turn 5 increase to 5, after team 8 increase one
-        /// more, and last should be 9 team."</b> Read as four for the first five raids, then one more
-        /// every three raids, capped at nine — which puts 5 at raid 6, 6 at raid 9, and 9 at raid 18.
-        /// A full run is nineteen raids (D20), so the last party fielded is the nine asked for.
+        /// more, and last should be 9 team."</b> Three anchors — five at raid six, one more at raid
+        /// eight, and <i>nine on the last raid</i> — and the season is ten raids long, so the only
+        /// reading that hits all three is <b>one more member every raid from the sixth</b>:
+        /// <code>
+        /// raid   1  2  3  4  5  6  7  8  9  10
+        /// size   4  4  4  4  4  5  6  7  8  9
+        /// </code>
+        /// Five at six, an increase at eight, nine on the last. The previous reading — one every
+        /// three raids — satisfied the first two anchors and missed the one that matters most,
+        /// because it was calibrated against a nineteen-raid season that was never built.
         /// <para>
-        /// The competing reading — six until the final raid and then a jump to nine — was rejected
-        /// because it leaves raids 10 through 18 flat and contradicts "increase one more".
+        /// The competing reading, six until the final raid and then a jump to nine, is still
+        /// rejected: it contradicts "increase one more" and wastes the growth on a single raid.
         /// </para>
         /// <para>
         /// <b>This scales the whole economy</b>, because the energy rate sums per member: nine

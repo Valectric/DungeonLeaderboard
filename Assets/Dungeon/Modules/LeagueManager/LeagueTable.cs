@@ -147,7 +147,7 @@ namespace Dungeon.LeagueManager
         /// <remarks>
         /// Rivals are priced against what the player can actually do, because that is the only scale
         /// on which the table is a contest. Measured over the season sweeps, a raid the player barely
-        /// plays banks around 25 and a strong one around 560 — see <see cref="GoodRun"/> for the
+        /// plays banks around 25 and a strong one around 620 — see <see cref="GoodRun"/> for the
         /// distribution that figure comes from.
         /// </remarks>
         public const float BadRun = 25f;
@@ -180,7 +180,7 @@ namespace Dungeon.LeagueManager
         /// walkover with the sign flipped.
         /// <para>
         /// So the figure is the <b>same percentile</b> as the original, not the same word: p95 of the
-        /// 1659-raid distribution, 560. The competition then turns at 448 a round, just above the 419
+        /// distribution, re-measured whenever the distribution moves. The competition then turns just above what
         /// a competent bot averages across a season — so average play loses, good play wins, and the
         /// result is in doubt while the season is being played. The rival ceiling lands at 504.
         /// </para>
@@ -195,7 +195,7 @@ namespace Dungeon.LeagueManager
         /// game, and the two dials below are the design opinions applied on top of it.
         /// </para>
         /// </remarks>
-        public const float GoodRun = 560f;
+        public const float GoodRun = 620f;
 
         /// <summary>
         /// How far short of the player's own range a rival is held.
@@ -203,7 +203,7 @@ namespace Dungeon.LeagueManager
         /// <remarks>
         /// A rival rolls somewhere between a bad run and a good one, then loses a tenth. That tenth
         /// is the whole design of the contest: <b>play a genuinely good raid and no rival can have
-        /// beaten it</b>, because the best roll available to them is 504 against the player's 560.
+        /// beaten it</b>, because the best roll available to them is 558 against the player's 620.
         /// Play badly and the floor is still above them, but almost every rival clears it.
         /// <para>
         /// Those two numbers read 450 against 500 until 2026-08-17 — figures from the era when
@@ -233,7 +233,7 @@ namespace Dungeon.LeagueManager
         /// <remarks>
         /// Short of 1 on purpose: at 1 the last rival would score exactly the same number every
         /// round and the final would be an arithmetic check rather than a race. At 0.9, against the
-        /// re-measured <see cref="GoodRun"/> of 560, they roll roughly 456 to 504 in the final.
+        /// re-measured <see cref="GoodRun"/> of 620, they roll roughly 505 to 558 in the final.
         /// <para>
         /// <b>Tried at 0.55 and reverted, because it bought nothing.</b> The reasoning looked sound —
         /// the player's harvest is flat across a season, 341 in round one against 359 in round seven,

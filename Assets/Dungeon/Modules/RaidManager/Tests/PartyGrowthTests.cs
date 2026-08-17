@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Dungeon.PartyManager;
 using MooseRunner;
 using NUnit.Framework;
@@ -17,7 +18,25 @@ namespace Dungeon.RaidManager.Tests
     /// </remarks>
     public sealed class PartyGrowthTests
     {
+        /// <summary>
+        /// How many raids a whole season runs to.
+        /// </summary>
+        /// <remarks>
+        /// Twenty dungeons losing two a round reach the last pair in nine rounds, and a tenth decides
+        /// it — <c>LeagueTable.RelegationCount</c> and the note on it. Stated here as a literal
+        /// because this assembly does not reference LeagueManager and should not start; the test
+        /// below fails loudly if the two ever disagree about what a season is.
+        /// </remarks>
+        private const int RaidsInASeason = 10;
+
         /// <summary>The size ramp hits the author's three stated numbers exactly.</summary>
+        /// <remarks>
+        /// The last of the three is the one that matters, and the one this test used to get wrong:
+        /// it asserted nine at <b>raid 18</b>, which no season ever reaches. That assertion passed
+        /// for as long as the bug existed, because it was written from the same stale premise as the
+        /// code — a nineteen-raid league that was designed, rejected, and never built. The fix is to
+        /// state it against the length of a season rather than against a raid number.
+        /// </remarks>
         [Test]
         public void TheSizeRamp_HitsTheStatedNumbers()
         {
@@ -25,10 +44,18 @@ namespace Dungeon.RaidManager.Tests
             Assert.AreEqual(4, PartyComposition.SizeForRound(0), "raid 1 must be four");
             Assert.AreEqual(4, PartyComposition.SizeForRound(4), "raid 5 must still be four");
             Assert.AreEqual(5, PartyComposition.SizeForRound(5), "raid 6 must be five -- 'after turn 5'");
-            Assert.AreEqual(5, PartyComposition.SizeForRound(7), "raid 8 must still be five");
-            Assert.AreEqual(6, PartyComposition.SizeForRound(8),
-                "raid 9 must be six -- 'after team 8 increase one more'");
-            Assert.AreEqual(9, PartyComposition.SizeForRound(17), "raid 18 must be the nine asked for");
+            Assert.AreEqual(7, PartyComposition.SizeForRound(7),
+                "raid 8 must have increased again -- 'after team 8 increase one more'");
+
+            int lastRaid = PartyComposition.SizeForRound(RaidsInASeason - 1);
+            MooseRunnerFacade.Log(
+                $"season ramp: {string.Join(",", Enumerable.Range(0, RaidsInASeason).Select(PartyComposition.SizeForRound))}");
+
+            Assert.AreEqual(PartyComposition.MaxSize, lastRaid,
+                $"the last raid of a {RaidsInASeason}-raid season fields {lastRaid}, not the "
+                + $"{PartyComposition.MaxSize} the author asked for -- 'last should be 9 team'. "
+                + "Every figure this project has measured about parties of nine describes a party "
+                + "the game never produces");
         }
 
         /// <summary>The ramp never runs backwards and never exceeds the cap.</summary>

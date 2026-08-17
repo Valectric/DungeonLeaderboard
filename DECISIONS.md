@@ -2457,3 +2457,68 @@ Note the room bonus the author ruled on the same day (D46) raised the competent 
 **561** without moving where it sits. It made depth pay more; it did not make the fourth room
 reachable, because reachability is a function of how long the party is held, not of what a room is
 worth once entered.
+
+## 2026-08-17 — D47. The nine-strong party had never once happened
+
+Found by trying to photograph one. Every frame this project has captured shows a party of **four**;
+`LateSeasonLookTests` was written to capture a late-season raid, and the first thing it logged was:
+
+```
+party reaches 9 at round 17 (sizes: 4,4,4,4,4,5,5,5,6,6)
+```
+
+**A season is ten rounds.** The last raid fielded **six**. The nine the author asked for — *"last
+should be 9 team"* — had never been produced by the game at any point.
+
+### Why, and it is the same shape as D46
+
+`PartyComposition.RaidsPerExtraMember` was 3, and the doc justifying it said: *"A full run is
+nineteen raids (D20), so the last party fielded is the nine asked for."* But D20 is the note on
+`LeagueTable.RelegationCount`, and what it records is that the nineteen-round league — one dungeon
+eliminated a round — was **considered and rejected**, precisely because nineteen rounds is *"nineteen
+minutes plus shops and far too long for somebody voting on a jam entry"*. Two go out a round, so
+twenty dungeons reach a winner in **ten**.
+
+So the growth curve was calibrated against a season that was designed, rejected, and never built.
+The constant was correct for a game that does not exist.
+
+**And the test that guarded it asserted the bug.** `TheSizeRamp_HitsTheStatedNumbers` pinned nine at
+**raid 18** — written from the same stale premise as the code, so it passed for exactly as long as
+the defect existed. It now states the anchor against the length of a season rather than a raid
+number, which is the form that could have caught this.
+
+### What it invalidates
+
+Everything measured about parties of nine described a configuration the game could not produce:
+D42's cost of growing the party, D45's health-bar stagger, and the lateral fan shipped the same
+night. None of the mechanisms are wrong — they were simply tuned against a party that only appeared
+in tests.
+
+### The fix, and what it cost
+
+One more member every raid from the sixth, which is the only reading that hits all three of the
+author's anchors in a ten-raid season:
+
+```
+raid   1  2  3  4  5  6  7  8  9  10
+size   4  4  4  4  4  5  6  7  8   9
+```
+
+That scales the economy, so `GoodRun` had to be re-measured **again, the same night**: the harvest
+distribution moved from median 349 / p95 560 / best 694 to median 370 / p95 624 / best 1120, and the
+league went straight back to a walkover at **wins 11 of 12**. Re-priced to p95 = 620, the competition
+turns at 500 a round and the sweep reads **wins 4 of 12**, with the cease-fire policy visibly
+deciding the outcome — 5, 10, 10, 10 on one seed, 7, 6, 6, 6 on another.
+
+**The lesson is about the constant, not the curve.** `GoodRun` is only ever as current as the last
+thing that changed the game's earning power, and two separate things changed it within a few hours.
+Any figure derived from the game's economy needs re-measuring after any change to the economy — and
+the way to notice is to write the assertion against the *thing being claimed* ("the last raid of a
+season fields nine") rather than against a number that happened to be true when it was written.
+
+### The frame it was all for
+
+`Screenshots/13-late-season-raid.png` — nine adventurers, three abreast, at round 9. The fan holds in
+a room and collapses at a doorway, which is correct and by design; the nine staggered bars above a
+party bunched in a threshold are legible individually and hard to attribute as a group. That is a
+judgement for the author, and the frame is the thing to look at.
